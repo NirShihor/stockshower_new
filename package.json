@@ -1,0 +1,17 @@
+{
+  "name": "stockshower",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "client": "yarn workspace client start",
+    "server": "yarn workspace server dev",
+    "build": "yarn workspace client build",
+    "dev": "concurrently \"yarn server\" \"yarn client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

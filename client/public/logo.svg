@@ -1,0 +1,30 @@
+<svg width="300" height="300" viewBox="0 0 300 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shower head -->
+  <rect x="40" y="40" width="24" height="90" rx="12" fill="#222"/>
+  <rect x="40" y="40" width="120" height="24" rx="12" fill="#222"/>
+  <ellipse cx="152" cy="74" rx="58" ry="32" fill="#222"/>
+  <ellipse cx="152" cy="98" rx="72" ry="22" fill="#222"/>
+  <ellipse cx="152" cy="105" rx="70" ry="14" fill="#fff"/>
+  
+  <!-- Arrows / Shares -->
+  <g>
+    <!-- Arrow up (Share) -->
+    <polygon points="80,140 90,120 100,140 93,140 93,170 87,170 87,140" fill="#222"/>
+    <!-- Dollar sign -->
+    <text x="112" y="155" font-size="22" fill="#222" font-family="Arial" font-weight="bold">$</text>
+    <!-- Arrow up with chart -->
+    <polygon points="142,140 152,120 162,140 155,140 155,170 149,170 149,140" fill="#222"/>
+    <polyline points="149,160 151,155 154,162 155,158" stroke="#fff" stroke-width="2"/>
+    <!-- Dollar sign -->
+    <text x="174" y="155" font-size="22" fill="#222" font-family="Arial" font-weight="bold">$</text>
+    <!-- Arrow up (Share) -->
+    <polygon points="200,140 210,120 220,140 213,140 213,170 207,170 207,140" fill="#222"/>
+  </g>
+  <!-- More falling symbols -->
+  <text x="60" y="200" font-size="22" fill="#222" font-family="Arial" font-weight="bold">$</text>
+  <polygon points="90,220 100,200 110,220 103,220 103,250 97,250 97,220" fill="#222"/>
+  <text x="120" y="235" font-size="22" fill="#222" font-family="Arial" font-weight="bold">$</text>
+  <polygon points="150,250 160,230 170,250 163,250 163,280 157,280 157,250" fill="#222"/>
+  <text x="180" y="235" font-size="22" fill="#222" font-family="Arial" font-weight="bold">$</text>
+  <polygon points="210,220 220,200 230,220 223,220 223,250 217,250 217,220" fill="#222"/>
+</svg> 

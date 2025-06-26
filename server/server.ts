@@ -1,0 +1,63 @@
+import express, { Request, Response } from 'express';
+  import cors from 'cors';
+  import dotenv from 'dotenv';
+  import mongoose from 'mongoose';
+
+	import analysisRoutes from './src/routes/analysis.js';
+
+  // Load environment variables
+  dotenv.config();
+
+  // Initialize Express app
+  const app = express();
+  const PORT = process.env.PORT || 5001;
+
+  // Middleware
+  app.use(cors({
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
+  }));
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+	app.use('/api/analysis', analysisRoutes);
+
+  // Basic health check route
+  app.get('/', (req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok', message: 'Server is running' });
+  });
+
+  // Test CORS route
+  app.get('/test', (req: Request, res: Response) => {
+    res.status(200).json({ message: 'CORS test successful' });
+  });
+
+  // Start server
+  const startServer = () => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  };
+
+  // Connect to MongoDB
+  if (process.env.MONGODB_URI) {
+    console.log('Attempting to connect to MongoDB...');
+    mongoose
+      .connect(process.env.MONGODB_URI)
+      .then(() => {
+        console.log('Connected to MongoDB');
+        startServer();
+      })
+      .catch((error) => {
+        console.error('MongoDB connection error:', error);
+        console.log('Starting server without MongoDB connection');
+        startServer();
+      });
+  } else {
+    console.log('No MongoDB URI provided, starting server without database');
+    startServer();
+  }
+
+  export default app;
