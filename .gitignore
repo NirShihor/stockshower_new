@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-*/node_modules/
+**/node_modules/
 yarn-error.log
 yarn-debug.log
 .pnp/
