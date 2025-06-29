@@ -6,10 +6,13 @@
     "server"
   ],
   "scripts": {
-    "client": "yarn workspace client start",
-    "server": "yarn workspace server dev",
+    "dev": "concurrently \"yarn dev:server\" \"yarn dev:client\"",
+    "dev:client": "yarn workspace client start",
+    "dev:server": "yarn workspace server dev",
+    "start:client": "yarn workspace client start",
+    "start:server": "yarn workspace server start",
     "build": "yarn workspace client build",
-    "dev": "concurrently \"yarn server\" \"yarn client\""
+    "build:server": "yarn workspace server build"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

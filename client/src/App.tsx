@@ -8,6 +8,13 @@ interface GapUpStock {
   gapPercentage: string;
   analysis: string;
   suitable: boolean;
+  openPrice?: string;
+  highPrice?: string;
+  lowPrice?: string;
+  volume?: number;
+  marketCap?: number;
+  companyName?: string;
+  exchange?: string;
 }
 
 interface GapUpScanData {
@@ -64,6 +71,9 @@ function App() {
               <div key={index} className={`stock-card ${stock.suitable ? 'suitable' : 'not-suitable'}`}>
                 <div className="stock-header">
                   <h3>{stock.stockSymbol}</h3>
+                  {stock.companyName && (
+                    <p className="company-name">{stock.companyName}</p>
+                  )}
                   <span className={`suitability-badge ${stock.suitable ? 'suitable' : 'not-suitable'}`}>
                     {stock.suitable ? 'SUITABLE' : 'NOT SUITABLE'}
                   </span>
@@ -82,6 +92,44 @@ function App() {
                     <span className="label">Gap:</span>
                     <span className="value gap-percentage">{stock.gapPercentage}</span>
                   </div>
+                  
+                  {/* Enhanced data from Finnhub */}
+                  {stock.openPrice && (
+                    <div className="detail-row">
+                      <span className="label">Open:</span>
+                      <span className="value">{stock.openPrice}</span>
+                    </div>
+                  )}
+                  {stock.highPrice && (
+                    <div className="detail-row">
+                      <span className="label">Day High:</span>
+                      <span className="value">{stock.highPrice}</span>
+                    </div>
+                  )}
+                  {stock.lowPrice && (
+                    <div className="detail-row">
+                      <span className="label">Day Low:</span>
+                      <span className="value">{stock.lowPrice}</span>
+                    </div>
+                  )}
+                  {stock.volume && (
+                    <div className="detail-row">
+                      <span className="label">Volume:</span>
+                      <span className="value">{stock.volume.toLocaleString()}</span>
+                    </div>
+                  )}
+                  {stock.marketCap && stock.marketCap > 0 && (
+                    <div className="detail-row">
+                      <span className="label">Market Cap:</span>
+                      <span className="value">${(stock.marketCap / 1000000).toFixed(0)}M</span>
+                    </div>
+                  )}
+                  {stock.exchange && (
+                    <div className="detail-row">
+                      <span className="label">Exchange:</span>
+                      <span className="value">{stock.exchange}</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="stock-analysis">

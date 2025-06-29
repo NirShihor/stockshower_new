@@ -42,4 +42,4 @@ tmp/
 temp/
 
 # Debug
-.nyc_output/
+.nyc_output/node_modules/

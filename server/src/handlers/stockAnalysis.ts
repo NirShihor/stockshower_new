@@ -1,5 +1,110 @@
 import claude from '../config/claude.js';  
 import { Request, Response } from 'express';
+import axios from 'axios';
+
+interface AlphaVantageGlobalQuote {
+  '01. symbol': string;
+  '02. open': string;
+  '03. high': string;
+  '04. low': string;
+  '05. price': string;
+  '06. volume': string;
+  '07. latest trading day': string;
+  '08. previous close': string;
+  '09. change': string;
+  '10. change percent': string;
+}
+
+interface AlphaVantageGlobalQuoteResponse {
+  'Global Quote': AlphaVantageGlobalQuote;
+}
+
+interface AlphaVantageDailyData {
+  '1. open': string;
+  '2. high': string;
+  '3. low': string;
+  '4. close': string;
+  '5. adjusted close': string;
+  '6. volume': string;
+  '7. dividend amount': string;
+  '8. split coefficient': string;
+}
+
+interface AlphaVantageDailyResponse {
+  'Meta Data': {
+    '1. Information': string;
+    '2. Symbol': string;
+    '3. Last Refreshed': string;
+    '4. Output Size': string;
+    '5. Time Zone': string;
+  };
+  'Time Series (Daily)': {
+    [date: string]: AlphaVantageDailyData;
+  };
+}
+
+interface AlphaVantageCompanyOverview {
+  Symbol: string;
+  AssetType: string;
+  Name: string;
+  Description: string;
+  CIK: string;
+  Exchange: string;
+  Currency: string;
+  Country: string;
+  Sector: string;
+  Industry: string;
+  Address: string;
+  MarketCapitalization: string;
+  EBITDA: string;
+  PERatio: string;
+  PEGRatio: string;
+  BookValue: string;
+  DividendPerShare: string;
+  DividendYield: string;
+  EPS: string;
+  RevenuePerShareTTM: string;
+  ProfitMargin: string;
+  OperatingMarginTTM: string;
+  ReturnOnAssetsTTM: string;
+  ReturnOnEquityTTM: string;
+  RevenueTTM: string;
+  GrossProfitTTM: string;
+  DilutedEPSTTM: string;
+  QuarterlyEarningsGrowthYOY: string;
+  QuarterlyRevenueGrowthYOY: string;
+  AnalystTargetPrice: string;
+  TrailingPE: string;
+  ForwardPE: string;
+  PriceToSalesRatioTTM: string;
+  PriceToBookRatio: string;
+  EVToRevenue: string;
+  EVToEBITDA: string;
+  Beta: string;
+  '52WeekHigh': string;
+  '52WeekLow': string;
+  '50DayMovingAverage': string;
+  '200DayMovingAverage': string;
+  SharesOutstanding: string;
+  DividendDate: string;
+  ExDividendDate: string;
+}
+
+interface EnhancedStockData {
+  symbol: string;
+  currentPrice: number;
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
+  previousClose: number;
+  volume: number;
+  marketCap: number;
+  twentyDayHigh: number;
+  gapPercentage: number;
+  companyName: string;
+  exchange: string;
+  currency: string;
+}
 
 interface StockAnalysisRequest {
 	stockSymbol: string;
@@ -20,6 +125,144 @@ interface GapUpStock {
 	gapPercentage: string;
 	analysis: string;
 	suitable: boolean;
+	openPrice?: string;
+	highPrice?: string;
+	lowPrice?: string;
+	volume?: number;
+	marketCap?: number;
+	companyName?: string;
+	exchange?: string;
+}
+
+// Alpha Vantage helper functions
+const ALPHAVANTAGE_API_KEY = process.env.ALPHAVANTAGE_API_KEY || '';
+const ALPHAVANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
+
+async function makeAlphaVantageRequest(params: Record<string, string>): Promise<any> {
+	try {
+		const response = await axios.get(ALPHAVANTAGE_BASE_URL, {
+			params: {
+				...params,
+				apikey: ALPHAVANTAGE_API_KEY
+			}
+		});
+
+		if (response.data['Error Message']) {
+			throw new Error(response.data['Error Message']);
+		}
+
+		if (response.data['Note']) {
+			throw new Error('API call frequency limit reached. Please try again later.');
+		}
+
+		return response.data;
+	} catch (error: any) {
+		console.error(`Alpha Vantage API request failed:`, error.message);
+		throw error;
+	}
+}
+
+async function getAlphaVantageQuote(symbol: string): Promise<AlphaVantageGlobalQuote> {
+	const data = await makeAlphaVantageRequest({
+		function: 'GLOBAL_QUOTE',
+		symbol: symbol
+	}) as AlphaVantageGlobalQuoteResponse;
+
+	return data['Global Quote'];
+}
+
+async function getAlphaVantageCompanyOverview(symbol: string): Promise<AlphaVantageCompanyOverview> {
+	const data = await makeAlphaVantageRequest({
+		function: 'OVERVIEW',
+		symbol: symbol
+	});
+	return data as AlphaVantageCompanyOverview;
+}
+
+async function getAlphaVantageDailyData(symbol: string, outputsize: 'compact' | 'full' = 'compact'): Promise<AlphaVantageDailyResponse> {
+	const data = await makeAlphaVantageRequest({
+		function: 'TIME_SERIES_DAILY_ADJUSTED',
+		symbol: symbol,
+		outputsize: outputsize
+	});
+	return data as AlphaVantageDailyResponse;
+}
+
+function calculate20DayHigh(dailyData: AlphaVantageDailyResponse): number {
+	const timeSeries = dailyData['Time Series (Daily)'];
+	if (!timeSeries) return 0;
+
+	const dates = Object.keys(timeSeries).sort().reverse().slice(0, 20);
+	const highs = dates.map(date => parseFloat(timeSeries[date]['2. high']));
+	
+	return Math.max(...highs);
+}
+
+function calculateGapPercentage(currentPrice: number, twentyDayHigh: number): number {
+	if (twentyDayHigh === 0) return 0;
+	return ((currentPrice - twentyDayHigh) / twentyDayHigh) * 100;
+}
+
+async function testAlphaVantageApiKey(): Promise<boolean> {
+	try {
+		const response = await makeAlphaVantageRequest({
+			function: 'GLOBAL_QUOTE',
+			symbol: 'AAPL'
+		});
+		return response && response['Global Quote'] && response['Global Quote']['01. symbol'];
+	} catch (error) {
+		return false;
+	}
+}
+
+async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData | null> {
+	try {
+		const quote = await getAlphaVantageQuote(symbol).catch(() => null);
+		
+		if (!quote || !quote['05. price']) {
+			console.warn(`No quote data available for ${symbol}`);
+			return null;
+		}
+
+		const [overview, dailyData] = await Promise.allSettled([
+			getAlphaVantageCompanyOverview(symbol),
+			getAlphaVantageDailyData(symbol, 'compact')
+		]);
+
+		const overviewData = overview.status === 'fulfilled' ? overview.value : null;
+		const historicalData = dailyData.status === 'fulfilled' ? dailyData.value : null;
+
+		const currentPrice = parseFloat(quote['05. price']);
+		const openPrice = parseFloat(quote['02. open']);
+		const highPrice = parseFloat(quote['03. high']);
+		const lowPrice = parseFloat(quote['04. low']);
+		const previousClose = parseFloat(quote['08. previous close']);
+		const volume = parseInt(quote['06. volume']);
+
+		const twentyDayHigh = historicalData ? calculate20DayHigh(historicalData) : previousClose;
+		const gapPercentage = calculateGapPercentage(currentPrice, twentyDayHigh);
+
+		const enhancedData: EnhancedStockData = {
+			symbol,
+			currentPrice,
+			openPrice,
+			highPrice,
+			lowPrice,
+			previousClose,
+			volume,
+			marketCap: overviewData?.MarketCapitalization ? parseFloat(overviewData.MarketCapitalization) : 0,
+			twentyDayHigh,
+			gapPercentage,
+			companyName: overviewData?.Name || symbol,
+			exchange: overviewData?.Exchange || 'Unknown',
+			currency: overviewData?.Currency || 'USD'
+		};
+
+		return enhancedData;
+	} catch (error) {
+		console.error(`Failed to get enhanced stock data for ${symbol}:`, error);
+		return null;
+	}
 }
 
 export const analyzeStock = async (req: Request, res: Response) => {
@@ -120,6 +363,36 @@ Based on the real-time data you find, determine if ${symbol} meets these criteri
 DO NOT provide a framework or checklist. Provide actual analysis based on current market data you find through web search.`;
 }
 
+export const testAlphaVantage = async (req: Request, res: Response) => {
+	try {
+		console.log('Testing Alpha Vantage API...');
+		
+		// Test API key first
+		const isApiWorking = await alphaVantageService.testApiKey();
+		if (!isApiWorking) {
+			return res.status(200).json({
+				alphaVantageStatus: 'API key test failed',
+				message: 'Check your Alpha Vantage API key or subscription level'
+			});
+		}
+
+		// Test a simple quote
+		const testData = await alphaVantageService.getEnhancedStockData('AAPL');
+		
+		return res.status(200).json({
+			alphaVantageStatus: testData ? 'Working' : 'Failed',
+			testData,
+			message: testData ? 'Alpha Vantage API is working' : 'Alpha Vantage API failed to get test data'
+		});
+	} catch (error) {
+		console.error('Alpha Vantage test error:', error);
+		return res.status(500).json({ 
+			alphaVantageStatus: 'Error',
+			error: 'Alpha Vantage API test failed' 
+		});
+	}
+};
+
 export const scanGapUps = async (req: Request, res: Response) => {
 	try {
 		console.log('Starting gap up scan...');
@@ -161,9 +434,12 @@ export const scanGapUps = async (req: Request, res: Response) => {
 		// Parse the response to extract stock information
 		const stocks = parseGapUpStocks(analysis);
 
+		// Enhance stock data with Alpha Vantage API
+		const enhancedStocks = await enhanceStocksWithAlphaVantage(stocks);
+
 		return res.status(200).json({
-			stocks,
-			totalFound: stocks.length,
+			stocks: enhancedStocks,
+			totalFound: enhancedStocks.length,
 			timestamp: new Date()
 		});
 	} catch (error) {
@@ -171,6 +447,49 @@ export const scanGapUps = async (req: Request, res: Response) => {
 		return res.status(500).json({ error: 'Failed to scan for gap ups' });
 	}
 };
+
+async function enhanceStocksWithAlphaVantage(claudeStocks: GapUpStock[]): Promise<GapUpStock[]> {
+	const enhancedStocks: GapUpStock[] = [];
+	
+	for (const stock of claudeStocks) {
+		try {
+			console.log(`Enhancing ${stock.stockSymbol} with Alpha Vantage data...`);
+			const alphaVantageData = await alphaVantageService.getEnhancedStockData(stock.stockSymbol);
+			
+			if (alphaVantageData) {
+				// Merge Claude analysis with Alpha Vantage data
+				const enhancedStock: GapUpStock = {
+					...stock,
+					currentPrice: `$${alphaVantageData.currentPrice.toFixed(2)}`,
+					twentyDayHigh: `$${alphaVantageData.twentyDayHigh.toFixed(2)}`,
+					gapPercentage: `${alphaVantageData.gapPercentage.toFixed(2)}%`,
+					openPrice: `$${alphaVantageData.openPrice.toFixed(2)}`,
+					highPrice: `$${alphaVantageData.highPrice.toFixed(2)}`,
+					lowPrice: `$${alphaVantageData.lowPrice.toFixed(2)}`,
+					volume: alphaVantageData.volume,
+					marketCap: alphaVantageData.marketCap,
+					companyName: alphaVantageData.companyName,
+					exchange: alphaVantageData.exchange,
+					// Keep Claude's analysis and suitability assessment
+					analysis: stock.analysis,
+					suitable: stock.suitable
+				};
+				
+				enhancedStocks.push(enhancedStock);
+			} else {
+				// If Alpha Vantage data fails, keep Claude's original data
+				console.warn(`No Alpha Vantage data for ${stock.stockSymbol}, using Claude data only`);
+				enhancedStocks.push(stock);
+			}
+		} catch (error) {
+			console.error(`Error enhancing ${stock.stockSymbol} with Alpha Vantage:`, error);
+			// Keep original Claude data if Alpha Vantage fails
+			enhancedStocks.push(stock);
+		}
+	}
+	
+	return enhancedStocks;
+}
 
 function createGapUpScanPrompt() {
 	return `You are a stock trading assistant with web search capabilities. I need you to find stocks that are currently gapping up above their 20-day highs.
