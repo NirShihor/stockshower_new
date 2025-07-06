@@ -2,92 +2,79 @@ import claude from '../config/claude.js';
 import { Request, Response } from 'express';
 import axios from 'axios';
 
-interface AlphaVantageGlobalQuote {
-  '01. symbol': string;
-  '02. open': string;
-  '03. high': string;
-  '04. low': string;
-  '05. price': string;
-  '06. volume': string;
-  '07. latest trading day': string;
-  '08. previous close': string;
-  '09. change': string;
-  '10. change percent': string;
+// Polygon.io interfaces
+interface PolygonBar {
+  o: number; // open
+  h: number; // high
+  l: number; // low
+  c: number; // close
+  v: number; // volume
+  vw: number; // volume weighted average price
+  t: number; // timestamp
+  n: number; // number of transactions
 }
 
-interface AlphaVantageGlobalQuoteResponse {
-  'Global Quote': AlphaVantageGlobalQuote;
+interface PolygonAggregatesResponse {
+  ticker: string;
+  queryCount: number;
+  resultsCount: number;
+  adjusted: boolean;
+  results: PolygonBar[];
+  status: string;
+  request_id: string;
+  count: number;
+  next_url?: string;
 }
 
-interface AlphaVantageDailyData {
-  '1. open': string;
-  '2. high': string;
-  '3. low': string;
-  '4. close': string;
-  '5. adjusted close': string;
-  '6. volume': string;
-  '7. dividend amount': string;
-  '8. split coefficient': string;
-}
-
-interface AlphaVantageDailyResponse {
-  'Meta Data': {
-    '1. Information': string;
-    '2. Symbol': string;
-    '3. Last Refreshed': string;
-    '4. Output Size': string;
-    '5. Time Zone': string;
+interface PolygonTickerDetails {
+  ticker: string;
+  name: string;
+  market: string;
+  locale: string;
+  primary_exchange: string;
+  type: string;
+  active: boolean;
+  currency_name: string;
+  cik?: string;
+  composite_figi?: string;
+  share_class_figi?: string;
+  market_cap?: number;
+  phone_number?: string;
+  address?: {
+    address1?: string;
+    city?: string;
+    state?: string;
+    postal_code?: string;
   };
-  'Time Series (Daily)': {
-    [date: string]: AlphaVantageDailyData;
+  description?: string;
+  sic_code?: string;
+  sic_description?: string;
+  ticker_root?: string;
+  homepage_url?: string;
+  total_employees?: number;
+  list_date?: string;
+  branding?: {
+    logo_url?: string;
+    icon_url?: string;
   };
+  share_class_shares_outstanding?: number;
+  weighted_shares_outstanding?: number;
 }
 
-interface AlphaVantageCompanyOverview {
-  Symbol: string;
-  AssetType: string;
-  Name: string;
-  Description: string;
-  CIK: string;
-  Exchange: string;
-  Currency: string;
-  Country: string;
-  Sector: string;
-  Industry: string;
-  Address: string;
-  MarketCapitalization: string;
-  EBITDA: string;
-  PERatio: string;
-  PEGRatio: string;
-  BookValue: string;
-  DividendPerShare: string;
-  DividendYield: string;
-  EPS: string;
-  RevenuePerShareTTM: string;
-  ProfitMargin: string;
-  OperatingMarginTTM: string;
-  ReturnOnAssetsTTM: string;
-  ReturnOnEquityTTM: string;
-  RevenueTTM: string;
-  GrossProfitTTM: string;
-  DilutedEPSTTM: string;
-  QuarterlyEarningsGrowthYOY: string;
-  QuarterlyRevenueGrowthYOY: string;
-  AnalystTargetPrice: string;
-  TrailingPE: string;
-  ForwardPE: string;
-  PriceToSalesRatioTTM: string;
-  PriceToBookRatio: string;
-  EVToRevenue: string;
-  EVToEBITDA: string;
-  Beta: string;
-  '52WeekHigh': string;
-  '52WeekLow': string;
-  '50DayMovingAverage': string;
-  '200DayMovingAverage': string;
-  SharesOutstanding: string;
-  DividendDate: string;
-  ExDividendDate: string;
+interface PolygonTickerDetailsResponse {
+  status: string;
+  request_id: string;
+  results: PolygonTickerDetails;
+}
+
+interface PolygonPreviousCloseResponse {
+  ticker: string;
+  queryCount: number;
+  resultsCount: number;
+  adjusted: boolean;
+  results: PolygonBar[];
+  status: string;
+  request_id: string;
 }
 
 interface EnhancedStockData {
@@ -128,88 +115,102 @@ interface GapUpStock {
 	openPrice?: string;
 	highPrice?: string;
 	lowPrice?: string;
+	previousClose?: string;
 	volume?: number;
 	marketCap?: number;
 	companyName?: string;
 	exchange?: string;
 }
 
-// Alpha Vantage helper functions
-const ALPHAVANTAGE_API_KEY = process.env.ALPHAVANTAGE_API_KEY || '';
-const ALPHAVANTAGE_BASE_URL = 'https://www.alphavantage.co/query';
+// Polygon.io helper functions
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
+const POLYGON_BASE_URL = 'https://api.polygon.io';
 
-async function makeAlphaVantageRequest(params: Record<string, string>): Promise<any> {
+async function makePolygonRequest(endpoint: string, params: Record<string, string> = {}): Promise<any> {
 	try {
-		const response = await axios.get(ALPHAVANTAGE_BASE_URL, {
+		const url = `${POLYGON_BASE_URL}${endpoint}`;
+		const response = await axios.get(url, {
 			params: {
 				...params,
-				apikey: ALPHAVANTAGE_API_KEY
+				apikey: POLYGON_API_KEY
 			}
 		});
 
-		if (response.data['Error Message']) {
-			throw new Error(response.data['Error Message']);
-		}
-
-		if (response.data['Note']) {
-			throw new Error('API call frequency limit reached. Please try again later.');
+		if (response.data.status === 'ERROR') {
+			throw new Error(response.data.error || 'Polygon API error');
 		}
 
 		return response.data;
 	} catch (error: any) {
-		console.error(`Alpha Vantage API request failed:`, error.message);
+		console.error(`Polygon API request failed:`, error.message);
 		throw error;
 	}
 }
 
-async function getAlphaVantageQuote(symbol: string): Promise<AlphaVantageGlobalQuote> {
-	const data = await makeAlphaVantageRequest({
-		function: 'GLOBAL_QUOTE',
-		symbol: symbol
-	}) as AlphaVantageGlobalQuoteResponse;
-
-	return data['Global Quote'];
+async function getPolygonPreviousClose(symbol: string): Promise<PolygonBar | null> {
+	const data = await makePolygonRequest(`/v2/aggs/ticker/${symbol}/prev`) as PolygonPreviousCloseResponse;
+	return data.results && data.results.length > 0 ? data.results[0] : null;
 }
 
-async function getAlphaVantageCompanyOverview(symbol: string): Promise<AlphaVantageCompanyOverview> {
-	const data = await makeAlphaVantageRequest({
-		function: 'OVERVIEW',
-		symbol: symbol
-	});
-	return data as AlphaVantageCompanyOverview;
+async function getPolygonTickerDetails(symbol: string): Promise<PolygonTickerDetails | null> {
+	try {
+		const data = await makePolygonRequest(`/v3/reference/tickers/${symbol}`) as PolygonTickerDetailsResponse;
+		return data.results || null;
+	} catch (error) {
+		console.warn(`No ticker details available for ${symbol}`);
+		return null;
+	}
 }
 
-async function getAlphaVantageDailyData(symbol: string, outputsize: 'compact' | 'full' = 'compact'): Promise<AlphaVantageDailyResponse> {
-	const data = await makeAlphaVantageRequest({
-		function: 'TIME_SERIES_DAILY_ADJUSTED',
-		symbol: symbol,
-		outputsize: outputsize
-	});
-	return data as AlphaVantageDailyResponse;
-}
-
-function calculate20DayHigh(dailyData: AlphaVantageDailyResponse): number {
-	const timeSeries = dailyData['Time Series (Daily)'];
-	if (!timeSeries) return 0;
-
-	const dates = Object.keys(timeSeries).sort().reverse().slice(0, 20);
-	const highs = dates.map(date => parseFloat(timeSeries[date]['2. high']));
+async function getPolygonDailyBars(symbol: string, from: string, to: string): Promise<PolygonBar[]> {
+	const data = await makePolygonRequest(`/v2/aggs/ticker/${symbol}/range/1/day/${from}/${to}`, {
+		adjusted: 'true',
+		sort: 'asc',
+		limit: '50000'
+	}) as PolygonAggregatesResponse;
 	
-	return Math.max(...highs);
+	console.log(`Daily bars for ${symbol}: ${data.resultsCount} results`);
+	return data.results || [];
 }
 
-function calculateGapPercentage(currentPrice: number, twentyDayHigh: number): number {
+function calculate20DayHigh(bars: PolygonBar[]): number {
+	console.log('Calculating 20-day high, bars count:', bars.length);
+	if (!bars || bars.length === 0) {
+		console.log('No bars data available');
+		return 0;
+	}
+
+	// Sort by timestamp descending (most recent first) and take last 20
+	const sortedBars = bars.sort((a, b) => b.t - a.t).slice(0, 20);
+	console.log('Number of bars for 20-day calc:', sortedBars.length);
+	
+	if (sortedBars.length === 0) {
+		console.log('No bars found for calculation');
+		return 0;
+	}
+	
+	const highs = sortedBars.map(bar => bar.h);
+	console.log('Sample highs:', highs.slice(0, 5));
+	
+	const maxHigh = Math.max(...highs);
+	console.log('20-day high calculated:', maxHigh);
+	return maxHigh;
+}
+
+function calculateGapPercentage(openPrice: number, previousClose: number): number {
+	if (previousClose === 0) return 0;
+	return ((openPrice - previousClose) / previousClose) * 100;
+}
+
+function calculateBreakoutPercentage(currentPrice: number, twentyDayHigh: number): number {
 	if (twentyDayHigh === 0) return 0;
 	return ((currentPrice - twentyDayHigh) / twentyDayHigh) * 100;
 }
 
-async function testAlphaVantageApiKey(): Promise<boolean> {
+async function testPolygonApiKey(): Promise<boolean> {
 	try {
-		const response = await makeAlphaVantageRequest({
-			function: 'GLOBAL_QUOTE',
-			symbol: 'AAPL'
-		});
-		return response && response['Global Quote'] && response['Global Quote']['01. symbol'];
+		const response = await getPolygonPreviousClose('AAPL');
+		return response !== null;
 	} catch (error) {
 		return false;
 	}
@@ -217,30 +218,54 @@ async function testAlphaVantageApiKey(): Promise<boolean> {
 
 async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData | null> {
 	try {
-		const quote = await getAlphaVantageQuote(symbol).catch(() => null);
+		console.log(`Getting enhanced data for ${symbol} from Polygon...`);
 		
-		if (!quote || !quote['05. price']) {
-			console.warn(`No quote data available for ${symbol}`);
+		// Get historical data for gap calculation and 20-day high
+		const thirtyDaysAgo = new Date();
+		thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+		const fromDate = thirtyDaysAgo.toISOString().split('T')[0];
+		const toDate = new Date().toISOString().split('T')[0];
+
+		const [tickerDetails, historicalBars] = await Promise.allSettled([
+			getPolygonTickerDetails(symbol),
+			getPolygonDailyBars(symbol, fromDate, toDate)
+		]);
+
+		const companyData = tickerDetails.status === 'fulfilled' ? tickerDetails.value : null;
+		const dailyBars = historicalBars.status === 'fulfilled' ? historicalBars.value : [];
+		
+		console.log(`Historical bars status: ${historicalBars.status}, count: ${dailyBars.length}`);
+
+		if (dailyBars.length < 2) {
+			console.warn(`Not enough historical data for ${symbol}`);
 			return null;
 		}
 
-		const [overview, dailyData] = await Promise.allSettled([
-			getAlphaVantageCompanyOverview(symbol),
-			getAlphaVantageDailyData(symbol, 'compact')
-		]);
+		// Sort bars by timestamp (most recent first)
+		const sortedBars = dailyBars.sort((a, b) => b.t - a.t);
+		
+		// Find the most recent trading day (could be Friday if it's weekend)
+		const latestBar = sortedBars[0]; // Most recent trading day
+		const previousBar = sortedBars[1]; // Previous trading day
+		
+		// Convert timestamp to readable date for logging
+		const latestDate = new Date(latestBar.t).toDateString();
+		const previousDate = new Date(previousBar.t).toDateString();
+		console.log(`Analyzing gap for ${symbol}: ${latestDate} open vs ${previousDate} close`);
 
-		const overviewData = overview.status === 'fulfilled' ? overview.value : null;
-		const historicalData = dailyData.status === 'fulfilled' ? dailyData.value : null;
+		const currentPrice = latestBar.c; // Latest close price
+		const openPrice = latestBar.o; // Latest open price
+		const highPrice = latestBar.h; // Latest high price
+		const lowPrice = latestBar.l; // Latest low price
+		const previousClose = previousBar.c; // Previous day's close
+		const volume = latestBar.v; // Latest volume
 
-		const currentPrice = parseFloat(quote['05. price']);
-		const openPrice = parseFloat(quote['02. open']);
-		const highPrice = parseFloat(quote['03. high']);
-		const lowPrice = parseFloat(quote['04. low']);
-		const previousClose = parseFloat(quote['08. previous close']);
-		const volume = parseInt(quote['06. volume']);
-
-		const twentyDayHigh = historicalData ? calculate20DayHigh(historicalData) : previousClose;
-		const gapPercentage = calculateGapPercentage(currentPrice, twentyDayHigh);
+		// Calculate gap: (today's open - yesterday's close) / yesterday's close * 100
+		const gapPercentage = calculateGapPercentage(openPrice, previousClose);
+		
+		// Calculate 20-day high and breakout percentage
+		const twentyDayHigh = calculate20DayHigh(dailyBars);
+		const breakoutPercentage = calculateBreakoutPercentage(currentPrice, twentyDayHigh);
 
 		const enhancedData: EnhancedStockData = {
 			symbol,
@@ -250,13 +275,21 @@ async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData |
 			lowPrice,
 			previousClose,
 			volume,
-			marketCap: overviewData?.MarketCapitalization ? parseFloat(overviewData.MarketCapitalization) : 0,
+			marketCap: companyData?.market_cap || 0,
 			twentyDayHigh,
-			gapPercentage,
-			companyName: overviewData?.Name || symbol,
-			exchange: overviewData?.Exchange || 'Unknown',
-			currency: overviewData?.Currency || 'USD'
+			gapPercentage, // This is now the true gap percentage
+			companyName: companyData?.name || symbol,
+			exchange: companyData?.primary_exchange || 'Unknown',
+			currency: companyData?.currency_name || 'USD'
 		};
+
+		console.log(`Enhanced data for ${symbol}:`, {
+			openPrice: openPrice.toFixed(2),
+			previousClose: previousClose.toFixed(2),
+			gapPercentage: gapPercentage.toFixed(2) + '%',
+			twentyDayHigh: twentyDayHigh.toFixed(2),
+			breakoutPercentage: breakoutPercentage.toFixed(2) + '%'
+		});
 
 		return enhancedData;
 	} catch (error) {
@@ -363,83 +396,156 @@ Based on the real-time data you find, determine if ${symbol} meets these criteri
 DO NOT provide a framework or checklist. Provide actual analysis based on current market data you find through web search.`;
 }
 
-export const testAlphaVantage = async (req: Request, res: Response) => {
+// Create polygonService object
+const polygonService = {
+	testApiKey: testPolygonApiKey,
+	getEnhancedStockData: getEnhancedStockData
+};
+
+export const testPolygon = async (req: Request, res: Response) => {
 	try {
-		console.log('Testing Alpha Vantage API...');
+		console.log('Testing Polygon API...');
 		
 		// Test API key first
-		const isApiWorking = await alphaVantageService.testApiKey();
+		const isApiWorking = await polygonService.testApiKey();
 		if (!isApiWorking) {
 			return res.status(200).json({
-				alphaVantageStatus: 'API key test failed',
-				message: 'Check your Alpha Vantage API key or subscription level'
+				polygonStatus: 'API key test failed',
+				message: 'Check your Polygon API key or subscription level'
 			});
 		}
 
 		// Test a simple quote
-		const testData = await alphaVantageService.getEnhancedStockData('AAPL');
+		const testData = await polygonService.getEnhancedStockData('AAPL');
 		
 		return res.status(200).json({
-			alphaVantageStatus: testData ? 'Working' : 'Failed',
+			polygonStatus: testData ? 'Working' : 'Failed',
 			testData,
-			message: testData ? 'Alpha Vantage API is working' : 'Alpha Vantage API failed to get test data'
+			message: testData ? 'Polygon API is working' : 'Polygon API failed to get test data'
 		});
 	} catch (error) {
-		console.error('Alpha Vantage test error:', error);
+		console.error('Polygon test error:', error);
 		return res.status(500).json({ 
-			alphaVantageStatus: 'Error',
-			error: 'Alpha Vantage API test failed' 
+			polygonStatus: 'Error',
+			error: 'Polygon API test failed' 
 		});
 	}
 };
 
 export const scanGapUps = async (req: Request, res: Response) => {
 	try {
-		console.log('Starting gap up scan...');
+		console.log('Starting direct Polygon gap up scan...');
 		
-		// Call Claude API with web search to find stocks gapping up
-		const message = await claude.messages.create({
-			model: "claude-3-5-sonnet-20241022",
-			max_tokens: 4000,
-			tools: [
-				{
-					type: "web_search_20250305",
-					name: "web_search"
-				}
-			],
-			messages: [
-				{ 
-					role: "user", 
-					content: createGapUpScanPrompt()
-				}
-			],
-		});
+		// Expanded list of popular stocks to scan for gap-ups
+		// Includes S&P 500 top stocks, popular tech stocks, and high-volume traders
+		const popularStocks = [
+			// Tech Giants
+			'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'INTC', 'ORCL',
+			'CRM', 'ADBE', 'NFLX', 'CSCO', 'AVGO', 'QCOM', 'TXN', 'MU', 'AMAT', 'LRCX',
+			
+			// Financial
+			'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'BLK', 'SCHW',
+			'AXP', 'BX', 'KKR', 'APO', 'COF', 'DFS', 'SYF', 'AIG', 'PRU', 'MET',
+			
+			// Healthcare & Pharma
+			'JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'LLY', 'TMO', 'ABT', 'DHR', 'CVS',
+			'MDT', 'BMY', 'AMGN', 'GILD', 'ISRG', 'SYK', 'BSX', 'ELV', 'CI', 'HUM',
+			
+			// Consumer & Retail
+			'WMT', 'HD', 'PG', 'KO', 'PEP', 'COST', 'MCD', 'NKE', 'SBUX', 'TGT',
+			'LOW', 'CVX', 'XOM', 'DIS', 'CMCSA', 'VZ', 'T', 'TMUS', 'COP', 'SLB',
+			
+			// Industrial & Transport
+			'BA', 'UPS', 'HON', 'UNP', 'CAT', 'GE', 'MMM', 'LMT', 'RTX', 'DE',
+			'FDX', 'NSC', 'CSX', 'DAL', 'UAL', 'AAL', 'LUV', 'UBER', 'LYFT', 'ABNB',
+			
+			// Popular Trading Stocks
+			'SPY', 'QQQ', 'IWM', 'DIA', 'ARKK', 'GME', 'AMC', 'BB', 'PLTR', 'SOFI',
+			'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'F', 'GM', 'PLUG', 'FCEL', 'SPCE',
+			
+			// High Growth Tech
+			'SHOP', 'SQ', 'ROKU', 'SNAP', 'PINS', 'TWLO', 'DOCU', 'ZM', 'CRWD', 'DDOG',
+			'SNOW', 'NET', 'COIN', 'HOOD', 'RBLX', 'U', 'DASH', 'ABNB', 'SE', 'MELI',
+			
+			// Semiconductors
+			'TSM', 'ASML', 'KLAC', 'SNPS', 'CDNS', 'MRVL', 'ON', 'MCHP', 'ADI', 'NXPI',
+			
+			// Energy & Materials
+			'OXY', 'DVN', 'MRO', 'HAL', 'BKR', 'APA', 'EOG', 'PXD', 'FCX', 'NEM',
+			
+			// Others
+			'V', 'MA', 'PYPL', 'ACN', 'INTU', 'NOW', 'SPGI', 'MMC', 'AON', 'MSI'
+		];
 
-		console.log('Claude message received for gap up scan');
+		console.log(`Scanning ${popularStocks.length} stocks for gap-ups using Polygon data...`);
 
-		// Extract all text content from all blocks
-		let analysis = '';
-		message.content.forEach((block: any, index: number) => {
-			if (block.type === 'text') {
-				analysis += block.text;
+		const gapUpStocks: GapUpStock[] = [];
+		
+		// Process stocks in larger batches for paid subscription
+		const batchSize = 10; // Increased batch size for paid tier
+		for (let i = 0; i < popularStocks.length; i += batchSize) {
+			const batch = popularStocks.slice(i, i + batchSize);
+			
+			const batchPromises = batch.map(async (symbol) => {
+				try {
+					const stockData = await polygonService.getEnhancedStockData(symbol);
+					
+					// Check for gap up AND trading above 20-day high
+					if (stockData && stockData.gapPercentage > 2 && stockData.currentPrice > stockData.twentyDayHigh) {
+						console.log(`Found gap up above 20-day high: ${symbol} +${stockData.gapPercentage.toFixed(2)}% (current $${stockData.currentPrice.toFixed(2)} > 20-day high $${stockData.twentyDayHigh.toFixed(2)})`);
+						
+						// Gap and Go strategy criteria - must be above 20-day high
+						const suitable = stockData.volume > 500000 && // High volume indicates news/interest
+							stockData.gapPercentage > 2 && // Minimum 2% gap
+							stockData.gapPercentage < 15 && // Max 15% gap (avoid too volatile)
+							stockData.currentPrice > 5 && // Avoid penny stocks
+							stockData.currentPrice > stockData.twentyDayHigh; // Must be above 20-day high
+						
+						// Get trading dates for clearer analysis
+						const openDate = new Date(Date.now()).toDateString(); // This will show the most recent trading day
+						const analysis = `${symbol} gapped up ${stockData.gapPercentage.toFixed(1)}% and is trading above its 20-day high of $${stockData.twentyDayHigh.toFixed(2)}. Open: $${stockData.openPrice.toFixed(2)}, Previous close: $${stockData.previousClose.toFixed(2)}, Current: $${stockData.currentPrice.toFixed(2)}. Volume: ${stockData.volume.toLocaleString()}. ${suitable ? 'SUITABLE' : 'NOT SUITABLE'} for gap-and-go strategy.`;
+
+						const gapUpStock: GapUpStock = {
+							stockSymbol: symbol,
+							currentPrice: `$${stockData.currentPrice.toFixed(2)}`,
+							twentyDayHigh: `$${stockData.twentyDayHigh.toFixed(2)}`,
+							gapPercentage: `${stockData.gapPercentage.toFixed(2)}%`,
+							openPrice: `$${stockData.openPrice.toFixed(2)}`,
+							highPrice: `$${stockData.highPrice.toFixed(2)}`,
+							lowPrice: `$${stockData.lowPrice.toFixed(2)}`,
+							previousClose: `$${stockData.previousClose.toFixed(2)}`,
+							volume: stockData.volume,
+							marketCap: stockData.marketCap,
+							companyName: stockData.companyName,
+							exchange: stockData.exchange,
+							analysis: analysis,
+							suitable: suitable
+						};
+						
+						return gapUpStock;
+					}
+				} catch (error) {
+					console.error(`Error checking ${symbol}:`, error);
+				}
+				return null;
+			});
+
+			const batchResults = await Promise.all(batchPromises);
+			const validResults = batchResults.filter(result => result !== null) as GapUpStock[];
+			gapUpStocks.push(...validResults);
+
+			// Rate limiting: reduced wait time for paid subscription
+			if (i + batchSize < popularStocks.length) {
+				console.log('Processing next batch...');
+				await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay for paid tier
 			}
-		});
-
-		if (!analysis) {
-			analysis = 'No text content available';
 		}
 
-		console.log('Gap Up Scan Response:', analysis);
-
-		// Parse the response to extract stock information
-		const stocks = parseGapUpStocks(analysis);
-
-		// Enhance stock data with Alpha Vantage API
-		const enhancedStocks = await enhanceStocksWithAlphaVantage(stocks);
+		console.log(`Found ${gapUpStocks.length} stocks gapping up AND trading above their 20-day highs`);
 
 		return res.status(200).json({
-			stocks: enhancedStocks,
-			totalFound: enhancedStocks.length,
+			stocks: gapUpStocks,
+			totalFound: gapUpStocks.length,
 			timestamp: new Date()
 		});
 	} catch (error) {
@@ -448,137 +554,8 @@ export const scanGapUps = async (req: Request, res: Response) => {
 	}
 };
 
-async function enhanceStocksWithAlphaVantage(claudeStocks: GapUpStock[]): Promise<GapUpStock[]> {
-	const enhancedStocks: GapUpStock[] = [];
-	
-	for (const stock of claudeStocks) {
-		try {
-			console.log(`Enhancing ${stock.stockSymbol} with Alpha Vantage data...`);
-			const alphaVantageData = await alphaVantageService.getEnhancedStockData(stock.stockSymbol);
-			
-			if (alphaVantageData) {
-				// Merge Claude analysis with Alpha Vantage data
-				const enhancedStock: GapUpStock = {
-					...stock,
-					currentPrice: `$${alphaVantageData.currentPrice.toFixed(2)}`,
-					twentyDayHigh: `$${alphaVantageData.twentyDayHigh.toFixed(2)}`,
-					gapPercentage: `${alphaVantageData.gapPercentage.toFixed(2)}%`,
-					openPrice: `$${alphaVantageData.openPrice.toFixed(2)}`,
-					highPrice: `$${alphaVantageData.highPrice.toFixed(2)}`,
-					lowPrice: `$${alphaVantageData.lowPrice.toFixed(2)}`,
-					volume: alphaVantageData.volume,
-					marketCap: alphaVantageData.marketCap,
-					companyName: alphaVantageData.companyName,
-					exchange: alphaVantageData.exchange,
-					// Keep Claude's analysis and suitability assessment
-					analysis: stock.analysis,
-					suitable: stock.suitable
-				};
-				
-				enhancedStocks.push(enhancedStock);
-			} else {
-				// If Alpha Vantage data fails, keep Claude's original data
-				console.warn(`No Alpha Vantage data for ${stock.stockSymbol}, using Claude data only`);
-				enhancedStocks.push(stock);
-			}
-		} catch (error) {
-			console.error(`Error enhancing ${stock.stockSymbol} with Alpha Vantage:`, error);
-			// Keep original Claude data if Alpha Vantage fails
-			enhancedStocks.push(stock);
-		}
-	}
-	
-	return enhancedStocks;
-}
+// This function is no longer needed since we're using direct Polygon scanning
 
-function createGapUpScanPrompt() {
-	return `You are a stock trading assistant with web search capabilities. I need you to find stocks that are currently gapping up above their 20-day highs.
+// Old prompt function - no longer needed since we're using direct Polygon scanning
 
-**CRITICAL: Use your web search tool to find:**
-- Stocks that are gapping up significantly in pre-market or opening today
-- Current stock prices and 20-day high levels
-- Stocks that have broken above their 20-day high resistance
-- At least 10 stocks meeting these criteria
-
-**Search for stocks with:**
-1. Current price above the highest high of the last 20 trading days
-2. Significant gap up (ideally 3%+ above previous close)
-3. Strong volume and momentum
-4. Clear catalysts or news driving the move
-
-**Your Response Must Include:**
-For each stock found, provide:
-- Stock Symbol
-- Current Price
-- 20-Day High Level
-- Gap Percentage
-- Brief analysis of why it's gapping up
-- SUITABLE or NOT SUITABLE for day trading
-
-Format your response as a clear list with each stock's details. Focus on finding stocks that are actually gapping up TODAY, not just stocks that have been performing well.
-
-DO NOT include stocks that are not currently gapping up above their 20-day highs. Only include stocks that meet this specific criteria.`;
-}
-
-function parseGapUpStocks(analysis: string): GapUpStock[] {
-	const stocks: GapUpStock[] = [];
-	
-	// Split by lines and look for stock patterns
-	const lines = analysis.split('\n');
-	let currentStock: Partial<GapUpStock> = {};
-	
-	lines.forEach(line => {
-		const trimmedLine = line.trim();
-		
-		// Look for stock symbols (3-5 letter codes)
-		const symbolMatch = trimmedLine.match(/\b([A-Z]{3,5})\b/);
-		if (symbolMatch && !currentStock.stockSymbol) {
-			currentStock.stockSymbol = symbolMatch[1];
-		}
-		
-		// Look for price patterns
-		if (trimmedLine.includes('$') && !currentStock.currentPrice) {
-			const priceMatch = trimmedLine.match(/\$(\d+\.?\d*)/);
-			if (priceMatch) {
-				currentStock.currentPrice = `$${priceMatch[1]}`;
-			}
-		}
-		
-		// Look for 20-day high
-		if (trimmedLine.toLowerCase().includes('20-day') && !currentStock.twentyDayHigh) {
-			const highMatch = trimmedLine.match(/\$(\d+\.?\d*)/);
-			if (highMatch) {
-				currentStock.twentyDayHigh = `$${highMatch[1]}`;
-			}
-		}
-		
-		// Look for gap percentage
-		if (trimmedLine.includes('%') && !currentStock.gapPercentage) {
-			const gapMatch = trimmedLine.match(/(\d+\.?\d*)%/);
-			if (gapMatch) {
-				currentStock.gapPercentage = `${gapMatch[1]}%`;
-			}
-		}
-		
-		// Look for SUITABLE/NOT SUITABLE
-		if (trimmedLine.includes('SUITABLE') || trimmedLine.includes('NOT SUITABLE')) {
-			currentStock.suitable = trimmedLine.includes('SUITABLE') && !trimmedLine.includes('NOT');
-			currentStock.analysis = trimmedLine;
-			
-			// If we have a complete stock, add it to the list
-			if (currentStock.stockSymbol && currentStock.currentPrice) {
-				stocks.push(currentStock as GapUpStock);
-				currentStock = {};
-			}
-		}
-	});
-	
-	// Add any remaining stock that might not have SUITABLE marker
-	if (currentStock.stockSymbol && currentStock.currentPrice && stocks.length < 10) {
-		currentStock.suitable = true; // Default to suitable if we can't determine
-		currentStock.analysis = currentStock.analysis || 'Gap up analysis';
-		stocks.push(currentStock as GapUpStock);
-	}
-	
-	return stocks.slice(0, 10); // Return max 10 stocks
-}
+// Old parsing function - no longer needed since we're using direct Polygon scanning

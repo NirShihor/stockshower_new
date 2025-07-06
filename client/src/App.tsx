@@ -11,6 +11,7 @@ interface GapUpStock {
   openPrice?: string;
   highPrice?: string;
   lowPrice?: string;
+  previousClose?: string;
   volume?: number;
   marketCap?: number;
   companyName?: string;
@@ -110,6 +111,12 @@ function App() {
                     <div className="detail-row">
                       <span className="label">Day Low:</span>
                       <span className="value">{stock.lowPrice}</span>
+                    </div>
+                  )}
+                  {stock.previousClose && (
+                    <div className="detail-row">
+                      <span className="label">Previous Close:</span>
+                      <span className="value">{stock.previousClose}</span>
                     </div>
                   )}
                   {stock.volume && (
