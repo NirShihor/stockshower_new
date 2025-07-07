@@ -1,22 +1,223 @@
 .App {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+  min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
-.app-header {
+.main-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Navigation Styles */
+.navigation {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 0;
+}
+
+.nav-brand {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1rem;
+  color: white;
+}
+
+.nav-logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+}
+
+.nav-brand h1 {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  border: 2px solid transparent;
+}
+
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.nav-link.active {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+}
+
+/* Page Headers */
+.page-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 2rem 0;
+}
+
+.page-header h1 {
+  font-size: 2.5rem;
+  color: #333;
+  margin: 0 0 0.5rem 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-header p {
+  font-size: 1.2rem;
+  color: #666;
+  margin: 0;
+}
+
+/* Scanner Controls */
+.scanner-controls {
+  display: flex;
+  justify-content: center;
   margin-bottom: 2rem;
 }
 
-.app-logo {
-  width: 120px;
-  height: 120px;
-  object-fit: contain;
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navigation {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+  }
+  
+  .nav-links {
+    gap: 1rem;
+  }
+  
+  .main-content {
+    padding: 1rem;
+  }
+  
+  .page-header h1 {
+    font-size: 2rem;
+  }
 }
+
+/* Chart Styles */
+.chart-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.chart-symbol-selector {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chart-symbol-selector input[type="radio"] {
+  margin-right: 0.25rem;
+}
+
+.chart-symbol-selector label {
+  margin-right: 1rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.chart-symbol-selector label:hover {
+  background-color: #f0f0f0;
+}
+
+.chart-days-selector {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.chart-days-selector select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+}
+
+.stock-chart {
+  width: 100%;
+  max-width: 100%;
+}
+
+.chart-container {
+  position: relative;
+  height: 400px;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.chart-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  font-size: 1.1rem;
+  color: #666;
+}
+
+.chart-error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #d32f2f;
+  background-color: #ffebee;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.chart-no-data {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #666;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.chart-info {
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Old app-header styles removed - using navigation now */
 
 h1 {
   color: #222;

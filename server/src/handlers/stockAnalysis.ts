@@ -173,6 +173,24 @@ async function getPolygonDailyBars(symbol: string, from: string, to: string): Pr
 	return data.results || [];
 }
 
+async function getPolygonIntradayBars(symbol: string, multiplier: number, timespan: string, from: string, to: string): Promise<PolygonBar[]> {
+	try {
+		console.log(`Making intraday request: /v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${from}/${to}`);
+		
+		const data = await makePolygonRequest(`/v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${from}/${to}`, {
+			adjusted: 'true',
+			sort: 'asc',
+			limit: '50000'
+		}) as PolygonAggregatesResponse;
+		
+		console.log(`${timespan} bars for ${symbol}: ${data.resultsCount} results`);
+		return data.results || [];
+	} catch (error) {
+		console.error(`Intraday request failed for ${symbol}:`, error);
+		throw error;
+	}
+}
+
 function calculate20DayHigh(bars: PolygonBar[]): number {
 	console.log('Calculating 20-day high, bars count:', bars.length);
 	if (!bars || bars.length === 0) {
@@ -260,8 +278,23 @@ async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData |
 		const previousClose = previousBar.c; // Previous day's close
 		const volume = latestBar.v; // Latest volume
 
-		// Calculate gap: (today's open - yesterday's close) / yesterday's close * 100
-		const gapPercentage = calculateGapPercentage(openPrice, previousClose);
+		// Calculate multiple types of gaps
+		const openingGap = calculateGapPercentage(openPrice, previousClose);        // Open vs prev close
+		const closingGap = calculateGapPercentage(currentPrice, previousClose);     // Close vs prev close  
+		const intradayGap = calculateGapPercentage(highPrice, openPrice);           // High vs open (intraday momentum)
+		
+		// Determine the maximum gap (best performance)
+		const maxGap = Math.max(Math.abs(openingGap), Math.abs(closingGap), Math.abs(intradayGap));
+		const gapType = 
+			Math.abs(openingGap) === maxGap ? 'Opening' :
+			Math.abs(closingGap) === maxGap ? 'Closing' : 'Intraday';
+		
+		// Use the actual gap value (preserve sign) for the type with max absolute value
+		const gapPercentage = 
+			Math.abs(openingGap) === maxGap ? openingGap :
+			Math.abs(closingGap) === maxGap ? closingGap : intradayGap;
+		
+		console.log(`Gap analysis for ${symbol}: Opening: ${openingGap.toFixed(2)}%, Closing: ${closingGap.toFixed(2)}%, Intraday: ${intradayGap.toFixed(2)}% => Best: ${gapType} ${gapPercentage.toFixed(2)}%`);
 		
 		// Calculate 20-day high and breakout percentage
 		const twentyDayHigh = calculate20DayHigh(dailyBars);
@@ -436,45 +469,82 @@ export const scanGapUps = async (req: Request, res: Response) => {
 	try {
 		console.log('Starting direct Polygon gap up scan...');
 		
-		// Expanded list of popular stocks to scan for gap-ups
-		// Includes S&P 500 top stocks, popular tech stocks, and high-volume traders
+		// Comprehensive list of stocks to scan for gap-ups
+		// Includes large cap, mid cap, growth stocks, and volatile trading stocks
 		const popularStocks = [
-			// Tech Giants
-			'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'INTC', 'ORCL',
+			// Tech Giants & FAANG
+			'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'INTC', 'ORCL',
 			'CRM', 'ADBE', 'NFLX', 'CSCO', 'AVGO', 'QCOM', 'TXN', 'MU', 'AMAT', 'LRCX',
 			
-			// Financial
+			// Financial Services
 			'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'BLK', 'SCHW',
 			'AXP', 'BX', 'KKR', 'APO', 'COF', 'DFS', 'SYF', 'AIG', 'PRU', 'MET',
+			'TFC', 'FITB', 'RF', 'KEY', 'ZION', 'HBAN', 'CFG', 'CMA', 'WAL', 'PBCT',
 			
-			// Healthcare & Pharma
+			// Healthcare & Biotech
 			'JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'LLY', 'TMO', 'ABT', 'DHR', 'CVS',
 			'MDT', 'BMY', 'AMGN', 'GILD', 'ISRG', 'SYK', 'BSX', 'ELV', 'CI', 'HUM',
+			'BIIB', 'REGN', 'VRTX', 'MRNA', 'BNTX', 'JNJ', 'RGEN', 'ALNY', 'BMRN', 'SGEN',
 			
 			// Consumer & Retail
 			'WMT', 'HD', 'PG', 'KO', 'PEP', 'COST', 'MCD', 'NKE', 'SBUX', 'TGT',
-			'LOW', 'CVX', 'XOM', 'DIS', 'CMCSA', 'VZ', 'T', 'TMUS', 'COP', 'SLB',
+			'LOW', 'TJX', 'WBA', 'KR', 'DLTR', 'DG', 'ROST', 'ULTA', 'BBY', 'GPS',
+			
+			// Energy & Commodities
+			'XOM', 'CVX', 'COP', 'SLB', 'OXY', 'DVN', 'MRO', 'HAL', 'BKR', 'APA', 
+			'EOG', 'PXD', 'FCX', 'NEM', 'GOLD', 'ABX', 'KGC', 'AUY', 'EQT', 'AR',
 			
 			// Industrial & Transport
 			'BA', 'UPS', 'HON', 'UNP', 'CAT', 'GE', 'MMM', 'LMT', 'RTX', 'DE',
 			'FDX', 'NSC', 'CSX', 'DAL', 'UAL', 'AAL', 'LUV', 'UBER', 'LYFT', 'ABNB',
+			'WM', 'RSG', 'PCAR', 'CMI', 'ITW', 'EMR', 'ETN', 'PH', 'ROK', 'DOV',
 			
-			// Popular Trading Stocks
-			'SPY', 'QQQ', 'IWM', 'DIA', 'ARKK', 'GME', 'AMC', 'BB', 'PLTR', 'SOFI',
-			'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'F', 'GM', 'PLUG', 'FCEL', 'SPCE',
+			// High-Volume Trading Stocks (Meme & Growth)
+			'SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VEA', 'VWO', 'ARKK', 'ARKW', 'ARKG',
+			'GME', 'AMC', 'BB', 'BBBY', 'PLTR', 'SOFI', 'WISH', 'CLOV', 'SPRT', 'IRNT',
+			'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'BYDDY', 'F', 'GM', 'TSLA', 'GOEV',
 			
-			// High Growth Tech
-			'SHOP', 'SQ', 'ROKU', 'SNAP', 'PINS', 'TWLO', 'DOCU', 'ZM', 'CRWD', 'DDOG',
-			'SNOW', 'NET', 'COIN', 'HOOD', 'RBLX', 'U', 'DASH', 'ABNB', 'SE', 'MELI',
+			// High Growth Tech & Software
+			'SHOP', 'SQ', 'BLOC', 'ROKU', 'SNAP', 'PINS', 'TWTR', 'TWLO', 'DOCU', 'ZM',
+			'CRWD', 'DDOG', 'SNOW', 'NET', 'COIN', 'HOOD', 'RBLX', 'U', 'DASH', 'SE',
+			'MELI', 'SPOT', 'NFLX', 'DIS', 'CMCSA', 'CHTR', 'T', 'VZ', 'TMUS', 'DISH',
 			
-			// Semiconductors
+			// Semiconductors & Hardware
 			'TSM', 'ASML', 'KLAC', 'SNPS', 'CDNS', 'MRVL', 'ON', 'MCHP', 'ADI', 'NXPI',
+			'QRVO', 'SWKS', 'MXIM', 'XLNX', 'LSCC', 'SLAB', 'MPWR', 'CRUS', 'SITM', 'FORM',
 			
-			// Energy & Materials
-			'OXY', 'DVN', 'MRO', 'HAL', 'BKR', 'APA', 'EOG', 'PXD', 'FCX', 'NEM',
+			// Cloud & Enterprise Software
+			'V', 'MA', 'PYPL', 'ACN', 'INTU', 'NOW', 'SPGI', 'MMC', 'AON', 'MSI',
+			'ORCL', 'SAP', 'ADSK', 'CTXS', 'TEAM', 'WDAY', 'VEEV', 'SPLK', 'OKTA', 'ZS',
 			
-			// Others
-			'V', 'MA', 'PYPL', 'ACN', 'INTU', 'NOW', 'SPGI', 'MMC', 'AON', 'MSI'
+			// Biotech & Small Cap Growth
+			'SPCE', 'PTON', 'BYND', 'TDOC', 'MRTX', 'SAGE', 'BLUE', 'EDIT', 'CRSP', 'NTLA',
+			'FOLD', 'BEAM', 'VERV', 'PACB', 'ILMN', 'TMO', 'A', 'LIFE', 'QGEN', 'CDNA',
+			
+			// REITs & Utilities (for diversification)
+			'SPG', 'PLD', 'CCI', 'AMT', 'EQIX', 'DLR', 'PSA', 'O', 'WELL', 'AVB',
+			'NEE', 'DUK', 'SO', 'D', 'EXC', 'XEL', 'WEC', 'ES', 'AEP', 'SRE',
+			
+			// Chinese & International ADRs
+			'BABA', 'JD', 'PDD', 'BIDU', 'NTES', 'TME', 'WB', 'BILI', 'IQ', 'HUYA',
+			'ASHR', 'FXI', 'MCHI', 'KWEB', 'CQQQ', 'GXC', 'INDA', 'EPI', 'VWO', 'EEM',
+			
+			// Crypto-Related & Fintech
+			'COIN', 'HOOD', 'SQ', 'PYPL', 'SOFI', 'AFRM', 'UPST', 'LC', 'BTBT', 'RIOT',
+			'MARA', 'HUT', 'BITF', 'ARBKF', 'GBTC', 'ETHE', 'MSTR', 'TSLA', 'NVDA', 'AMD',
+			
+			// British Stocks (Major UK Companies - ADRs and direct listings)
+			'BP', 'SHEL', 'RIO', 'BHP', 'VOD', 'AZN', 'GSK', 'ULVR', 'ASML', 'NVO',
+			'BTI', 'DEO', 'UL', 'TTE', 'RHHBY', 'NESN', 'NOVN', 'ROG', 'SAP', 'SSNGY',
+			
+			// UK Banks & Financial (ADRs)
+			'HSBC', 'LYG', 'BBVA', 'SAN', 'ING', 'DB', 'CS', 'UBS', 'BCS', 'RBS',
+			
+			// UK Mining & Energy
+			'RIO', 'BHP', 'VALE', 'FCX', 'SCCO', 'TECK', 'NEM', 'GOLD', 'ABX', 'KGC',
+			
+			// UK Retail & Consumer
+			'UNLY', 'DEO', 'BTAFF', 'SBRY', 'TSCDY', 'MARKS', 'NEXT', 'BURBY', 'DGEAF', 'PSON'
 		];
 
 		console.log(`Scanning ${popularStocks.length} stocks for gap-ups using Polygon data...`);
@@ -490,15 +560,15 @@ export const scanGapUps = async (req: Request, res: Response) => {
 				try {
 					const stockData = await polygonService.getEnhancedStockData(symbol);
 					
-					// Check for gap up AND trading above 20-day high
-					if (stockData && stockData.gapPercentage > 2 && stockData.currentPrice > stockData.twentyDayHigh) {
+					// Check for gap up AND trading above 20-day high (enhanced criteria)
+					if (stockData && stockData.gapPercentage > 1.5 && stockData.currentPrice > stockData.twentyDayHigh) {
 						console.log(`Found gap up above 20-day high: ${symbol} +${stockData.gapPercentage.toFixed(2)}% (current $${stockData.currentPrice.toFixed(2)} > 20-day high $${stockData.twentyDayHigh.toFixed(2)})`);
 						
 						// Gap and Go strategy criteria - must be above 20-day high
-						const suitable = stockData.volume > 500000 && // High volume indicates news/interest
-							stockData.gapPercentage > 2 && // Minimum 2% gap
-							stockData.gapPercentage < 15 && // Max 15% gap (avoid too volatile)
-							stockData.currentPrice > 5 && // Avoid penny stocks
+						const suitable = stockData.volume > 100000 && // Lower volume threshold for broader coverage
+							stockData.gapPercentage > 1.5 && // Minimum 1.5% gap for meaningful moves
+							stockData.gapPercentage < 20 && // Max 20% gap (avoid too volatile)
+							stockData.currentPrice > 3 && // Avoid penny stocks
 							stockData.currentPrice > stockData.twentyDayHigh; // Must be above 20-day high
 						
 						// Get trading dates for clearer analysis
@@ -557,5 +627,139 @@ export const scanGapUps = async (req: Request, res: Response) => {
 // This function is no longer needed since we're using direct Polygon scanning
 
 // Old prompt function - no longer needed since we're using direct Polygon scanning
+
+export const getChartData = async (req: Request, res: Response) => {
+	try {
+		const { symbol } = req.params;
+		const { days = '30' } = req.query;
+		
+		if (!symbol) {
+			return res.status(400).json({ error: 'Stock symbol is required' });
+		}
+
+		console.log(`Getting chart data for ${symbol.toUpperCase()} for ${days} days`);
+		console.log(`System time: ${new Date().toISOString()}`);
+		console.log(`System timezone: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+
+		const daysBack = parseFloat(days as string);
+		console.log(`Parsed daysBack value: ${daysBack}, type: ${typeof daysBack}`);
+		
+		let bars: PolygonBar[];
+		let timeFormat = 'YYYY-MM-DD';
+		let fromDateStr: string;
+		let toDateStr: string;
+
+		if (daysBack < 1) {
+			// Intraday data
+			const hoursBack = daysBack * 24;
+			const minutesBack = hoursBack * 60;
+			
+			const toDate = new Date();
+			const fromDate = new Date();
+			
+			// Check if it's weekend
+			const dayOfWeek = toDate.getDay(); // 0 = Sunday, 6 = Saturday
+			const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+			
+			console.log(`Intraday request: minutesBack=${minutesBack}, hoursBack=${hoursBack}`);
+			console.log(`Day of week: ${dayOfWeek}, isWeekend: ${isWeekend}`);
+			
+			if (minutesBack <= 15) {
+				// 15 minutes - use 1 minute bars for today only
+				const today = new Date().toISOString().split('T')[0];
+				fromDateStr = today;
+				toDateStr = today;
+				console.log(`15min: From ${fromDateStr} to ${toDateStr}`);
+				bars = await getPolygonIntradayBars(symbol.toUpperCase(), 1, 'minute', fromDateStr, toDateStr);
+				timeFormat = 'HH:mm';
+			} else if (hoursBack <= 1) {
+				// 1 hour - use 1 minute bars for today only
+				const today = new Date().toISOString().split('T')[0];
+				fromDateStr = today;
+				toDateStr = today;
+				console.log(`1hour: From ${fromDateStr} to ${toDateStr}`);
+				bars = await getPolygonIntradayBars(symbol.toUpperCase(), 1, 'minute', fromDateStr, toDateStr);
+				timeFormat = 'HH:mm';
+			} else {
+				// 1 day - use 5 minute bars
+				fromDate.setDate(fromDate.getDate() - 1);
+				fromDateStr = fromDate.toISOString().split('T')[0];
+				toDateStr = toDate.toISOString().split('T')[0];
+				console.log(`1day: From ${fromDateStr} to ${toDateStr}`);
+				bars = await getPolygonIntradayBars(symbol.toUpperCase(), 5, 'minute', fromDateStr, toDateStr);
+				timeFormat = 'HH:mm';
+			}
+		} else {
+			// Daily data
+			const toDate = new Date();
+			const fromDate = new Date();
+			fromDate.setDate(fromDate.getDate() - Math.ceil(daysBack));
+
+			fromDateStr = fromDate.toISOString().split('T')[0];
+			toDateStr = toDate.toISOString().split('T')[0];
+
+			// Get historical bars
+			bars = await getPolygonDailyBars(symbol.toUpperCase(), fromDateStr, toDateStr);
+		}
+
+		if (!bars || bars.length === 0) {
+			if (daysBack < 1) {
+				return res.status(404).json({ 
+					error: `No intraday data available for ${symbol.toUpperCase()}. Markets may be closed or your Polygon subscription may not include real-time minute data.` 
+				});
+			} else {
+				return res.status(404).json({ error: `No chart data found for ${symbol.toUpperCase()}` });
+			}
+		}
+
+		// Format data for candlestick chart
+		const chartData = bars
+			.sort((a, b) => a.t - b.t) // Sort by timestamp ascending
+			.map(bar => {
+				const date = new Date(bar.t);
+				let timeLabel;
+				
+				if (daysBack < 1) {
+					// Intraday - show time
+					timeLabel = date.toLocaleTimeString('en-US', { 
+						hour: '2-digit', 
+						minute: '2-digit',
+						hour12: false 
+					});
+				} else {
+					// Daily - show date
+					timeLabel = date.toISOString().split('T')[0];
+				}
+				
+				return {
+					time: timeLabel,
+					timestamp: bar.t, // Keep original timestamp for chart
+					open: bar.o,
+					high: bar.h,
+					low: bar.l,
+					close: bar.c,
+					volume: bar.v
+				};
+			});
+
+		// Get company details for chart title
+		const companyDetails = await getPolygonTickerDetails(symbol.toUpperCase());
+
+		return res.status(200).json({
+			symbol: symbol.toUpperCase(),
+			companyName: companyDetails?.name || symbol.toUpperCase(),
+			data: chartData,
+			dataPoints: chartData.length,
+			dateRange: {
+				from: fromDateStr,
+				to: toDateStr
+			}
+		});
+
+	} catch (error) {
+		console.error('Error getting chart data:', error);
+		return res.status(500).json({ error: 'Failed to get chart data' });
+	}
+};
 
 // Old parsing function - no longer needed since we're using direct Polygon scanning
