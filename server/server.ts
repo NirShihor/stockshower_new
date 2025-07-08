@@ -43,8 +43,12 @@ app.get('/test', (req: Request, res: Response) => {
   res.status(200).json({ message: 'CORS test successful' });
 });
 
-// Serve React app for all other routes (must be last)
-app.get('/*', (req: Request, res: Response) => {
+// Serve React app for all non-API routes (must be last)
+app.get('*', (req: Request, res: Response) => {
+  // Skip API routes
+  if (req.path.startsWith('/api') || req.path === '/test') {
+    return res.status(404).json({ error: 'Not found' });
+  }
   res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 
