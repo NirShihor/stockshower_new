@@ -44,7 +44,7 @@ app.get('/test', (req: Request, res: Response) => {
 });
 
 // Serve React app for all other routes (must be last)
-app.get('*', (req: Request, res: Response) => {
+app.get('/*', (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
 
