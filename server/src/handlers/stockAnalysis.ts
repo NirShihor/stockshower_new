@@ -560,16 +560,16 @@ export const scanGapUps = async (req: Request, res: Response) => {
 				try {
 					const stockData = await polygonService.getEnhancedStockData(symbol);
 					
-					// Check for gap up AND trading above 20-day high (enhanced criteria)
-					if (stockData && stockData.gapPercentage > 1.5 && stockData.currentPrice > stockData.twentyDayHigh) {
+					// Check for gap up AND trading at or above 20-day high (enhanced criteria)
+					if (stockData && stockData.gapPercentage > 0.5 && stockData.currentPrice >= stockData.twentyDayHigh) {
 						console.log(`Found gap up above 20-day high: ${symbol} +${stockData.gapPercentage.toFixed(2)}% (current $${stockData.currentPrice.toFixed(2)} > 20-day high $${stockData.twentyDayHigh.toFixed(2)})`);
 						
 						// Gap and Go strategy criteria - must be above 20-day high
 						const suitable = stockData.volume > 100000 && // Lower volume threshold for broader coverage
-							stockData.gapPercentage > 1.5 && // Minimum 1.5% gap for meaningful moves
+							stockData.gapPercentage > 0.5 && // Minimum 0.5% gap for testing (temporary)
 							stockData.gapPercentage < 20 && // Max 20% gap (avoid too volatile)
 							stockData.currentPrice > 3 && // Avoid penny stocks
-							stockData.currentPrice > stockData.twentyDayHigh; // Must be above 20-day high
+							stockData.currentPrice >= stockData.twentyDayHigh; // Must be at or above 20-day high
 						
 						// Get trading dates for clearer analysis
 						const openDate = new Date(Date.now()).toDateString(); // This will show the most recent trading day
