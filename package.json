@@ -11,8 +11,10 @@
     "dev:server": "yarn workspace server dev",
     "start:client": "yarn workspace client start",
     "start:server": "yarn workspace server start",
-    "build": "yarn workspace client build",
-    "build:server": "yarn workspace server build"
+    "build": "yarn workspace client build && yarn workspace server build",
+    "build:server": "yarn workspace server build",
+    "heroku-postbuild": "yarn install && yarn build",
+    "start": "cd server && yarn start"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

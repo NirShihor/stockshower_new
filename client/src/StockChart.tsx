@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { API_ENDPOINTS } from './config/api';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -73,7 +74,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
     setError(null);
     
     try {
-      const response = await fetch(`http://localhost:5001/api/analysis/chart/${symbol}?days=${days}`);
+      const response = await fetch(`${API_ENDPOINTS.chart(symbol)}?days=${days}`);
       
       if (!response.ok) {
         throw new Error(`Failed to fetch chart data: ${response.status}`);

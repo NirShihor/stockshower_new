@@ -4,8 +4,8 @@ const getApiBaseUrl = (): string => {
   if (process.env.NODE_ENV === 'development') {
     return 'http://localhost:5001/api/analysis';
   }
-  // In production (Vercel), use relative paths to serverless functions
-  return '/api';
+  // In production (Heroku), use your Heroku app domain
+  return 'https://stockshower-4f7d4c36c3d7.herokuapp.com/api/analysis';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_ENDPOINTS } from '../config/api';
 
 interface GapUpStock {
   stockSymbol: string;
@@ -30,7 +31,7 @@ const GapScannerPage: React.FC = () => {
   const fetchGapUpScan = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:5001/api/analysis/scan-gap-ups', {
+      const response = await fetch(API_ENDPOINTS.scanGapUps, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
