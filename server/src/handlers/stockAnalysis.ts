@@ -92,17 +92,6 @@ interface EnhancedStockData {
   currency: string;
 }
 
-interface StockAnalysisRequest {
-	stockSymbol: string;
-	criteria: {
-		volatility?: string;
-		volume?: string;
-		priceRange?: string;
-		technicalIndicators?: string[];
-		fundamentals?: string[];
-		[key: string]: any;
-	};
-}
 
 interface GapUpStock {
 	stockSymbol: string;
