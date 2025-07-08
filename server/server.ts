@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express';
-  import cors from 'cors';
-  import dotenv from 'dotenv';
-  import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import mongoose from 'mongoose';
+import path from 'path';
 
 	import analysisRoutes from './src/routes/analysis.js';
 
@@ -22,17 +23,25 @@ import express, { Request, Response } from 'express';
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-	app.use('/api/analysis', analysisRoutes);
+app.use('/api/analysis', analysisRoutes);
 
-  // Basic health check route
-  app.get('/', (req: Request, res: Response) => {
-    res.status(200).json({ status: 'ok', message: 'Server is running' });
-  });
+// Serve static React build files
+app.use(express.static(path.join(__dirname, '../client/build')));
 
-  // Test CORS route
-  app.get('/test', (req: Request, res: Response) => {
-    res.status(200).json({ message: 'CORS test successful' });
-  });
+// API health check route  
+app.get('/api/health', (req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
+// Test CORS route
+app.get('/test', (req: Request, res: Response) => {
+  res.status(200).json({ message: 'CORS test successful' });
+});
+
+// Serve React app for all other routes (must be last)
+app.get('*', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, '../client/build/index.html'));
+});
 
   // Start server
   const startServer = () => {
