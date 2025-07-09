@@ -1,5 +1,9 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Polygon.io interfaces
 interface PolygonBar {

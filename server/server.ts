@@ -43,9 +43,21 @@ app.get('/test', (req: Request, res: Response) => {
   res.status(200).json({ message: 'CORS test successful' });
 });
 
-// Handle 404 for unknown routes
-app.use('*', (req: Request, res: Response) => {
-  res.status(404).json({ error: 'Route not found' });
+// Serve React app for all non-API routes (must be last)
+app.get('*', (req: Request, res: Response) => {
+  // Skip API routes
+  if (req.path.startsWith('/api') || req.path === '/test') {
+    res.status(404).json({ error: 'API route not found' });
+    return;
+  }
+  
+  // Try to serve React app
+  try {
+    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+  } catch (error) {
+    console.error('Error serving React app:', error);
+    res.status(500).json({ error: 'Unable to serve application' });
+  }
 });
 
   // Start server
@@ -74,6 +86,4 @@ app.use('*', (req: Request, res: Response) => {
     startServer();
   }
 
-  export default app;
-
-	// tmp
+export default app;
