@@ -31,7 +31,11 @@ import analysisRoutes from './src/routes/analysis.js';
 app.use('/api/analysis', analysisRoutes);
 
 // Serve static React build files
-app.use(express.static(path.join(__dirname, '../client/build')));
+const clientBuildPath = path.join(__dirname, '../../client/build');
+console.log('Server __dirname:', __dirname);
+console.log('Client build path:', clientBuildPath);
+console.log('Client build exists:', require('fs').existsSync(clientBuildPath));
+app.use(express.static(clientBuildPath));
 
 // API health check route  
 app.get('/api/health', (req: Request, res: Response) => {
@@ -53,7 +57,7 @@ app.get('*', (req: Request, res: Response) => {
   
   // Try to serve React app
   try {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
   } catch (error) {
     console.error('Error serving React app:', error);
     res.status(500).json({ error: 'Unable to serve application' });
