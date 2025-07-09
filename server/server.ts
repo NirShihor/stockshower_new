@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -31,7 +32,15 @@ import analysisRoutes from './src/routes/analysis.js';
 app.use('/api/analysis', analysisRoutes);
 
 // Serve static React build files
-app.use(express.static(path.join(__dirname, '../client/build')));
+// Determine client build path - works for both development and production
+const clientBuildPath = path.resolve(__dirname, '../client/build');
+const clientBuildPathAlt = path.resolve(__dirname, '../../client/build');
+const finalClientBuildPath = fs.existsSync(clientBuildPath) ? clientBuildPath : clientBuildPathAlt;
+// Debug: uncomment for path troubleshooting
+// console.log('Server __dirname:', __dirname);
+// console.log('Final client build path:', finalClientBuildPath);
+// console.log('Client build exists:', fs.existsSync(finalClientBuildPath));
+app.use(express.static(finalClientBuildPath));
 
 // API health check route  
 app.get('/api/health', (req: Request, res: Response) => {
@@ -53,7 +62,7 @@ app.get('*', (req: Request, res: Response) => {
   
   // Try to serve React app
   try {
-    res.sendFile(path.join(__dirname, '../client/build/index.html'));
+    res.sendFile(path.join(finalClientBuildPath, 'index.html'));
   } catch (error) {
     console.error('Error serving React app:', error);
     res.status(500).json({ error: 'Unable to serve application' });
