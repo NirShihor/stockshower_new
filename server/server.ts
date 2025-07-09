@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-	import analysisRoutes from './src/routes/analysis.js';
+import analysisRoutes from './src/routes/analysis.js';
 
   // Load environment variables
   dotenv.config();
@@ -43,14 +43,9 @@ app.get('/test', (req: Request, res: Response) => {
   res.status(200).json({ message: 'CORS test successful' });
 });
 
-// Serve React app for all non-API routes (must be last)
-app.get('*', (req: Request, res: Response) => {
-  // Skip API routes
-  if (req.path.startsWith('/api') || req.path === '/test') {
-    res.status(404).json({ error: 'Not found' });
-    return;
-  }
-  res.sendFile(path.join(__dirname, '../client/build/index.html'));
+// Handle 404 for unknown routes
+app.use('*', (req: Request, res: Response) => {
+  res.status(404).json({ error: 'Route not found' });
 });
 
   // Start server
