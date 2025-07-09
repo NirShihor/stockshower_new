@@ -21,7 +21,12 @@ import analysisRoutes from './src/routes/analysis.js';
 
   // Middleware
   app.use(cors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: [
+      'http://localhost:3000', 
+      'http://127.0.0.1:3000',
+      'https://stockshower-98ce8cd75cf3.herokuapp.com',
+      'https://stockshower-4f7d4c36c3d7.herokuapp.com'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
