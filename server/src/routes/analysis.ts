@@ -1,11 +1,7 @@
 import express, { Request, Response, Router } from 'express';
-import { analyzeStock, scanGapUps, testPolygon, getChartData } from '../handlers/stockAnalysis.js';
+import { scanGapUps, testPolygon, getChartData } from '../handlers/stockAnalysis.js';
 
 const router: Router = express.Router();
-
-router.post('/stock', (req: Request, res: Response) => {
-  analyzeStock(req, res);
-});
 
 router.post('/scan-gap-ups', (req: Request, res: Response) => {
   scanGapUps(req, res);

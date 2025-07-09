@@ -47,7 +47,8 @@ app.get('/test', (req: Request, res: Response) => {
 app.get('*', (req: Request, res: Response) => {
   // Skip API routes
   if (req.path.startsWith('/api') || req.path === '/test') {
-    return res.status(404).json({ error: 'Not found' });
+    res.status(404).json({ error: 'Not found' });
+    return;
   }
   res.sendFile(path.join(__dirname, '../client/build/index.html'));
 });
