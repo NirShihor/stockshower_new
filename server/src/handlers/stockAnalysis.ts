@@ -114,6 +114,16 @@ interface GapUpStock {
 	exchange?: string;
 }
 
+interface ScanResult {
+	stocks: GapUpStock[];
+	totalFound: number;
+	timestamp: Date;
+	scanDuration?: string;
+	status: 'completed' | 'partial' | 'timeout';
+	processedCount: number;
+	totalCount: number;
+}
+
 // Polygon.io helper functions
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
 const POLYGON_BASE_URL = 'https://api.polygon.io';
@@ -358,7 +368,7 @@ export const testPolygon = async (req: Request, res: Response) => {
 
 export const scanGapUps = async (req: Request, res: Response) => {
 	try {
-		console.log('Starting direct Polygon gap up scan...');
+		console.log('Starting optimized Polygon gap up scan...');
 		
 		// Comprehensive list of stocks to scan for gap-ups
 		// Includes large cap, mid cap, growth stocks, and volatile trading stocks
@@ -440,21 +450,31 @@ export const scanGapUps = async (req: Request, res: Response) => {
 
 		console.log(`Scanning ${popularStocks.length} stocks for gap-ups using Polygon data...`);
 		const startTime = Date.now();
-		const batchSize = 25; // Larger batch size for speed
-		console.log(`Processing in batches of ${batchSize} with 0.25s delays for speed...`);
+		const batchSize = 30; // Larger batch size for speed
+		const maxProcessingTime = 25000; // 25 seconds max to avoid timeout
+		console.log(`Processing in batches of ${batchSize} with timeout protection...`);
 
 		const gapUpStocks: GapUpStock[] = [];
+		let processedCount = 0;
+		let shouldStop = false;
 		
 		// Process stocks in larger batches for fast processing
-		for (let i = 0; i < popularStocks.length; i += batchSize) {
+		for (let i = 0; i < popularStocks.length && !shouldStop; i += batchSize) {
 			const batch = popularStocks.slice(i, i + batchSize);
+			
+			// Check if we're running out of time
+			if (Date.now() - startTime > maxProcessingTime) {
+				console.log(`Stopping scan due to time limit (${maxProcessingTime/1000}s)`);
+				shouldStop = true;
+				break;
+			}
 			
 			const batchPromises = batch.map(async (symbol) => {
 				try {
 					// Add timeout to individual stock processing
 					const stockData = await Promise.race([
 						polygonService.getEnhancedStockData(symbol),
-						new Promise<EnhancedStockData>((_, reject) => setTimeout(() => reject(new Error('Stock timeout')), 5000))
+						new Promise<EnhancedStockData>((_, reject) => setTimeout(() => reject(new Error('Stock timeout')), 3000))
 					]) as EnhancedStockData;
 					
 					// Check for gap up AND trading at or above 20-day high (enhanced criteria)
@@ -500,25 +520,31 @@ export const scanGapUps = async (req: Request, res: Response) => {
 			const batchResults = await Promise.all(batchPromises);
 			const validResults = batchResults.filter(result => result !== null) as GapUpStock[];
 			gapUpStocks.push(...validResults);
+			processedCount += batch.length;
 
 			// Rate limiting: minimal delay to avoid timeout
-			if (i + batchSize < popularStocks.length) {
-				console.log(`Processing next batch (${i + batchSize}/${popularStocks.length})...`);
-				await new Promise(resolve => setTimeout(resolve, 250)); // 0.25 second delay for speed
+			if (i + batchSize < popularStocks.length && !shouldStop) {
+				console.log(`Processing next batch (${processedCount}/${popularStocks.length})...`);
+				await new Promise(resolve => setTimeout(resolve, 200)); // 0.2 second delay for speed
 			}
 		}
 
 		const endTime = Date.now();
 		const duration = (endTime - startTime) / 1000;
 		console.log(`Found ${gapUpStocks.length} stocks gapping up AND trading above their 20-day highs`);
-		console.log(`Total scan time: ${duration.toFixed(2)} seconds`);
+		console.log(`Processed ${processedCount}/${popularStocks.length} stocks in ${duration.toFixed(2)} seconds`);
 
-		return res.status(200).json({
+		const result: ScanResult = {
 			stocks: gapUpStocks,
 			totalFound: gapUpStocks.length,
 			timestamp: new Date(),
-			scanDuration: `${duration.toFixed(2)}s`
-		});
+			scanDuration: `${duration.toFixed(2)}s`,
+			status: processedCount === popularStocks.length ? 'completed' : shouldStop ? 'timeout' : 'partial',
+			processedCount,
+			totalCount: popularStocks.length
+		};
+
+		return res.status(200).json(result);
 	} catch (error) {
 		console.error('Error scanning for gap ups:', error);
 		return res.status(500).json({ error: 'Failed to scan for gap ups' });

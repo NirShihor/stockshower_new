@@ -7,8 +7,7 @@ const Navigation: React.FC = () => {
   return (
     <nav className="navigation">
       <div className="nav-brand">
-        <img src="/logo-2.png" alt="StockShower Logo" className="nav-logo" />
-        <h1>StockShower</h1>
+        <img src="/gapstock logo_transparent.png" alt="gapstock logo" className="nav-logo" />
       </div>
       <div className="nav-links">
         <Link 
