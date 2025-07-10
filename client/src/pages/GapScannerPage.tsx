@@ -22,6 +22,10 @@ interface GapUpScanData {
   stocks: GapUpStock[];
   totalFound: number;
   timestamp: string;
+  scanDuration?: string;
+  status?: 'completed' | 'partial' | 'timeout';
+  processedCount?: number;
+  totalCount?: number;
 }
 
 const GapScannerPage: React.FC = () => {
@@ -39,12 +43,18 @@ const GapScannerPage: React.FC = () => {
         body: JSON.stringify({}),
       });
       
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       console.log("Gap Up Scan Data:", data);
       setScanData(data);
     } catch (error) {
       console.error('Error fetching gap up scan:', error);
       setScanData(null);
+      // Show error message to user
+      alert('Error scanning for gap-ups. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -68,6 +78,13 @@ const GapScannerPage: React.FC = () => {
           <div className="scan-header">
             <h2>Gap Up Stocks Found: {scanData.totalFound}</h2>
             <small>Last updated: {new Date(scanData.timestamp).toLocaleString()}</small>
+            {scanData.scanDuration && <small> • Duration: {scanData.scanDuration}</small>}
+            {scanData.status && scanData.status !== 'completed' && (
+              <div className="scan-status">
+                <small>Status: {scanData.status === 'timeout' ? 'Partial scan (timeout)' : 'Partial scan'} - 
+                Processed {scanData.processedCount}/{scanData.totalCount} stocks</small>
+              </div>
+            )}
           </div>
           
           <div className="stocks-grid">
