@@ -8,6 +8,7 @@ interface GapUpStock {
   gapPercentage: string;
   analysis: string;
   suitable: boolean;
+  isBlueChip?: boolean;
   openPrice?: string;
   highPrice?: string;
   lowPrice?: string;
@@ -95,9 +96,16 @@ const GapScannerPage: React.FC = () => {
                   {stock.companyName && (
                     <p className="company-name">{stock.companyName}</p>
                   )}
-                  <span className={`suitability-badge ${stock.suitable ? 'suitable' : 'not-suitable'}`}>
-                    {stock.suitable ? 'SUITABLE' : 'NOT SUITABLE'}
-                  </span>
+                  <div className="badges">
+                    <span className={`suitability-badge ${stock.suitable ? 'suitable' : 'not-suitable'}`}>
+                      {stock.suitable ? 'SUITABLE' : 'NOT SUITABLE'}
+                    </span>
+                    {stock.isBlueChip && (
+                      <span className="blue-chip-badge">
+                        BLUE CHIP
+                      </span>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="stock-details">

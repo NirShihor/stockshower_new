@@ -104,6 +104,7 @@ interface GapUpStock {
 	gapPercentage: string;
 	analysis: string;
 	suitable: boolean;
+	isBlueChip?: boolean;
 	openPrice?: string;
 	highPrice?: string;
 	lowPrice?: string;
@@ -127,6 +128,55 @@ interface ScanResult {
 // Polygon.io helper functions
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
 const POLYGON_BASE_URL = 'https://api.polygon.io';
+
+// Blue chip companies (S&P 100 + major companies)
+const BLUE_CHIP_STOCKS = new Set([
+	// Tech Giants
+	'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'NVDA', 'ORCL', 'CRM', 'ADBE', 'NFLX', 'CSCO', 'INTC', 'AMD', 'QCOM', 'AVGO', 'TXN',
+	
+	// Financial Services
+	'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'BLK', 'SCHW', 'AXP', 'V', 'MA', 'PYPL',
+	
+	// Healthcare & Pharma
+	'JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'LLY', 'TMO', 'ABT', 'DHR', 'CVS', 'MDT', 'BMY', 'AMGN', 'GILD', 'ISRG',
+	
+	// Consumer Goods
+	'WMT', 'HD', 'PG', 'KO', 'PEP', 'COST', 'MCD', 'NKE', 'SBUX', 'TGT', 'LOW', 'TJX',
+	
+	// Industrial
+	'BA', 'UPS', 'HON', 'UNP', 'CAT', 'GE', 'MMM', 'LMT', 'RTX', 'DE', 'FDX',
+	
+	// Energy
+	'XOM', 'CVX', 'COP', 'SLB',
+	
+	// Telecom & Utilities
+	'VZ', 'T', 'TMUS', 'NEE', 'DUK', 'SO', 'D',
+	
+	// Others
+	'BRK.A', 'BRK.B', 'SPY', 'QQQ', 'DIS', 'IBM', 'WBA'
+]);
+
+// Interface for grouped daily bars response
+interface GroupedDailyBar {
+	T: string; // ticker symbol
+	c: number; // close price
+	h: number; // high price
+	l: number; // low price
+	o: number; // open price
+	v: number; // volume
+	vw: number; // volume weighted average price
+	n?: number; // number of transactions
+	otc?: boolean; // OTC flag
+}
+
+interface GroupedDailyResponse {
+	status: string;
+	request_id: string;
+	adjusted: boolean;
+	queryCount: number;
+	resultsCount: number;
+	results: GroupedDailyBar[];
+}
 
 async function makePolygonRequest(endpoint: string, params: Record<string, string> = {}): Promise<any> {
 	try {
@@ -193,6 +243,23 @@ async function getPolygonIntradayBars(symbol: string, multiplier: number, timesp
 	}
 }
 
+async function getPolygonGroupedDaily(date: string): Promise<GroupedDailyBar[]> {
+	try {
+		console.log(`Getting grouped daily bars for ${date}`);
+		
+		const data = await makePolygonRequest(`/v2/aggs/grouped/locale/us/market/stocks/${date}`, {
+			adjusted: 'true',
+			include_otc: 'false'
+		}) as GroupedDailyResponse;
+		
+		console.log(`Market-wide scan: ${data.resultsCount} stocks found for ${date}`);
+		return data.results || [];
+	} catch (error) {
+		console.error(`Grouped daily request failed for ${date}:`, error);
+		throw error;
+	}
+}
+
 function calculate20DayHigh(bars: PolygonBar[]): number {
 	console.log('Calculating 20-day high, bars count:', bars.length);
 	if (!bars || bars.length === 0) {
@@ -200,7 +267,8 @@ function calculate20DayHigh(bars: PolygonBar[]): number {
 		return 0;
 	}
 
-	// Sort by timestamp descending (most recent first) and take last 20
+	// Sort by timestamp descending (most recent first) and take the most recent 20 bars
+	// Since we already excluded today's data from the API call, these are all previous days
 	const sortedBars = bars.sort((a, b) => b.t - a.t).slice(0, 20);
 	console.log('Number of bars for 20-day calc:', sortedBars.length);
 	
@@ -210,10 +278,10 @@ function calculate20DayHigh(bars: PolygonBar[]): number {
 	}
 	
 	const highs = sortedBars.map(bar => bar.h);
-	console.log('Sample highs:', highs.slice(0, 5));
+	console.log('Sample highs (previous days):', highs.slice(0, 5));
 	
 	const maxHigh = Math.max(...highs);
-	console.log('20-day high calculated:', maxHigh);
+	console.log('20-day high (previous 20 days) calculated:', maxHigh);
 	return maxHigh;
 }
 
@@ -233,6 +301,63 @@ async function testPolygonApiKey(): Promise<boolean> {
 		return response !== null;
 	} catch (error) {
 		return false;
+	}
+}
+
+async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yesterdayBar: GroupedDailyBar | null, twentyDayHigh: number): Promise<EnhancedStockData | null> {
+	try {
+		if (!yesterdayBar) {
+			console.warn(`No previous day data for ${todayBar.T}`);
+			return null;
+		}
+
+		const symbol = todayBar.T;
+		const currentPrice = todayBar.c; // Today's close price
+		const openPrice = todayBar.o; // Today's open price
+		const highPrice = todayBar.h; // Today's high price
+		const lowPrice = todayBar.l; // Today's low price
+		const previousClose = yesterdayBar.c; // Yesterday's close
+		const volume = todayBar.v; // Today's volume
+
+		// Calculate gap percentage (opening gap)
+		const gapPercentage = calculateGapPercentage(openPrice, previousClose);
+		
+		// Get company details including exchange info
+		let companyName = symbol;
+		let exchange = 'Unknown';
+		let marketCap = 0;
+		
+		try {
+			const tickerDetails = await getPolygonTickerDetails(symbol);
+			if (tickerDetails) {
+				companyName = tickerDetails.name || symbol;
+				exchange = tickerDetails.primary_exchange || 'Unknown';
+				marketCap = tickerDetails.market_cap || 0;
+			}
+		} catch (error) {
+			console.warn(`Could not get ticker details for ${symbol}:`, error);
+		}
+		
+		const enhancedData: EnhancedStockData = {
+			symbol,
+			currentPrice,
+			openPrice,
+			highPrice,
+			lowPrice,
+			previousClose,
+			volume,
+			marketCap,
+			twentyDayHigh,
+			gapPercentage,
+			companyName,
+			exchange,
+			currency: 'USD'
+		};
+
+		return enhancedData;
+	} catch (error) {
+		console.error(`Failed to get enhanced stock data for ${todayBar.T}:`, error);
+		return null;
 	}
 }
 
@@ -368,180 +493,211 @@ export const testPolygon = async (req: Request, res: Response) => {
 
 export const scanGapUps = async (req: Request, res: Response) => {
 	try {
-		console.log('Starting optimized Polygon gap up scan...');
+		console.log('Starting market-wide Polygon gap up scan...');
 		
-		// Comprehensive list of stocks to scan for gap-ups
-		// Includes large cap, mid cap, growth stocks, and volatile trading stocks
-		const popularStocks = [
-			// Tech Giants & FAANG
-			'AAPL', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'NVDA', 'AMD', 'INTC', 'ORCL',
-			'CRM', 'ADBE', 'NFLX', 'CSCO', 'AVGO', 'QCOM', 'TXN', 'MU', 'AMAT', 'LRCX',
-			
-			// Financial Services
-			'JPM', 'BAC', 'WFC', 'GS', 'MS', 'C', 'USB', 'PNC', 'BLK', 'SCHW',
-			'AXP', 'BX', 'KKR', 'APO', 'COF', 'DFS', 'SYF', 'AIG', 'PRU', 'MET',
-			'TFC', 'FITB', 'RF', 'KEY', 'ZION', 'HBAN', 'CFG', 'CMA', 'WAL', 'PBCT',
-			
-			// Healthcare & Biotech
-			'JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'LLY', 'TMO', 'ABT', 'DHR', 'CVS',
-			'MDT', 'BMY', 'AMGN', 'GILD', 'ISRG', 'SYK', 'BSX', 'ELV', 'CI', 'HUM',
-			'BIIB', 'REGN', 'VRTX', 'MRNA', 'BNTX', 'JNJ', 'RGEN', 'ALNY', 'BMRN', 'SGEN',
-			
-			// Consumer & Retail
-			'WMT', 'HD', 'PG', 'KO', 'PEP', 'COST', 'MCD', 'NKE', 'SBUX', 'TGT',
-			'LOW', 'TJX', 'WBA', 'KR', 'DLTR', 'DG', 'ROST', 'ULTA', 'BBY', 'GPS',
-			
-			// Energy & Commodities
-			'XOM', 'CVX', 'COP', 'SLB', 'OXY', 'DVN', 'MRO', 'HAL', 'BKR', 'APA', 
-			'EOG', 'PXD', 'FCX', 'NEM', 'GOLD', 'ABX', 'KGC', 'AUY', 'EQT', 'AR',
-			
-			// Industrial & Transport
-			'BA', 'UPS', 'HON', 'UNP', 'CAT', 'GE', 'MMM', 'LMT', 'RTX', 'DE',
-			'FDX', 'NSC', 'CSX', 'DAL', 'UAL', 'AAL', 'LUV', 'UBER', 'LYFT', 'ABNB',
-			'WM', 'RSG', 'PCAR', 'CMI', 'ITW', 'EMR', 'ETN', 'PH', 'ROK', 'DOV',
-			
-			// High-Volume Trading Stocks (Meme & Growth)
-			'SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VEA', 'VWO', 'ARKK', 'ARKW', 'ARKG',
-			'GME', 'AMC', 'BB', 'BBBY', 'PLTR', 'SOFI', 'WISH', 'CLOV', 'SPRT', 'IRNT',
-			'RIVN', 'LCID', 'NIO', 'XPEV', 'LI', 'BYDDY', 'F', 'GM', 'TSLA', 'GOEV',
-			
-			// High Growth Tech & Software
-			'SHOP', 'SQ', 'BLOC', 'ROKU', 'SNAP', 'PINS', 'TWTR', 'TWLO', 'DOCU', 'ZM',
-			'CRWD', 'DDOG', 'SNOW', 'NET', 'COIN', 'HOOD', 'RBLX', 'U', 'DASH', 'SE',
-			'MELI', 'SPOT', 'NFLX', 'DIS', 'CMCSA', 'CHTR', 'T', 'VZ', 'TMUS', 'DISH',
-			
-			// Semiconductors & Hardware
-			'TSM', 'ASML', 'KLAC', 'SNPS', 'CDNS', 'MRVL', 'ON', 'MCHP', 'ADI', 'NXPI',
-			'QRVO', 'SWKS', 'MXIM', 'XLNX', 'LSCC', 'SLAB', 'MPWR', 'CRUS', 'SITM', 'FORM',
-			
-			// Cloud & Enterprise Software
-			'V', 'MA', 'PYPL', 'ACN', 'INTU', 'NOW', 'SPGI', 'MMC', 'AON', 'MSI',
-			'ORCL', 'SAP', 'ADSK', 'CTXS', 'TEAM', 'WDAY', 'VEEV', 'SPLK', 'OKTA', 'ZS',
-			
-			// Biotech & Small Cap Growth
-			'SPCE', 'PTON', 'BYND', 'TDOC', 'MRTX', 'SAGE', 'BLUE', 'EDIT', 'CRSP', 'NTLA',
-			'FOLD', 'BEAM', 'VERV', 'PACB', 'ILMN', 'TMO', 'A', 'LIFE', 'QGEN', 'CDNA',
-			
-			// REITs & Utilities (for diversification)
-			'SPG', 'PLD', 'CCI', 'AMT', 'EQIX', 'DLR', 'PSA', 'O', 'WELL', 'AVB',
-			'NEE', 'DUK', 'SO', 'D', 'EXC', 'XEL', 'WEC', 'ES', 'AEP', 'SRE',
-			
-			// Chinese & International ADRs
-			'BABA', 'JD', 'PDD', 'BIDU', 'NTES', 'TME', 'WB', 'BILI', 'IQ', 'HUYA',
-			'ASHR', 'FXI', 'MCHI', 'KWEB', 'CQQQ', 'GXC', 'INDA', 'EPI', 'VWO', 'EEM',
-			
-			// Crypto-Related & Fintech
-			'COIN', 'HOOD', 'SQ', 'PYPL', 'SOFI', 'AFRM', 'UPST', 'LC', 'BTBT', 'RIOT',
-			'MARA', 'HUT', 'BITF', 'ARBKF', 'GBTC', 'ETHE', 'MSTR', 'TSLA', 'NVDA', 'AMD',
-			
-			// British Stocks (Major UK Companies - ADRs and direct listings)
-			'BP', 'SHEL', 'RIO', 'BHP', 'VOD', 'AZN', 'GSK', 'ULVR', 'ASML', 'NVO',
-			'BTI', 'DEO', 'UL', 'TTE', 'RHHBY', 'NESN', 'NOVN', 'ROG', 'SAP', 'SSNGY',
-			
-			// UK Banks & Financial (ADRs)
-			'HSBC', 'LYG', 'BBVA', 'SAN', 'ING', 'DB', 'CS', 'UBS', 'BCS', 'RBS',
-			
-			// UK Mining & Energy
-			'RIO', 'BHP', 'VALE', 'FCX', 'SCCO', 'TECK', 'NEM', 'GOLD', 'ABX', 'KGC',
-			
-			// UK Retail & Consumer
-			'UNLY', 'DEO', 'BTAFF', 'SBRY', 'TSCDY', 'MARKS', 'NEXT', 'BURBY', 'DGEAF', 'PSON'
-		];
+		// Get the most recent trading dates - go back enough days to ensure we get valid data
+		const mostRecentDay = new Date();
+		const previousDay = new Date();
+		
+		// Go back 1-4 days to find the most recent trading day (Friday if it's weekend)
+		mostRecentDay.setDate(mostRecentDay.getDate() - 1); // Start with yesterday
+		previousDay.setDate(previousDay.getDate() - 2); // Start with day before yesterday
+		
+		// If today is weekend, adjust to get Friday and Thursday
+		const dayOfWeek = new Date().getDay();
+		if (dayOfWeek === 0) { // Sunday - look at Friday/Thursday
+			mostRecentDay.setDate(mostRecentDay.getDate() - 1); // Friday
+			previousDay.setDate(previousDay.getDate() - 1); // Thursday
+		} else if (dayOfWeek === 6) { // Saturday - look at Friday/Thursday  
+			// mostRecentDay is already Friday, previousDay is already Thursday
+		}
+		
+		const todayStr = mostRecentDay.toISOString().split('T')[0];
+		const yesterdayStr = previousDay.toISOString().split('T')[0];
+		
+		console.log(`Scanning market data: Most Recent Trading Day=${todayStr}, Previous Trading Day=${yesterdayStr}`);
 
-		console.log(`Scanning ${popularStocks.length} stocks for gap-ups using Polygon data...`);
 		const startTime = Date.now();
-		const batchSize = 30; // Larger batch size for speed
 		const maxProcessingTime = 25000; // 25 seconds max to avoid timeout
-		console.log(`Processing in batches of ${batchSize} with timeout protection...`);
+
+		// Get market-wide data for today and yesterday
+		const [todayData, yesterdayData] = await Promise.all([
+			getPolygonGroupedDaily(todayStr),
+			getPolygonGroupedDaily(yesterdayStr)
+		]);
+
+		if (!todayData || todayData.length === 0) {
+			console.log(`No market data for ${todayStr}. Response:`, todayData);
+			return res.status(404).json({ 
+				error: `No market data available for ${todayStr}. Markets may be closed.` 
+			});
+		}
+
+		if (!yesterdayData || yesterdayData.length === 0) {
+			console.log(`No market data for ${yesterdayStr}. Response:`, yesterdayData);
+			return res.status(404).json({ 
+				error: `No previous day market data available for ${yesterdayStr}.` 
+			});
+		}
+
+		// Create lookup map for yesterday's data
+		const yesterdayMap = new Map<string, GroupedDailyBar>();
+		yesterdayData.forEach(bar => yesterdayMap.set(bar.T, bar));
+
+		console.log(`Processing ${todayData.length} stocks from market-wide scan...`);
 
 		const gapUpStocks: GapUpStock[] = [];
 		let processedCount = 0;
-		let shouldStop = false;
-		
-		// Process stocks in larger batches for fast processing
-		for (let i = 0; i < popularStocks.length && !shouldStop; i += batchSize) {
-			const batch = popularStocks.slice(i, i + batchSize);
-			
-			// Check if we're running out of time
+
+		// Filter and process stocks in batches
+		for (let i = 0; i < todayData.length; i += 100) {
+			// Check timeout
 			if (Date.now() - startTime > maxProcessingTime) {
 				console.log(`Stopping scan due to time limit (${maxProcessingTime/1000}s)`);
-				shouldStop = true;
 				break;
 			}
-			
-			const batchPromises = batch.map(async (symbol) => {
-				try {
-					// Add timeout to individual stock processing
-					const stockData = await Promise.race([
-						polygonService.getEnhancedStockData(symbol),
-						new Promise<EnhancedStockData>((_, reject) => setTimeout(() => reject(new Error('Stock timeout')), 3000))
-					]) as EnhancedStockData;
-					
-					// Check for gap up AND trading at or above 20-day high (enhanced criteria)
-					if (stockData && stockData.gapPercentage > 0.5 && stockData.currentPrice >= stockData.twentyDayHigh) {
-						console.log(`Found gap up above 20-day high: ${symbol} +${stockData.gapPercentage.toFixed(2)}% (current $${stockData.currentPrice.toFixed(2)} > 20-day high $${stockData.twentyDayHigh.toFixed(2)})`);
-						
-						// Gap and Go strategy criteria - must be above 20-day high
-						const suitable = stockData.volume > 100000 && // Lower volume threshold for broader coverage
-							stockData.gapPercentage > 0.5 && // Minimum 0.5% gap for testing (temporary)
-							stockData.gapPercentage < 20 && // Max 20% gap (avoid too volatile)
-							stockData.currentPrice > 3 && // Avoid penny stocks
-							stockData.currentPrice >= stockData.twentyDayHigh; // Must be at or above 20-day high
-						
-						// Get trading dates for clearer analysis
-						const openDate = new Date(Date.now()).toDateString(); // This will show the most recent trading day
-						const analysis = `${symbol} gapped up ${stockData.gapPercentage.toFixed(1)}% and is trading above its 20-day high of $${stockData.twentyDayHigh.toFixed(2)}. Open: $${stockData.openPrice.toFixed(2)}, Previous close: $${stockData.previousClose.toFixed(2)}, Current: $${stockData.currentPrice.toFixed(2)}. Volume: ${stockData.volume.toLocaleString()}. ${suitable ? 'SUITABLE' : 'NOT SUITABLE'} for gap-and-go strategy.`;
 
-						const gapUpStock: GapUpStock = {
-							stockSymbol: symbol,
-							currentPrice: `$${stockData.currentPrice.toFixed(2)}`,
-							twentyDayHigh: `$${stockData.twentyDayHigh.toFixed(2)}`,
-							gapPercentage: `${stockData.gapPercentage.toFixed(2)}%`,
-							openPrice: `$${stockData.openPrice.toFixed(2)}`,
-							highPrice: `$${stockData.highPrice.toFixed(2)}`,
-							lowPrice: `$${stockData.lowPrice.toFixed(2)}`,
-							previousClose: `$${stockData.previousClose.toFixed(2)}`,
-							volume: stockData.volume,
-							marketCap: stockData.marketCap,
-							companyName: stockData.companyName,
-							exchange: stockData.exchange,
-							analysis: analysis,
-							suitable: suitable
-						};
+			const batch = todayData.slice(i, i + 100);
+			
+			for (const todayBar of batch) {
+				try {
+					const symbol = todayBar.T;
+					const yesterdayBar = yesterdayMap.get(symbol);
+					
+					if (!yesterdayBar) continue;
+
+					// Calculate gap percentage
+					const gapPercentage = calculateGapPercentage(todayBar.o, yesterdayBar.c);
+					
+					// Pre-filter: Only check stocks with significant gaps and decent volume/price
+					if (gapPercentage > 2.5 && // Minimum 2.5% gap
+						todayBar.v > 100000 && // Minimum volume (increased for quality)
+						todayBar.o >= 5 && // No penny stocks (>= $5)
+						todayBar.o < 1000) { // Reasonable price range
 						
-						return gapUpStock;
+						// Skip 20-day high calculation during initial scan for speed
+						// We'll calculate it for the top results later
+						const twentyDayHigh = 0;
+						
+						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayHigh);
+						
+						if (stockData) {
+							// Suitable criteria for gap trading (quality stocks only)
+							const suitable = stockData.volume > 100000 && 
+								stockData.gapPercentage > 2.5 && 
+								stockData.currentPrice >= 5; // No penny stocks
+							
+							// ONLY show stocks that meet ALL criteria
+							if (suitable) {
+								const isBlueChip = BLUE_CHIP_STOCKS.has(symbol);
+								const blueChipLabel = isBlueChip ? ' [BLUE CHIP]' : '';
+								
+								console.log(`Found suitable gap up: ${symbol}${blueChipLabel} +${gapPercentage.toFixed(2)}% (Open: $${todayBar.o.toFixed(2)}, Prev Close: $${yesterdayBar.c.toFixed(2)}, Volume: ${todayBar.v.toLocaleString()})`);
+								
+								const analysis = `${symbol} gapped up ${stockData.gapPercentage.toFixed(1)}% on ${todayStr}. Open: $${stockData.openPrice.toFixed(2)}, Previous close: $${stockData.previousClose.toFixed(2)}, Current: $${stockData.currentPrice.toFixed(2)}. Volume: ${stockData.volume.toLocaleString()}. SUITABLE for gap trading.${isBlueChip ? ' This is a blue chip company.' : ''}`;
+
+								const gapUpStock: GapUpStock = {
+									stockSymbol: symbol,
+									currentPrice: `$${stockData.currentPrice.toFixed(2)}`,
+									twentyDayHigh: `$${stockData.twentyDayHigh.toFixed(2)}`,
+									gapPercentage: `${stockData.gapPercentage.toFixed(2)}%`,
+									openPrice: `$${stockData.openPrice.toFixed(2)}`,
+									highPrice: `$${stockData.highPrice.toFixed(2)}`,
+									lowPrice: `$${stockData.lowPrice.toFixed(2)}`,
+									previousClose: `$${stockData.previousClose.toFixed(2)}`,
+									volume: stockData.volume,
+									marketCap: stockData.marketCap,
+									companyName: stockData.companyName,
+									exchange: stockData.exchange,
+									analysis: analysis,
+									suitable: true, // All displayed stocks are suitable
+									isBlueChip: isBlueChip
+								};
+								
+								gapUpStocks.push(gapUpStock);
+							} else {
+								console.log(`Filtered out ${symbol} +${gapPercentage.toFixed(2)}% - doesn't meet criteria (Price: $${stockData.currentPrice.toFixed(2)}, Volume: ${stockData.volume.toLocaleString()})`);
+							}
+						}
 					}
 				} catch (error: any) {
-					console.error(`Error checking ${symbol}:`, error.message || error);
+					console.error(`Error processing ${todayBar.T}:`, error.message || error);
 				}
-				return null;
-			});
+				processedCount++;
+			}
+			
+			if (i % 500 === 0) {
+				console.log(`Processed ${processedCount}/${todayData.length} stocks, found ${gapUpStocks.length} gap-ups`);
+			}
+		}
 
-			const batchResults = await Promise.all(batchPromises);
-			const validResults = batchResults.filter(result => result !== null) as GapUpStock[];
-			gapUpStocks.push(...validResults);
-			processedCount += batch.length;
+		// Sort by gap percentage (highest first)
+		gapUpStocks.sort((a, b) => parseFloat(b.gapPercentage) - parseFloat(a.gapPercentage));
 
-			// Rate limiting: minimal delay to avoid timeout
-			if (i + batchSize < popularStocks.length && !shouldStop) {
-				console.log(`Processing next batch (${processedCount}/${popularStocks.length})...`);
-				await new Promise(resolve => setTimeout(resolve, 200)); // 0.2 second delay for speed
+		// Phase 2: Calculate 20-day highs for ALL gap-up stocks that meet criteria
+		console.log(`Phase 2: Calculating 20-day highs for all ${gapUpStocks.length} qualifying stocks...`);
+		const topStocks = gapUpStocks; // Calculate for ALL results
+		
+		for (let i = 0; i < topStocks.length; i++) {
+			const stock = topStocks[i];
+			try {
+				// Get historical data EXCLUDING the most recent trading day
+				// We want 20-day high from BEFORE today's gap, not including today
+				// Use 40 days to ensure we get at least 20 trading days (accounting for weekends/holidays)
+				const fortyDaysAgo = new Date();
+				fortyDaysAgo.setDate(fortyDaysAgo.getDate() - 40);
+				const fromDate = fortyDaysAgo.toISOString().split('T')[0];
+				
+				// Use previousDay as the end date to EXCLUDE today's data
+				const toDate = previousDay.toISOString().split('T')[0];
+				
+				console.log(`Getting historical data for ${stock.stockSymbol}: ${fromDate} to ${toDate} (excluding most recent day)`);
+				
+				const historicalBars = await getPolygonDailyBars(stock.stockSymbol, fromDate, toDate);
+				
+				if (historicalBars && historicalBars.length >= 20) {
+					console.log(`${stock.stockSymbol}: Processing ${historicalBars.length} historical bars`);
+					
+					// Debug: show the date range of the data we got
+					const sortedBars = historicalBars.sort((a, b) => b.t - a.t);
+					const latestBarDate = new Date(sortedBars[0].t).toISOString().split('T')[0];
+					const oldestBarDate = new Date(sortedBars[sortedBars.length - 1].t).toISOString().split('T')[0];
+					console.log(`${stock.stockSymbol}: Historical data range: ${oldestBarDate} to ${latestBarDate}`);
+					
+					// Debug: show current price vs what we're about to calculate
+					const currentPrice = parseFloat(stock.currentPrice.replace('$', ''));
+					console.log(`${stock.stockSymbol}: Current price: $${currentPrice.toFixed(2)}`);
+					
+					const twentyDayHigh = calculate20DayHigh(historicalBars);
+					stock.twentyDayHigh = `$${twentyDayHigh.toFixed(2)}`;
+					
+					console.log(`${stock.stockSymbol}: 20-day high: $${twentyDayHigh.toFixed(2)}, Current: $${currentPrice.toFixed(2)}, Equal? ${Math.abs(twentyDayHigh - currentPrice) < 0.01}`);
+				} else {
+					console.log(`${stock.stockSymbol}: Not enough historical data (${historicalBars?.length || 0} bars)`);
+					// Use today's high as fallback
+					const currentPrice = parseFloat(stock.currentPrice.replace('$', ''));
+					stock.twentyDayHigh = `$${currentPrice.toFixed(2)}`;
+					console.log(`${stock.stockSymbol}: Using current price as 20-day high fallback`);
+				}
+			} catch (error) {
+				console.warn(`Could not calculate 20-day high for ${stock.stockSymbol}:`, error);
+				// Keep the $0.00 value to indicate calculation failed
 			}
 		}
 
 		const endTime = Date.now();
 		const duration = (endTime - startTime) / 1000;
-		console.log(`Found ${gapUpStocks.length} stocks gapping up AND trading above their 20-day highs`);
-		console.log(`Processed ${processedCount}/${popularStocks.length} stocks in ${duration.toFixed(2)} seconds`);
+		console.log(`Market-wide scan complete: Found ${gapUpStocks.length} gap-up stocks`);
+		console.log(`Processed ${processedCount}/${todayData.length} stocks in ${duration.toFixed(2)} seconds`);
 
 		const result: ScanResult = {
-			stocks: gapUpStocks,
+			stocks: gapUpStocks.slice(0, 50), // Limit to top 50 results
 			totalFound: gapUpStocks.length,
 			timestamp: new Date(),
 			scanDuration: `${duration.toFixed(2)}s`,
-			status: processedCount === popularStocks.length ? 'completed' : shouldStop ? 'timeout' : 'partial',
+			status: processedCount === todayData.length ? 'completed' : 'timeout',
 			processedCount,
-			totalCount: popularStocks.length
+			totalCount: todayData.length
 		};
 
 		return res.status(200).json(result);
