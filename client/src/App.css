@@ -385,6 +385,13 @@ h1 {
   color: #2c3e50;
 }
 
+.badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
 .suitability-badge {
   padding: 8px 16px;
   border-radius: 20px;
@@ -400,6 +407,16 @@ h1 {
 .suitability-badge.not-suitable {
   background-color: #e74c3c;
   color: white;
+}
+
+.blue-chip-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  background-color: #3498db;
+  color: white;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: 2px solid #2980b9;
 }
 
 .analysis-content {

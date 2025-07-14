@@ -36,16 +36,18 @@ import analysisRoutes from './src/routes/analysis.js';
 
 app.use('/api/analysis', analysisRoutes);
 
-// Serve static React build files
-// Determine client build path - works for both development and production
-const clientBuildPath = path.resolve(__dirname, '../client/build');
-const clientBuildPathAlt = path.resolve(__dirname, '../../client/build');
-const finalClientBuildPath = fs.existsSync(clientBuildPath) ? clientBuildPath : clientBuildPathAlt;
-// Debug: uncomment for path troubleshooting
-// console.log('Server __dirname:', __dirname);
-// console.log('Final client build path:', finalClientBuildPath);
-// console.log('Client build exists:', fs.existsSync(finalClientBuildPath));
-app.use(express.static(finalClientBuildPath));
+// Serve static React build files ONLY in production
+if (process.env.NODE_ENV === 'production') {
+  // Determine client build path - works for both development and production
+  const clientBuildPath = path.resolve(__dirname, '../client/build');
+  const clientBuildPathAlt = path.resolve(__dirname, '../../client/build');
+  const finalClientBuildPath = fs.existsSync(clientBuildPath) ? clientBuildPath : clientBuildPathAlt;
+  
+  console.log('Production mode: serving static React files from', finalClientBuildPath);
+  app.use(express.static(finalClientBuildPath));
+} else {
+  console.log('Development mode: React dev server should handle frontend on port 3000');
+}
 
 // API health check route  
 app.get('/api/health', (req: Request, res: Response) => {
@@ -57,22 +59,27 @@ app.get('/test', (req: Request, res: Response) => {
   res.status(200).json({ message: 'CORS test successful' });
 });
 
-// Serve React app for all non-API routes (must be last)
-app.get('*', (req: Request, res: Response) => {
-  // Skip API routes
-  if (req.path.startsWith('/api') || req.path === '/test') {
-    res.status(404).json({ error: 'API route not found' });
-    return;
-  }
-  
-  // Try to serve React app
-  try {
-    res.sendFile(path.join(finalClientBuildPath, 'index.html'));
-  } catch (error) {
-    console.error('Error serving React app:', error);
-    res.status(500).json({ error: 'Unable to serve application' });
-  }
-});
+// Serve React app for all non-API routes (only in production)
+if (process.env.NODE_ENV === 'production') {
+  app.get('*', (req: Request, res: Response) => {
+    // Skip API routes
+    if (req.path.startsWith('/api') || req.path === '/test') {
+      res.status(404).json({ error: 'API route not found' });
+      return;
+    }
+    
+    // Try to serve React app
+    try {
+      const clientBuildPath = path.resolve(__dirname, '../client/build');
+      const clientBuildPathAlt = path.resolve(__dirname, '../../client/build');
+      const finalClientBuildPath = fs.existsSync(clientBuildPath) ? clientBuildPath : clientBuildPathAlt;
+      res.sendFile(path.join(finalClientBuildPath, 'index.html'));
+    } catch (error) {
+      console.error('Error serving React app:', error);
+      res.status(500).json({ error: 'Unable to serve application' });
+    }
+  });
+}
 
   // Start server
   const startServer = () => {
