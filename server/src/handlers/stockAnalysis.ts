@@ -83,6 +83,7 @@ interface PolygonPreviousCloseResponse {
 interface EnhancedStockData {
   symbol: string;
   currentPrice: number;
+  livePrice?: number;
   openPrice: number;
   highPrice: number;
   lowPrice: number;
@@ -94,12 +95,15 @@ interface EnhancedStockData {
   companyName: string;
   exchange: string;
   currency: string;
+  first15MinHigh?: number;
+  first15MinClose?: number;
 }
 
 
 interface GapUpStock {
 	stockSymbol: string;
 	currentPrice: string;
+	livePrice?: string;
 	twentyDayHigh: string;
 	gapPercentage: string;
 	analysis: string;
@@ -113,6 +117,8 @@ interface GapUpStock {
 	marketCap?: number;
 	companyName?: string;
 	exchange?: string;
+	first15MinHigh?: string;
+	first15MinClose?: string;
 }
 
 interface ScanResult {
@@ -243,6 +249,30 @@ async function getPolygonIntradayBars(symbol: string, multiplier: number, timesp
 	}
 }
 
+async function getPolygonLivePrice(symbol: string): Promise<number | null> {
+	try {
+		// Try to get the last trade price
+		const data = await makePolygonRequest(`/v2/last/trade/${symbol}`);
+		if (data.results && data.results.price) {
+			console.log(`Live price for ${symbol}: $${data.results.price}`);
+			return data.results.price;
+		}
+		
+		// Fallback to last quote
+		const quoteData = await makePolygonRequest(`/v1/last_quote/stocks/${symbol}`);
+		if (quoteData.last && quoteData.last.bid && quoteData.last.ask) {
+			const midPrice = (quoteData.last.bid + quoteData.last.ask) / 2;
+			console.log(`Live price for ${symbol} (from quote): $${midPrice}`);
+			return midPrice;
+		}
+		
+		return null;
+	} catch (error) {
+		console.warn(`Could not get live price for ${symbol}:`, error);
+		return null;
+	}
+}
+
 async function getPolygonGroupedDaily(date: string): Promise<GroupedDailyBar[]> {
 	try {
 		console.log(`Getting grouped daily bars for ${date}`);
@@ -322,6 +352,34 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 		// Calculate gap percentage (opening gap)
 		const gapPercentage = calculateGapPercentage(openPrice, previousClose);
 		
+		// Calculate first 15 minutes high and close
+		let first15MinHigh = highPrice; // Default to day's high if we can't get intraday data
+		let first15MinClose = currentPrice; // Default to current price if we can't get intraday data
+		
+		try {
+			// Get today's intraday data to find first 15 minutes high and close
+			const today = new Date().toISOString().split('T')[0];
+			const intradayBars = await getPolygonIntradayBars(symbol, 1, 'minute', today, today);
+			
+			if (intradayBars && intradayBars.length > 0) {
+				// Sort by timestamp to get chronological order
+				const sortedBars = intradayBars.sort((a, b) => a.t - b.t);
+				
+				// Find market open time (9:30 AM EST = 14:30 UTC)
+				// Take first 15 bars (15 minutes) after market open
+				const first15Minutes = sortedBars.slice(0, 15);
+				
+				if (first15Minutes.length > 0) {
+					first15MinHigh = Math.max(...first15Minutes.map(bar => bar.h));
+					// The close price of the 15th minute (last bar in the first 15 minutes)
+					first15MinClose = first15Minutes[first15Minutes.length - 1].c;
+					console.log(`${symbol}: First 15min high: $${first15MinHigh.toFixed(2)}, close: $${first15MinClose.toFixed(2)} from ${first15Minutes.length} bars`);
+				}
+			}
+		} catch (error) {
+			console.warn(`Could not get first 15min data for ${symbol}, using defaults: ${error}`);
+		}
+		
 		// Get company details including exchange info
 		let companyName = symbol;
 		let exchange = 'Unknown';
@@ -351,7 +409,9 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 			gapPercentage,
 			companyName,
 			exchange,
-			currency: 'USD'
+			currency: 'USD',
+			first15MinHigh,
+			first15MinClose
 		};
 
 		return enhancedData;
@@ -423,9 +483,18 @@ async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData |
 		const twentyDayHigh = calculate20DayHigh(dailyBars);
 		const breakoutPercentage = calculateBreakoutPercentage(currentPrice, twentyDayHigh);
 
+		// Get live price during market hours
+		let livePrice: number | undefined;
+		try {
+			livePrice = await getPolygonLivePrice(symbol) || undefined;
+		} catch (error) {
+			console.warn(`Could not get live price for ${symbol}:`, error);
+		}
+
 		const enhancedData: EnhancedStockData = {
 			symbol,
 			currentPrice,
+			livePrice,
 			openPrice,
 			highPrice,
 			lowPrice,
@@ -578,7 +647,8 @@ export const scanGapUps = async (req: Request, res: Response) => {
 					const gapPercentage = calculateGapPercentage(todayBar.o, yesterdayBar.c);
 					
 					// Pre-filter: Only check stocks with significant gaps and decent volume/price
-					if (gapPercentage > 2.5 && // Minimum 2.5% gap
+					if (gapPercentage >= 2.5 && // Minimum 2.5% gap
+						gapPercentage <= 10 && // Maximum 10% gap (avoid extreme volatility)
 						todayBar.v > 100000 && // Minimum volume (increased for quality)
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000) { // Reasonable price range
@@ -592,7 +662,8 @@ export const scanGapUps = async (req: Request, res: Response) => {
 						if (stockData) {
 							// Suitable criteria for gap trading (quality stocks only)
 							const suitable = stockData.volume > 100000 && 
-								stockData.gapPercentage > 2.5 && 
+								stockData.gapPercentage >= 2.5 && 
+								stockData.gapPercentage <= 10 && // Maximum 10% gap
 								stockData.currentPrice >= 5; // No penny stocks
 							
 							// ONLY show stocks that meet ALL criteria
@@ -607,6 +678,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 								const gapUpStock: GapUpStock = {
 									stockSymbol: symbol,
 									currentPrice: `$${stockData.currentPrice.toFixed(2)}`,
+									livePrice: stockData.livePrice ? `$${stockData.livePrice.toFixed(2)}` : undefined,
 									twentyDayHigh: `$${stockData.twentyDayHigh.toFixed(2)}`,
 									gapPercentage: `${stockData.gapPercentage.toFixed(2)}%`,
 									openPrice: `$${stockData.openPrice.toFixed(2)}`,
@@ -619,7 +691,9 @@ export const scanGapUps = async (req: Request, res: Response) => {
 									exchange: stockData.exchange,
 									analysis: analysis,
 									suitable: true, // All displayed stocks are suitable
-									isBlueChip: isBlueChip
+									isBlueChip: isBlueChip,
+									first15MinHigh: stockData.first15MinHigh ? `$${stockData.first15MinHigh.toFixed(2)}` : undefined,
+									first15MinClose: stockData.first15MinClose ? `$${stockData.first15MinClose.toFixed(2)}` : undefined
 								};
 								
 								gapUpStocks.push(gapUpStock);
@@ -715,9 +789,68 @@ export const scanGapUps = async (req: Request, res: Response) => {
 	}
 };
 
-// This function is no longer needed since we're using direct Polygon scanning
-
-// Old prompt function - no longer needed since we're using direct Polygon scanning
+// Function to get all available stocks for charting
+export const getAvailableStocks = async (req: Request, res: Response) => {
+	try {
+		// Get all stocks from market-wide data instead of static list
+		const today = new Date();
+		const dayOfWeek = today.getDay();
+		
+		let mostRecentDay = new Date(today);
+		
+		if (dayOfWeek === 0) { // Sunday
+			mostRecentDay.setDate(today.getDate() - 2); // Friday
+		} else if (dayOfWeek === 1) { // Monday
+			mostRecentDay.setDate(today.getDate() - 3); // Friday
+		} else if (dayOfWeek === 6) { // Saturday
+			mostRecentDay.setDate(today.getDate() - 1); // Friday
+		} else { // Tuesday-Friday
+			mostRecentDay.setDate(today.getDate() - 1); // Yesterday
+		}
+		
+		const todayStr = mostRecentDay.toISOString().split('T')[0];
+		
+		console.log(`Getting available stocks from market data for ${todayStr}`);
+		
+		// Get market-wide data to get all available symbols
+		const marketData = await getPolygonGroupedDaily(todayStr);
+		
+		if (!marketData || marketData.length === 0) {
+			return res.status(404).json({ 
+				error: `No market data available for ${todayStr}` 
+			});
+		}
+		
+		// Filter and format stocks for dropdown
+		const availableStocks = marketData
+			.filter(stock => 
+				stock.v > 10000 && // Minimum volume
+				stock.c > 1 && // Minimum price
+				stock.c < 1000 && // Maximum price
+				stock.T.length <= 5 && // Filter out complex symbols
+				!stock.T.includes('.') // No warrants/special symbols
+			)
+			.map(stock => ({
+				symbol: stock.T,
+				name: stock.T, // We'll use symbol as name for now
+				price: stock.c,
+				volume: stock.v
+			}))
+			.sort((a, b) => a.symbol.localeCompare(b.symbol));
+		
+		console.log(`Found ${availableStocks.length} available stocks for charting`);
+		
+		return res.status(200).json({
+			stocks: availableStocks,
+			count: availableStocks.length,
+			date: todayStr
+		});
+		
+	} catch (error) {
+		console.error('Error getting available stocks:', error);
+		return res.status(500).json({ error: 'Failed to get available stocks' });
+	}
+};
 
 export const getChartData = async (req: Request, res: Response) => {
 	try {
@@ -762,6 +895,12 @@ export const getChartData = async (req: Request, res: Response) => {
 				toDateStr = today;
 				console.log(`15min: From ${fromDateStr} to ${toDateStr}`);
 				bars = await getPolygonIntradayBars(symbol.toUpperCase(), 1, 'minute', fromDateStr, toDateStr);
+				console.log(`15min bars received: ${bars.length} bars`);
+				if (bars.length > 0) {
+					const firstBar = new Date(bars[0].t);
+					const lastBar = new Date(bars[bars.length - 1].t);
+					console.log(`15min data range: ${firstBar.toLocaleString()} to ${lastBar.toLocaleString()}`);
+				}
 				timeFormat = 'HH:mm';
 			} else if (hoursBack <= 1) {
 				// 1 hour - use 1 minute bars for today only
@@ -833,6 +972,12 @@ export const getChartData = async (req: Request, res: Response) => {
 				};
 			});
 
+		console.log(`Chart data formatted: ${chartData.length} points`);
+		if (chartData.length > 0) {
+			console.log(`First chart point: ${chartData[0].time} (${new Date(chartData[0].timestamp).toLocaleString()})`);
+			console.log(`Last chart point: ${chartData[chartData.length - 1].time} (${new Date(chartData[chartData.length - 1].timestamp).toLocaleString()})`);
+		}
+
 		// Get company details for chart title
 		const companyDetails = await getPolygonTickerDetails(symbol.toUpperCase());
 
@@ -853,4 +998,34 @@ export const getChartData = async (req: Request, res: Response) => {
 	}
 };
 
-// Old parsing function - no longer needed since we're using direct Polygon scanning
+export const getLivePrice = async (req: Request, res: Response) => {
+	try {
+		const { symbol } = req.params;
+		
+		if (!symbol) {
+			return res.status(400).json({ error: 'Stock symbol is required' });
+		}
+
+		console.log(`Getting live price for ${symbol.toUpperCase()}`);
+		
+		const livePrice = await getPolygonLivePrice(symbol.toUpperCase());
+		
+		if (livePrice !== null) {
+			return res.status(200).json({
+				symbol: symbol.toUpperCase(),
+				livePrice: `$${livePrice.toFixed(2)}`,
+				timestamp: new Date().toISOString()
+			});
+		} else {
+			return res.status(404).json({ 
+				error: `Live price not available for ${symbol.toUpperCase()}` 
+			});
+		}
+
+	} catch (error) {
+		console.error('Error getting live price:', error);
+		return res.status(500).json({ error: 'Failed to get live price' });
+	}
+};
+
+// End of file

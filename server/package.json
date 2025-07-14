@@ -19,8 +19,8 @@
   "scripts": {
     "start": "node dist/server.js",
     "build": "tsc",
-    "dev": "nodemon --exec \"node --loader ts-node/esm server.ts\"",
-    "watch": "nodemon --exec ts-node server.ts"
+    "dev": "nodemon --exec tsx server.ts",
+    "watch": "tsx watch server.ts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -28,7 +28,7 @@
     "@types/mongoose": "^5.11.97",
     "@types/node": "^24.0.4",
     "nodemon": "^3.1.10",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.7.0",
     "typescript": "^5.7.3"
   }
 }

@@ -1,5 +1,5 @@
 import express, { Request, Response, Router } from 'express';
-import { scanGapUps, testPolygon, getChartData } from '../handlers/stockAnalysis.js';
+import { scanGapUps, testPolygon, getChartData, getAvailableStocks, getLivePrice } from '../handlers/stockAnalysis.js';
 
 const router: Router = express.Router();
 
@@ -13,6 +13,14 @@ router.get('/test-polygon', (req: Request, res: Response) => {
 
 router.get('/chart/:symbol', (req: Request, res: Response) => {
   getChartData(req, res);
+});
+
+router.get('/available-stocks', (req: Request, res: Response) => {
+  getAvailableStocks(req, res);
+});
+
+router.get('/chart/:symbol/live-price', (req: Request, res: Response) => {
+  getLivePrice(req, res);
 });
 
 export default router;

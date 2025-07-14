@@ -111,15 +111,16 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
   }
 
   // Create candlestick chart data
-  const formattedData = chartData.data.map((d, index) => ({
-    x: index, // Use simple index instead of timestamp
+  const formattedData = chartData.data.map((d) => ({
+    x: d.timestamp, // Use actual timestamp for proper time axis
     o: d.open,
     h: d.high,
     l: d.low,
     c: d.close
   }));
 
-  console.log('Formatted chart data for Chart.js:', formattedData.slice(0, 3));
+  console.log('Formatted chart data for Chart.js:', formattedData.length, 'points');
+  console.log('Sample formatted data:', formattedData.slice(0, 3));
   console.log('Chart.js registered controllers:', ChartJS.registry.controllers);
 
   const candlestickData = {
@@ -138,7 +139,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
     ]
   };
 
-  const options = {
+  const options: any = {
     responsive: true,
     plugins: {
       legend: {
@@ -168,18 +169,17 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
     },
     scales: {
       x: {
-        type: 'linear' as const, // Use linear instead of time to avoid timezone issues
+        type: 'time' as const,
+        time: {
+          unit: days < 1 ? ('minute' as const) : ('day' as const),
+          displayFormats: {
+            minute: 'HH:mm',
+            day: 'MM-dd'
+          }
+        },
         title: {
           display: true,
           text: 'Time'
-        },
-        ticks: {
-          callback: function(value: any, index: number) {
-            if (chartData && chartData.data[index]) {
-              return chartData.data[index].time; // Use our formatted time labels
-            }
-            return '';
-          }
         }
       },
       y: {

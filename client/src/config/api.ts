@@ -14,4 +14,5 @@ export const API_ENDPOINTS = {
   scanGapUps: `${API_BASE_URL}/scan-gap-ups`,
   testPolygon: `${API_BASE_URL}/test-polygon`,
   chart: (symbol: string) => `${API_BASE_URL}/chart/${symbol}`,
+  availableStocks: `${API_BASE_URL}/available-stocks`,
 };
