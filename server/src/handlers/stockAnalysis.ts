@@ -495,21 +495,29 @@ export const scanGapUps = async (req: Request, res: Response) => {
 	try {
 		console.log('Starting market-wide Polygon gap up scan...');
 		
-		// Get the most recent trading dates - go back enough days to ensure we get valid data
-		const mostRecentDay = new Date();
-		const previousDay = new Date();
+		// Get the most recent trading dates - handle weekends and holidays properly
+		const today = new Date();
+		const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, 6=Saturday
 		
-		// Go back 1-4 days to find the most recent trading day (Friday if it's weekend)
-		mostRecentDay.setDate(mostRecentDay.getDate() - 1); // Start with yesterday
-		previousDay.setDate(previousDay.getDate() - 2); // Start with day before yesterday
+		let mostRecentDay = new Date(today);
+		let previousDay = new Date(today);
 		
-		// If today is weekend, adjust to get Friday and Thursday
-		const dayOfWeek = new Date().getDay();
-		if (dayOfWeek === 0) { // Sunday - look at Friday/Thursday
-			mostRecentDay.setDate(mostRecentDay.getDate() - 1); // Friday
-			previousDay.setDate(previousDay.getDate() - 1); // Thursday
-		} else if (dayOfWeek === 6) { // Saturday - look at Friday/Thursday  
-			// mostRecentDay is already Friday, previousDay is already Thursday
+		if (dayOfWeek === 0) { // Sunday
+			// Most recent trading day is Friday, previous is Thursday
+			mostRecentDay.setDate(today.getDate() - 2); // Friday
+			previousDay.setDate(today.getDate() - 3); // Thursday
+		} else if (dayOfWeek === 1) { // Monday
+			// Most recent trading day is Friday, previous is Thursday
+			mostRecentDay.setDate(today.getDate() - 3); // Friday
+			previousDay.setDate(today.getDate() - 4); // Thursday
+		} else if (dayOfWeek === 6) { // Saturday
+			// Most recent trading day is Friday, previous is Thursday
+			mostRecentDay.setDate(today.getDate() - 1); // Friday
+			previousDay.setDate(today.getDate() - 2); // Thursday
+		} else { // Tuesday-Friday
+			// Most recent trading day is yesterday, previous is day before
+			mostRecentDay.setDate(today.getDate() - 1); // Yesterday
+			previousDay.setDate(today.getDate() - 2); // Day before yesterday
 		}
 		
 		const todayStr = mostRecentDay.toISOString().split('T')[0];
