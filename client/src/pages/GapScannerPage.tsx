@@ -282,7 +282,11 @@ const GapScannerPage: React.FC = () => {
           
           <div className="stocks-grid">
             {scanData.stocks.map((stock, index) => (
-              <div key={index} className={`stock-card ${stock.suitable ? 'suitable' : 'not-suitable'}`}>
+              <div key={index} className={`stock-card ${stock.suitable ? 'suitable' : 'not-suitable'}`} style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between'
+              }}>
                 <div className="stock-header">
                   <h3>{stock.stockSymbol}</h3>
                   {stock.companyName && (
@@ -417,7 +421,16 @@ const GapScannerPage: React.FC = () => {
                   <p>{stock.analysis}</p>
                 </div>
 
-                <div className="live-tracking-controls" style={{marginTop: '1rem', padding: '0.75rem', backgroundColor: '#f8f9fa', borderRadius: '4px', borderTop: '1px solid #e9ecef'}}>
+                <div className="live-tracking-controls" style={{
+                  position: 'relative',
+                  bottom: '0',
+                  marginTop: '1rem',
+                  marginBottom: '1rem',
+                  padding: '0.75rem',
+                  backgroundColor: '#f8f9fa', 
+                  borderRadius: '4px', 
+                  borderTop: '1px solid #e9ecef'
+                }}>
                   {!trackingStocks.has(stock.stockSymbol) ? (
                     <button 
                       className="analysis-button"
