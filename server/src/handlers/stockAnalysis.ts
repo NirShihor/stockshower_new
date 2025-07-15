@@ -449,17 +449,20 @@ async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData |
 		const latestBar = sortedBars[0]; // Most recent trading day
 		const previousBar = sortedBars[1]; // Previous trading day
 		
-		// Convert timestamp to readable date for logging
-		const latestDate = new Date(latestBar.t).toDateString();
-		const previousDate = new Date(previousBar.t).toDateString();
-		console.log(`Analyzing gap for ${symbol}: ${latestDate} open vs ${previousDate} close`);
-
 		const currentPrice = latestBar.c; // Latest close price
 		const openPrice = latestBar.o; // Latest open price
 		const highPrice = latestBar.h; // Latest high price
 		const lowPrice = latestBar.l; // Latest low price
 		const previousClose = previousBar.c; // Previous day's close
 		const volume = latestBar.v; // Latest volume
+
+		// Convert timestamp to readable date for logging
+		const latestDate = new Date(latestBar.t).toDateString();
+		const previousDate = new Date(previousBar.t).toDateString();
+		console.log(`Analyzing gap for ${symbol}: ${latestDate} open vs ${previousDate} close`);
+		console.log(`Raw data - Latest: Open=${openPrice}, Close=${currentPrice}, High=${highPrice}, Low=${lowPrice}, Volume=${volume}`);
+		console.log(`Raw data - Previous: Close=${previousClose}`);
+		console.log(`Timestamps - Latest: ${latestBar.t}, Previous: ${previousBar.t}`);
 
 		// Calculate multiple types of gaps
 		const openingGap = calculateGapPercentage(openPrice, previousClose);        // Open vs prev close
@@ -576,21 +579,21 @@ export const scanGapUps = async (req: Request, res: Response) => {
 			mostRecentDay.setDate(today.getDate() - 2); // Friday
 			previousDay.setDate(today.getDate() - 3); // Thursday
 		} else if (dayOfWeek === 1) { // Monday
-			// Most recent trading day is Friday, previous is Thursday
-			mostRecentDay.setDate(today.getDate() - 3); // Friday
-			previousDay.setDate(today.getDate() - 4); // Thursday
+			// Most recent trading day is TODAY (Monday), previous is Friday
+			mostRecentDay = new Date(today); // Today (Monday)
+			previousDay.setDate(today.getDate() - 3); // Friday
 		} else if (dayOfWeek === 6) { // Saturday
 			// Most recent trading day is Friday, previous is Thursday
 			mostRecentDay.setDate(today.getDate() - 1); // Friday
 			previousDay.setDate(today.getDate() - 2); // Thursday
 		} else { // Tuesday-Friday
-			// Most recent trading day is yesterday, previous is day before
-			mostRecentDay.setDate(today.getDate() - 1); // Yesterday
-			previousDay.setDate(today.getDate() - 2); // Day before yesterday
+			// Most recent trading day is TODAY, previous is yesterday
+			mostRecentDay = new Date(today); // Today
+			previousDay.setDate(today.getDate() - 1); // Yesterday
 		}
 		
-		const todayStr = mostRecentDay.toISOString().split('T')[0];
-		const yesterdayStr = previousDay.toISOString().split('T')[0];
+		let todayStr = mostRecentDay.toISOString().split('T')[0];
+		let yesterdayStr = previousDay.toISOString().split('T')[0];
 		
 		console.log(`Scanning market data: Most Recent Trading Day=${todayStr}, Previous Trading Day=${yesterdayStr}`);
 
@@ -598,16 +601,51 @@ export const scanGapUps = async (req: Request, res: Response) => {
 		const maxProcessingTime = 25000; // 25 seconds max to avoid timeout
 
 		// Get market-wide data for today and yesterday
-		const [todayData, yesterdayData] = await Promise.all([
+		let [todayData, yesterdayData] = await Promise.all([
 			getPolygonGroupedDaily(todayStr),
 			getPolygonGroupedDaily(yesterdayStr)
 		]);
 
 		if (!todayData || todayData.length === 0) {
-			console.log(`No market data for ${todayStr}. Response:`, todayData);
-			return res.status(404).json({ 
-				error: `No market data available for ${todayStr}. Markets may be closed.` 
-			});
+			console.log(`No market data for ${todayStr}. Falling back to previous day analysis.`);
+			// If today's data isn't available, shift back to the most recent available trading day
+			const fallbackToday = new Date(mostRecentDay);
+			fallbackToday.setDate(fallbackToday.getDate() - 1);
+			
+			// For fallback yesterday, we need to skip weekends properly
+			const fallbackYesterday = new Date(fallbackToday);
+			const fallbackDayOfWeek = fallbackToday.getDay();
+			
+			if (fallbackDayOfWeek === 1) { // Monday
+				fallbackYesterday.setDate(fallbackToday.getDate() - 3); // Friday
+			} else {
+				fallbackYesterday.setDate(fallbackToday.getDate() - 1); // Previous day
+			}
+			
+			const fallbackTodayStr = fallbackToday.toISOString().split('T')[0];
+			const fallbackYesterdayStr = fallbackYesterday.toISOString().split('T')[0];
+			
+			console.log(`Trying fallback dates: ${fallbackTodayStr} vs ${fallbackYesterdayStr}`);
+			
+			const [fallbackTodayData, fallbackYesterdayData] = await Promise.all([
+				getPolygonGroupedDaily(fallbackTodayStr),
+				getPolygonGroupedDaily(fallbackYesterdayStr)
+			]);
+			
+			if (!fallbackTodayData || fallbackTodayData.length === 0) {
+				return res.status(404).json({ 
+					error: `No market data available for ${todayStr} or ${fallbackTodayStr}. Markets may be closed.` 
+				});
+			}
+			
+			// Use fallback data and update the date strings for logging
+			console.log(`Using fallback data: ${fallbackTodayData.length} stocks for ${fallbackTodayStr}`);
+			todayData = fallbackTodayData;
+			yesterdayData = fallbackYesterdayData;
+			
+			// Update the date strings for subsequent logging
+			todayStr = fallbackTodayStr;
+			yesterdayStr = fallbackYesterdayStr;
 		}
 
 		if (!yesterdayData || yesterdayData.length === 0) {
