@@ -604,7 +604,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 		console.log(`Scanning market data: Most Recent Trading Day=${todayStr}, Previous Trading Day=${yesterdayStr}`);
 
 		const startTime = Date.now();
-		const maxProcessingTime = 25000; // 25 seconds max to avoid timeout
+		const maxProcessingTime = 20000; // 20 seconds max to avoid Heroku timeout
 
 		// Get market-wide data for today and yesterday
 		let [todayData, yesterdayData] = await Promise.all([
