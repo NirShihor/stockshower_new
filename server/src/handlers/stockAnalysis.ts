@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
+import OpenAI from 'openai';
 
 // Load environment variables
 dotenv.config();
@@ -134,6 +135,11 @@ interface ScanResult {
 // Polygon.io helper functions
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
 const POLYGON_BASE_URL = 'https://api.polygon.io';
+
+// OpenAI configuration
+const openai = new OpenAI({
+	apiKey: process.env.OPENAI_API_KEY,
+});
 
 // Blue chip companies (S&P 100 + major companies)
 const BLUE_CHIP_STOCKS = new Set([
@@ -1063,6 +1069,77 @@ export const getLivePrice = async (req: Request, res: Response) => {
 	} catch (error) {
 		console.error('Error getting live price:', error);
 		return res.status(500).json({ error: 'Failed to get live price' });
+	}
+};
+
+export const getRiskAssessment = async (req: Request, res: Response) => {
+	try {
+		const { symbol, stockData } = req.body;
+		
+		if (!symbol || !stockData) {
+			return res.status(400).json({ error: 'Symbol and stock data are required' });
+		}
+
+		console.log(`Getting ChatGPT risk assessment for ${symbol}`);
+		
+		// Create a comprehensive prompt for ChatGPT
+		const prompt = `You are a stock investment expoert. Please provide a comprehensive risk assessment for investing in ${symbol} (${stockData.companyName || symbol}) based on the following current market data, with view of using it for a day trade today:
+
+Stock: ${symbol} ${stockData.companyName ? `(${stockData.companyName})` : ''}
+Current/Closing Price: ${stockData.currentPrice}
+${stockData.livePrice ? `Live Price: ${stockData.livePrice}` : ''}
+Today's Open: ${stockData.openPrice}
+Today's High: ${stockData.highPrice}  
+Today's Low: ${stockData.lowPrice}
+Previous Close: ${stockData.previousClose}
+20-Day High: ${stockData.twentyDayHigh}
+Gap Percentage: ${stockData.gapPercentage}
+Volume: ${stockData.volume?.toLocaleString() || 'N/A'}
+Market Cap: ${stockData.marketCap ? `$${(stockData.marketCap / 1000000).toFixed(0)}M` : 'N/A'}
+Exchange: ${stockData.exchange}
+${stockData.first15MinHigh ? `First 15min High: ${stockData.first15MinHigh}` : ''}
+${stockData.first15MinClose ? `First 15min Close: ${stockData.first15MinClose}` : ''}
+Blue Chip: ${stockData.isBlueChip ? 'Yes' : 'No'}
+Gap Trading Suitable: ${stockData.suitable ? 'Yes' : 'No'}
+
+Please analyze:
+1. Gap trading risk level (High/Medium/Low)
+2. Key risk factors to consider
+3. Potential upside/downside scenarios
+4. Recommended position sizing
+5. Stop-loss suggestions
+6. Overall investment recommendation
+
+Keep the response concise but comprehensive, suitable for day trading decisions.`;
+
+		// Call OpenAI API for real risk assessment
+		const completion = await openai.chat.completions.create({
+			model: "gpt-4o-mini", // Using the more cost-effective model
+			messages: [
+				{
+					role: "system",
+					content: "You are an expert stock market analyst specializing in gap trading and risk assessment. Provide concise, actionable analysis suitable for day trading decisions. Focus on risk management and practical recommendations."
+				},
+				{
+					role: "user",
+					content: prompt
+				}
+			],
+			max_tokens: 500,
+			temperature: 0.7,
+		});
+
+		const assessment = completion.choices[0]?.message?.content || 'Unable to generate assessment';
+
+		return res.status(200).json({
+			symbol: symbol.toUpperCase(),
+			assessment: assessment,
+			timestamp: new Date().toISOString()
+		});
+
+	} catch (error) {
+		console.error('Error getting risk assessment:', error);
+		return res.status(500).json({ error: 'Failed to get risk assessment' });
 	}
 };
 
