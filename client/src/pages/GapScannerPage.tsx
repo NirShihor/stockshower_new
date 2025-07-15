@@ -499,7 +499,7 @@ const GapScannerPage: React.FC = () => {
                     <h4 style={{margin: '0 0 0.5rem 0', color: '#856404', fontSize: '0.9rem'}}>
                       🤖 Risk Assessment
                     </h4>
-                    <div style={{fontSize: '0.85rem', lineHeight: '1.4', color: '#856404'}}>
+                    <div style={{fontSize: '1.1rem', lineHeight: '1.4', color: '#856404'}}>
                       {riskAssessments.get(stock.stockSymbol)?.assessment.split('\n').map((line, index) => (
                         <p key={index} style={{margin: '0.25rem 0'}}>{line}</p>
                       ))}
