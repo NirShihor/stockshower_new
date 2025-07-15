@@ -5,6 +5,8 @@ import {
   CategoryScale,
   LinearScale,
   TimeScale,
+  PointElement,
+  LineElement,
   Title,
   Tooltip,
   Legend,
@@ -17,6 +19,8 @@ ChartJS.register(
   CategoryScale,
   LinearScale,
   TimeScale,
+  PointElement,
+  LineElement,
   CandlestickController,
   CandlestickElement,
   Title,
@@ -48,6 +52,7 @@ interface ChartData {
 interface StockChartProps {
   symbol: string;
   days?: number;
+  chartType?: 'candlestick' | 'line';
 }
 
 const getTimeframeLabel = (days: number): string => {
@@ -62,7 +67,7 @@ const getTimeframeLabel = (days: number): string => {
   return `${days} Day${days !== 1 ? 's' : ''}`;
 };
 
-const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
+const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 'candlestick' }) => {
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,35 +115,53 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
     return <div className="chart-no-data">No chart data available for {symbol}</div>;
   }
 
-  // Create candlestick chart data
-  const formattedData = chartData.data.map((d, index) => ({
-    x: index, // Use simple index instead of timestamp
-    o: d.open,
-    h: d.high,
-    l: d.low,
-    c: d.close
-  }));
+  // Create chart data based on chart type
+  const formattedData = chartType === 'candlestick' 
+    ? chartData.data.map((d) => ({
+        x: d.timestamp,
+        o: d.open,
+        h: d.high,
+        l: d.low,
+        c: d.close
+      }))
+    : chartData.data.map((d) => ({
+        x: d.timestamp,
+        y: d.close // Use close price for line chart
+      }));
 
-  console.log('Formatted chart data for Chart.js:', formattedData.slice(0, 3));
-  console.log('Chart.js registered controllers:', ChartJS.registry.controllers);
+  console.log('Formatted chart data for Chart.js:', formattedData.length, 'points');
+  console.log('Sample formatted data:', formattedData.slice(0, 3));
 
-  const candlestickData = {
-    datasets: [
-      {
-        label: `${chartData.symbol} Price`,
-        data: formattedData,
-        borderColor: '#26a69a',
-        backgroundColor: 'rgba(38, 166, 154, 0.1)',
-        color: {
-          up: '#26a69a',   // Green for up candles
-          down: '#ef5350', // Red for down candles  
-          unchanged: '#999' // Gray for unchanged
-        }
+  const chartDataConfig = chartType === 'candlestick' 
+    ? {
+        datasets: [
+          {
+            label: `${chartData.symbol} Price`,
+            data: formattedData,
+            borderColor: '#26a69a',
+            backgroundColor: 'rgba(38, 166, 154, 0.1)',
+            color: {
+              up: '#26a69a',   // Green for up candles
+              down: '#ef5350', // Red for down candles  
+              unchanged: '#999' // Gray for unchanged
+            }
+          }
+        ]
       }
-    ]
-  };
+    : {
+        datasets: [
+          {
+            label: `${chartData.symbol} Close Price`,
+            data: formattedData,
+            borderColor: '#26a69a',
+            backgroundColor: 'rgba(38, 166, 154, 0.1)',
+            fill: false,
+            tension: 0.1
+          }
+        ]
+      };
 
-  const options = {
+  const options: any = {
     responsive: true,
     plugins: {
       legend: {
@@ -146,7 +169,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
       },
       title: {
         display: true,
-        text: `${chartData.companyName} (${chartData.symbol}) - ${getTimeframeLabel(days)} Chart`,
+        text: `${chartData.companyName} (${chartData.symbol}) - ${getTimeframeLabel(days)} ${chartType === 'candlestick' ? 'Candlestick' : 'Line'} Chart`,
       },
       tooltip: {
         callbacks: {
@@ -155,31 +178,37 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
           },
           label: (context: any) => {
             const dataPoint = chartData.data[context.dataIndex];
-            return [
-              `Open: $${dataPoint.open.toFixed(2)}`,
-              `High: $${dataPoint.high.toFixed(2)}`,
-              `Low: $${dataPoint.low.toFixed(2)}`,
-              `Close: $${dataPoint.close.toFixed(2)}`,
-              `Volume: ${dataPoint.volume.toLocaleString()}`
-            ];
+            if (chartType === 'candlestick') {
+              return [
+                `Open: $${dataPoint.open.toFixed(2)}`,
+                `High: $${dataPoint.high.toFixed(2)}`,
+                `Low: $${dataPoint.low.toFixed(2)}`,
+                `Close: $${dataPoint.close.toFixed(2)}`,
+                `Volume: ${dataPoint.volume.toLocaleString()}`
+              ];
+            } else {
+              return [
+                `Close: $${dataPoint.close.toFixed(2)}`,
+                `Volume: ${dataPoint.volume.toLocaleString()}`
+              ];
+            }
           }
         }
       }
     },
     scales: {
       x: {
-        type: 'linear' as const, // Use linear instead of time to avoid timezone issues
+        type: 'time' as const,
+        time: {
+          unit: days < 1 ? ('minute' as const) : ('day' as const),
+          displayFormats: {
+            minute: 'HH:mm',
+            day: 'MM-dd'
+          }
+        },
         title: {
           display: true,
           text: 'Time'
-        },
-        ticks: {
-          callback: function(value: any, index: number) {
-            if (chartData && chartData.data[index]) {
-              return chartData.data[index].time; // Use our formatted time labels
-            }
-            return '';
-          }
         }
       },
       y: {
@@ -200,7 +229,11 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30 }) => {
   return (
     <div className="stock-chart">
       <div className="chart-container">
-        <Chart type="candlestick" data={candlestickData} options={options} />
+        <Chart 
+          type={chartType === 'candlestick' ? "candlestick" : "line"} 
+          data={chartDataConfig} 
+          options={options} 
+        />
       </div>
       <div className="chart-info">
         <small>

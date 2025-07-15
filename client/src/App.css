@@ -138,6 +138,123 @@
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+  position: relative;
+}
+
+.stock-search-container {
+  position: relative;
+  min-width: 300px;
+}
+
+.stock-search-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.stock-search-input:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.search-loading {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 0 0 8px 8px;
+  padding: 1rem;
+  text-align: center;
+  color: #666;
+  z-index: 1000;
+}
+
+.stock-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 0 0 8px 8px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #ddd;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.close-dropdown {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-dropdown:hover {
+  color: #333;
+}
+
+.stock-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.stock-option {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+  transition: background-color 0.2s;
+}
+
+.stock-option:hover {
+  background-color: #f8f9fa;
+}
+
+.stock-option.selected {
+  background-color: #e3f2fd;
+  border-left: 3px solid #3498db;
+}
+
+.stock-symbol {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #2c3e50;
+}
+
+.stock-details {
+  font-size: 0.85rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.no-results {
+  padding: 1rem;
+  text-align: center;
+  color: #666;
+  font-style: italic;
 }
 
 .chart-symbol-selector input[type="radio"] {
