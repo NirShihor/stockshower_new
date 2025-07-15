@@ -12,6 +12,7 @@ interface AvailableStock {
 const ChartsPage: React.FC = () => {
   const [selectedStock, setSelectedStock] = useState<string>('AAPL');
   const [chartDays, setChartDays] = useState<number>(0.01);
+  const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
   const [availableStocks, setAvailableStocks] = useState<AvailableStock[]>([]);
   const [filteredStocks, setFilteredStocks] = useState<AvailableStock[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -234,8 +235,18 @@ const ChartsPage: React.FC = () => {
               <option value={365}>1 year</option>
             </select>
           </div>
+          <div className="chart-type-selector">
+            <strong>Chart Type:</strong>
+            <select 
+              value={chartType} 
+              onChange={(e) => setChartType(e.target.value as 'candlestick' | 'line')}
+            >
+              <option value="candlestick">Candlestick</option>
+              <option value="line">Line</option>
+            </select>
+          </div>
         </div>
-        <StockChart symbol={selectedStock} days={chartDays} />
+        <StockChart symbol={selectedStock} days={chartDays} chartType={chartType} />
       </div>
     </div>
   );
