@@ -38,6 +38,8 @@ const GapScannerPage: React.FC = () => {
   const [trackingStocks, setTrackingStocks] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<Map<string, {price: string, change: number, timestamp: number}>>(new Map());
   const [priceIntervals, setPriceIntervals] = useState<Map<string, NodeJS.Timeout>>(new Map());
+  const [riskAssessments, setRiskAssessments] = useState<Map<string, {assessment: string, timestamp: number}>>(new Map());
+  const [loadingRisk, setLoadingRisk] = useState<Set<string>>(new Set());
 
   // Load persisted scan data on component mount
   useEffect(() => {
@@ -242,6 +244,71 @@ const GapScannerPage: React.FC = () => {
     };
   }, [priceIntervals]);
 
+  const getRiskAssessment = async (stock: GapUpStock) => {
+    const symbol = stock.stockSymbol;
+    
+    if (loadingRisk.has(symbol)) return; // Already loading
+    
+    setLoadingRisk(prev => {
+      const newSet = new Set(prev);
+      newSet.add(symbol);
+      return newSet;
+    });
+
+    try {
+      const response = await fetch(API_ENDPOINTS.riskAssessment, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol: symbol,
+          stockData: {
+            companyName: stock.companyName,
+            currentPrice: stock.currentPrice,
+            livePrice: stock.livePrice,
+            openPrice: stock.openPrice,
+            highPrice: stock.highPrice,
+            lowPrice: stock.lowPrice,
+            previousClose: stock.previousClose,
+            twentyDayHigh: stock.twentyDayHigh,
+            gapPercentage: stock.gapPercentage,
+            volume: stock.volume,
+            marketCap: stock.marketCap,
+            exchange: stock.exchange,
+            first15MinHigh: stock.first15MinHigh,
+            first15MinClose: stock.first15MinClose,
+            isBlueChip: stock.isBlueChip,
+            suitable: stock.suitable
+          }
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRiskAssessments(prev => {
+          const newMap = new Map(prev);
+          newMap.set(symbol, {
+            assessment: data.assessment,
+            timestamp: Date.now()
+          });
+          return newMap;
+        });
+      } else {
+        throw new Error(`Failed to get risk assessment: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Error getting risk assessment:', error);
+      alert('Failed to get risk assessment. Please try again.');
+    } finally {
+      setLoadingRisk(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(symbol);
+        return newSet;
+      });
+    }
+  };
+
   return (
     <div className="gap-scanner-page">
       <div className="page-header">
@@ -421,6 +488,28 @@ const GapScannerPage: React.FC = () => {
                   <p>{stock.analysis}</p>
                 </div>
 
+                {riskAssessments.has(stock.stockSymbol) && (
+                  <div className="risk-assessment" style={{
+                    marginTop: '1rem',
+                    padding: '0.75rem',
+                    backgroundColor: '#fff3cd',
+                    border: '1px solid #ffeaa7',
+                    borderRadius: '4px'
+                  }}>
+                    <h4 style={{margin: '0 0 0.5rem 0', color: '#856404', fontSize: '0.9rem'}}>
+                      🤖 Risk Assessment
+                    </h4>
+                    <div style={{fontSize: '0.85rem', lineHeight: '1.4', color: '#856404'}}>
+                      {riskAssessments.get(stock.stockSymbol)?.assessment.split('\n').map((line, index) => (
+                        <p key={index} style={{margin: '0.25rem 0'}}>{line}</p>
+                      ))}
+                    </div>
+                    <small style={{color: '#666', fontSize: '0.75rem'}}>
+                      Generated: {new Date(riskAssessments.get(stock.stockSymbol)!.timestamp).toLocaleString()}
+                    </small>
+                  </div>
+                )}
+
                 <div className="live-tracking-controls" style={{
                   position: 'relative',
                   bottom: '0',
@@ -431,38 +520,60 @@ const GapScannerPage: React.FC = () => {
                   borderRadius: '4px', 
                   borderTop: '1px solid #e9ecef'
                 }}>
-                  {!trackingStocks.has(stock.stockSymbol) ? (
-                    <button 
-                      className="analysis-button"
-                      onClick={() => startTracking(stock.stockSymbol, stock.livePrice || stock.currentPrice)}
-                      style={{
-                        backgroundColor: '#2980b9',
-                        color: 'white',
-                        fontSize: '0.9rem',
-                        padding: '0.5rem 1rem'
-                      }}
-                    >
-                      📈 Start Live Tracking (45s intervals)
-                    </button>
-                  ) : (
-                    <div>
+                  <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center'}}>
+                    {!trackingStocks.has(stock.stockSymbol) ? (
                       <button 
                         className="analysis-button"
-                        onClick={() => stopTracking(stock.stockSymbol)}
+                        onClick={() => startTracking(stock.stockSymbol, stock.livePrice || stock.currentPrice)}
                         style={{
-                          backgroundColor: '#e74c3c',
+                          backgroundColor: '#2980b9',
                           color: 'white',
                           fontSize: '0.9rem',
                           padding: '0.5rem 1rem'
                         }}
                       >
-                        ⏹️ Stop Tracking
+                        📈 Start Live Tracking (45s intervals)
                       </button>
-                      <small style={{marginLeft: '1rem', color: '#666'}}>
-                        Tracking every 45 seconds • Next update in ~{45 - Math.floor((Date.now() - (livePrices.get(stock.stockSymbol)?.timestamp || 0)) / 1000)}s
-                      </small>
-                    </div>
-                  )}
+                    ) : (
+                      <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                        <button 
+                          className="analysis-button"
+                          onClick={() => stopTracking(stock.stockSymbol)}
+                          style={{
+                            backgroundColor: '#e74c3c',
+                            color: 'white',
+                            fontSize: '0.9rem',
+                            padding: '0.5rem 1rem'
+                          }}
+                        >
+                          ⏹️ Stop Tracking
+                        </button>
+                        <small style={{color: '#666'}}>
+                          Tracking every 45 seconds • Next update in ~{45 - Math.floor((Date.now() - (livePrices.get(stock.stockSymbol)?.timestamp || 0)) / 1000)}s
+                        </small>
+                      </div>
+                    )}
+                    
+                    <button 
+                      className="analysis-button"
+                      onClick={() => getRiskAssessment(stock)}
+                      disabled={loadingRisk.has(stock.stockSymbol)}
+                      style={{
+                        backgroundColor: loadingRisk.has(stock.stockSymbol) ? '#6c757d' : riskAssessments.has(stock.stockSymbol) ? '#17a2b8' : '#28a745',
+                        color: 'white',
+                        fontSize: '0.9rem',
+                        padding: '0.5rem 1rem',
+                        opacity: loadingRisk.has(stock.stockSymbol) ? 0.6 : 1,
+                        display: 'block'
+                      }}
+                    >
+                      {loadingRisk.has(stock.stockSymbol) 
+                        ? '⏳ Getting AI Analysis...' 
+                        : riskAssessments.has(stock.stockSymbol) 
+                          ? '✅ Assessment Complete' 
+                          : '🤖 Get Risk Assessment'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
