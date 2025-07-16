@@ -158,7 +158,10 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
             borderColor: '#26a69a',
             backgroundColor: 'rgba(38, 166, 154, 0.1)',
             fill: false,
-            tension: 0.1
+            tension: 0.1,
+            borderWidth: 1,
+            pointRadius: 0,
+            pointHoverRadius: 0
           }
         ]
       };
