@@ -754,7 +754,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 					const gapPercentage = calculateGapPercentage(todayBar.o, yesterdayBar.c);
 					
 					// Get volatility level from request body, default to 'low'
-					const volatilityLevel = req.body?.volatilityLevel || 'low';
+					const volatilityLevel: 'low' | 'medium' | 'high' = req.body?.volatilityLevel || 'low';
 					
 					// Set gap limits based on volatility level
 					const gapLimits = {
@@ -799,8 +799,8 @@ export const scanGapUps = async (req: Request, res: Response) => {
 							
 							// Enhanced suitable criteria for gap trading based on volatility level
 							const suitable = stockData.volume > 100000 && 
-								stockData.gapPercentage >= gapLimits[volatilityLevel].min && 
-								stockData.gapPercentage <= gapLimits[volatilityLevel].max && 
+								stockData.gapPercentage >= gapLimits[volatilityLevel as keyof typeof gapLimits].min && 
+								stockData.gapPercentage <= gapLimits[volatilityLevel as keyof typeof gapLimits].max && 
 								stockData.currentPrice >= 5 && // No penny stocks
 								stockData.currentPrice <= 300 && // Avoid extremely high-priced stocks
 								volatilityAcceptable; // Add volatility filter

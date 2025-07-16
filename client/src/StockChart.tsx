@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { API_ENDPOINTS } from './config/api';
 import {
   Chart as ChartJS,
@@ -103,7 +103,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
 
   useEffect(() => {
     fetchChartData();
-  }, [symbol, days]);
+  }, [symbol, days]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return <div className="chart-loading">Loading chart for {symbol}...</div>;
