@@ -273,8 +273,13 @@ async function getPolygonLivePrice(symbol: string): Promise<number | null> {
 		}
 		
 		return null;
-	} catch (error) {
-		console.warn(`Could not get live price for ${symbol}:`, error);
+	} catch (error: any) {
+		// Check if it's a 403 authorization error (subscription doesn't include live data)
+		if (error.response?.status === 403) {
+			console.warn(`Live price not available for ${symbol} - subscription doesn't include real-time data`);
+		} else {
+			console.warn(`Could not get live price for ${symbol}:`, error.message);
+		}
 		return null;
 	}
 }
@@ -324,6 +329,64 @@ function calculate20DayHigh(bars: PolygonBar[]): number {
 function calculateGapPercentage(openPrice: number, previousClose: number): number {
 	if (previousClose === 0) return 0;
 	return ((openPrice - previousClose) / previousClose) * 100;
+}
+
+function calculateVolatilityScore(bars: PolygonBar[]): number {
+	if (!bars || bars.length < 5) return 100; // High volatility for insufficient data
+	
+	// Sort by timestamp (most recent first)
+	const sortedBars = bars.sort((a, b) => b.t - a.t).slice(0, 10); // Last 10 days
+	
+	// Calculate daily ranges as percentage of close price
+	const dailyRanges = sortedBars.map(bar => {
+		const range = bar.h - bar.l;
+		const rangePercent = (range / bar.c) * 100;
+		return rangePercent;
+	});
+	
+	// Calculate average daily range
+	const avgDailyRange = dailyRanges.reduce((sum, range) => sum + range, 0) / dailyRanges.length;
+	
+	// Calculate volume volatility (coefficient of variation)
+	const volumes = sortedBars.map(bar => bar.v);
+	const avgVolume = volumes.reduce((sum, vol) => sum + vol, 0) / volumes.length;
+	const volumeStdDev = Math.sqrt(
+		volumes.reduce((sum, vol) => sum + Math.pow(vol - avgVolume, 2), 0) / volumes.length
+	);
+	const volumeCV = avgVolume > 0 ? (volumeStdDev / avgVolume) * 100 : 0;
+	
+	// Calculate price volatility (standard deviation of closes)
+	const closes = sortedBars.map(bar => bar.c);
+	const avgClose = closes.reduce((sum, close) => sum + close, 0) / closes.length;
+	const priceStdDev = Math.sqrt(
+		closes.reduce((sum, close) => sum + Math.pow(close - avgClose, 2), 0) / closes.length
+	);
+	const priceCV = avgClose > 0 ? (priceStdDev / avgClose) * 100 : 0;
+	
+	// Combine factors into volatility score (0-100, lower is better)
+	const volatilityScore = (avgDailyRange * 0.5) + (volumeCV * 0.3) + (priceCV * 0.2);
+	
+	return Math.min(volatilityScore, 100); // Cap at 100
+}
+
+function isVolatilityAcceptable(bars: PolygonBar[], currentPrice: number, volatilityLevel: 'low' | 'medium' | 'high' = 'low'): boolean {
+	const volatilityScore = calculateVolatilityScore(bars);
+	
+	// Define thresholds for different volatility levels
+	let thresholds: { low: number; medium: number; high: number };
+	
+	if (currentPrice < 20) {
+		// Very strict for lower-priced stocks
+		thresholds = { low: 8, medium: 15, high: 25 };
+	} else if (currentPrice < 50) {
+		// Moderate for mid-priced stocks
+		thresholds = { low: 12, medium: 20, high: 35 };
+	} else {
+		// More lenient for higher-priced stocks
+		thresholds = { low: 15, medium: 25, high: 50 };
+	}
+	
+	return volatilityScore < thresholds[volatilityLevel];
 }
 
 function calculateBreakoutPercentage(currentPrice: number, twentyDayHigh: number): number {
@@ -690,9 +753,19 @@ export const scanGapUps = async (req: Request, res: Response) => {
 					// Calculate gap percentage
 					const gapPercentage = calculateGapPercentage(todayBar.o, yesterdayBar.c);
 					
+					// Get volatility level from request body, default to 'low'
+					const volatilityLevel = req.body?.volatilityLevel || 'low';
+					
+					// Set gap limits based on volatility level
+					const gapLimits = {
+						low: { min: 2.5, max: 8 },
+						medium: { min: 2.0, max: 12 },
+						high: { min: 1.5, max: 20 }
+					};
+					
 					// Pre-filter: Only check stocks with significant gaps and decent volume/price
-					if (gapPercentage >= 2.5 && // Minimum 2.5% gap
-						gapPercentage <= 10 && // Maximum 10% gap (avoid extreme volatility)
+					if (gapPercentage >= gapLimits[volatilityLevel].min && // Minimum gap based on volatility level
+						gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level
 						todayBar.v > 100000 && // Minimum volume (increased for quality)
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000) { // Reasonable price range
@@ -704,11 +777,33 @@ export const scanGapUps = async (req: Request, res: Response) => {
 						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayHigh);
 						
 						if (stockData) {
-							// Suitable criteria for gap trading (quality stocks only)
+							// Get recent historical data for volatility analysis
+							const thirtyDaysAgo = new Date();
+							thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+							const fromDate = thirtyDaysAgo.toISOString().split('T')[0];
+							const toDate = new Date().toISOString().split('T')[0];
+							
+							let volatilityAcceptable = true;
+							try {
+								const historicalBars = await getPolygonDailyBars(symbol, fromDate, toDate);
+								// Get volatility level from request body, default to 'low'
+								const volatilityLevel = req.body?.volatilityLevel || 'low';
+								volatilityAcceptable = isVolatilityAcceptable(historicalBars, stockData.currentPrice, volatilityLevel);
+								
+								if (!volatilityAcceptable) {
+									console.log(`Filtered out ${symbol} due to high volatility (${calculateVolatilityScore(historicalBars).toFixed(1)}) for ${volatilityLevel} level`);
+								}
+							} catch (error) {
+								console.warn(`Could not calculate volatility for ${symbol}, allowing through:`, error);
+							}
+							
+							// Enhanced suitable criteria for gap trading based on volatility level
 							const suitable = stockData.volume > 100000 && 
-								stockData.gapPercentage >= 2.5 && 
-								stockData.gapPercentage <= 10 && // Maximum 10% gap
-								stockData.currentPrice >= 5; // No penny stocks
+								stockData.gapPercentage >= gapLimits[volatilityLevel].min && 
+								stockData.gapPercentage <= gapLimits[volatilityLevel].max && 
+								stockData.currentPrice >= 5 && // No penny stocks
+								stockData.currentPrice <= 300 && // Avoid extremely high-priced stocks
+								volatilityAcceptable; // Add volatility filter
 							
 							// ONLY show stocks that meet ALL criteria
 							if (suitable) {
@@ -1061,8 +1156,26 @@ export const getLivePrice = async (req: Request, res: Response) => {
 				timestamp: new Date().toISOString()
 			});
 		} else {
+			// Fallback: get the most recent close price if live data isn't available
+			console.log(`Live price not available for ${symbol.toUpperCase()}, falling back to most recent close`);
+			
+			try {
+				const previousClose = await getPolygonPreviousClose(symbol.toUpperCase());
+				if (previousClose) {
+					return res.status(200).json({
+						symbol: symbol.toUpperCase(),
+						livePrice: `$${previousClose.c.toFixed(2)}`,
+						timestamp: new Date().toISOString(),
+						note: 'Using most recent close price (live data not available)'
+					});
+				}
+			} catch (fallbackError) {
+				console.warn(`Fallback also failed for ${symbol.toUpperCase()}:`, fallbackError);
+			}
+			
 			return res.status(404).json({ 
-				error: `Live price not available for ${symbol.toUpperCase()}` 
+				error: `Price data not available for ${symbol.toUpperCase()}`,
+				reason: 'Live data requires subscription upgrade and historical data unavailable'
 			});
 		}
 

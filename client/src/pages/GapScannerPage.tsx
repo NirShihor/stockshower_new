@@ -35,11 +35,17 @@ interface GapUpScanData {
 const GapScannerPage: React.FC = () => {
   const [scanData, setScanData] = useState<GapUpScanData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [volatilityLevel, setVolatilityLevel] = useState<'low' | 'medium' | 'high'>('low');
   const [trackingStocks, setTrackingStocks] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<Map<string, {price: string, change: number, timestamp: number}>>(new Map());
   const [priceIntervals, setPriceIntervals] = useState<Map<string, NodeJS.Timeout>>(new Map());
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  const [nextUpdateTimes, setNextUpdateTimes] = useState<Map<string, number>>(new Map());
   const [riskAssessments, setRiskAssessments] = useState<Map<string, {assessment: string, timestamp: number}>>(new Map());
   const [loadingRisk, setLoadingRisk] = useState<Set<string>>(new Set());
+  const [showRiskModal, setShowRiskModal] = useState<boolean>(false);
+  const [currentRiskAssessment, setCurrentRiskAssessment] = useState<{symbol: string, assessment: string, timestamp: number} | null>(null);
+  const [hasRealTimeAccess, setHasRealTimeAccess] = useState<boolean>(true); // Assume true initially
 
   // Load persisted scan data on component mount
   useEffect(() => {
@@ -82,7 +88,7 @@ const GapScannerPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ volatilityLevel }),
       });
       
       if (!response.ok) {
@@ -141,10 +147,18 @@ const GapScannerPage: React.FC = () => {
       const response = await fetch(`${API_ENDPOINTS.chart(symbol)}/live-price`);
       if (response.ok) {
         const data = await response.json();
+        if (data.note) {
+          console.log(`${symbol}: ${data.note}`);
+          setHasRealTimeAccess(false); // Mark as no real-time access
+        }
         return data.livePrice;
+      } else if (response.status === 404) {
+        console.log(`Live price not available for ${symbol} - subscription may not include real-time data`);
+        setHasRealTimeAccess(false); // Mark as no real-time access
       }
     } catch (error) {
       console.error(`Error fetching live price for ${symbol}:`, error);
+      setHasRealTimeAccess(false); // Mark as no real-time access
     }
     return null;
   };
@@ -153,6 +167,7 @@ const GapScannerPage: React.FC = () => {
     if (trackingStocks.has(symbol)) return;
 
     const initialPrice = parseFloat(currentPriceStr.replace('$', ''));
+    const now = Date.now();
     
     setTrackingStocks(prev => {
       const newSet = new Set(prev);
@@ -165,8 +180,17 @@ const GapScannerPage: React.FC = () => {
       newMap.set(symbol, {
         price: currentPriceStr,
         change: 0,
-        timestamp: Date.now()
+        timestamp: now
       });
+      return newMap;
+    });
+
+    // Set next update time to 45 seconds from now
+    setNextUpdateTimes(prev => {
+      const newMap = new Map(prev);
+      const nextTime = now + 45000;
+      newMap.set(symbol, nextTime);
+      console.log(`Setting next update time for ${symbol}: ${new Date(nextTime).toLocaleTimeString()}`);
       return newMap;
     });
 
@@ -181,7 +205,7 @@ const GapScannerPage: React.FC = () => {
         newMap.set(symbol, {
           price: livePrice,
           change: change,
-          timestamp: Date.now()
+          timestamp: now
         });
         return newMap;
       });
@@ -189,21 +213,43 @@ const GapScannerPage: React.FC = () => {
 
     // Set up interval to fetch every 45 seconds
     const interval = setInterval(async () => {
+      const updateTime = Date.now();
+      
+      // Set next update time
+      setNextUpdateTimes(prev => {
+        const newMap = new Map(prev);
+        const nextTime = updateTime + 45000;
+        newMap.set(symbol, nextTime);
+        console.log(`Updating next update time for ${symbol}: ${new Date(nextTime).toLocaleTimeString()}`);
+        return newMap;
+      });
+      
       const livePrice = await fetchLivePrice(symbol);
-      if (livePrice) {
-        const newPrice = parseFloat(livePrice.replace('$', ''));
-        const change = ((newPrice - initialPrice) / initialPrice) * 100;
+      
+      setLivePrices(prev => {
+        const newMap = new Map(prev);
+        const currentData = newMap.get(symbol);
         
-        setLivePrices(prev => {
-          const newMap = new Map(prev);
+        if (livePrice) {
+          // Successfully got new price
+          const newPrice = parseFloat(livePrice.replace('$', ''));
+          const change = ((newPrice - initialPrice) / initialPrice) * 100;
+          
           newMap.set(symbol, {
             price: livePrice,
             change: change,
-            timestamp: Date.now()
+            timestamp: updateTime
           });
-          return newMap;
-        });
-      }
+        } else if (currentData) {
+          // Failed to get new price, but update timestamp
+          newMap.set(symbol, {
+            ...currentData,
+            timestamp: updateTime
+          });
+        }
+        
+        return newMap;
+      });
     }, 45000); // 45 seconds
 
     setPriceIntervals(prev => {
@@ -235,7 +281,24 @@ const GapScannerPage: React.FC = () => {
       newMap.delete(symbol);
       return newMap;
     });
+
+    setNextUpdateTimes(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(symbol);
+      return newMap;
+    });
   };
+
+  // Update current time every second for countdown display
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      console.log(`Timer tick: updating currentTime to ${now}`);
+      setCurrentTime(now);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
 
   // Cleanup intervals on unmount
   useEffect(() => {
@@ -286,14 +349,24 @@ const GapScannerPage: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
+        const riskData = {
+          assessment: data.assessment,
+          timestamp: Date.now()
+        };
+        
         setRiskAssessments(prev => {
           const newMap = new Map(prev);
-          newMap.set(symbol, {
-            assessment: data.assessment,
-            timestamp: Date.now()
-          });
+          newMap.set(symbol, riskData);
           return newMap;
         });
+        
+        // Show the assessment in modal
+        setCurrentRiskAssessment({
+          symbol: symbol,
+          assessment: data.assessment,
+          timestamp: Date.now()
+        });
+        setShowRiskModal(true);
       } else {
         throw new Error(`Failed to get risk assessment: ${response.status}`);
       }
@@ -309,6 +382,18 @@ const GapScannerPage: React.FC = () => {
     }
   };
 
+  const openRiskAssessment = (symbol: string) => {
+    const assessment = riskAssessments.get(symbol);
+    if (assessment) {
+      setCurrentRiskAssessment({
+        symbol: symbol,
+        assessment: assessment.assessment,
+        timestamp: assessment.timestamp
+      });
+      setShowRiskModal(true);
+    }
+  };
+
   return (
     <div className="gap-scanner-page">
       <div className="page-header">
@@ -317,20 +402,52 @@ const GapScannerPage: React.FC = () => {
       </div>
 
       <div className="scanner-controls">
-        <button className="analysis-button" onClick={fetchGapUpScan} disabled={loading}>
-          {loading ? 'Scanning for Gap Ups...' : 'Scan for Gap Ups'}
-        </button>
-        {scanData && (
-          <button className="analysis-button" onClick={clearScanData} style={{marginLeft: '1rem', backgroundColor: '#e74c3c'}}>
-            Clear Results
-          </button>
-        )}
-        {scanData && (
-          <div style={{marginLeft: '1rem', fontSize: '0.9rem', color: '#666'}}>
-            Last scanned: {new Date(scanData.timestamp).toLocaleString()}
-            {scanData.scanDuration && ` (${scanData.scanDuration})`}
+        <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+            <label htmlFor="volatility-select" style={{fontSize: '0.9rem', color: '#333', fontWeight: 'bold'}}>
+              Volatility Level:
+            </label>
+            <select 
+              id="volatility-select"
+              value={volatilityLevel} 
+              onChange={(e) => setVolatilityLevel(e.target.value as 'low' | 'medium' | 'high')}
+              style={{
+                padding: '0.5rem',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                fontSize: '0.9rem',
+                backgroundColor: 'white',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="low">Low (Safer)</option>
+              <option value="medium">Medium</option>
+              <option value="high">High (More Results)</option>
+            </select>
           </div>
-        )}
+          <small style={{color: '#666', fontSize: '0.8rem', maxWidth: '300px'}}>
+            {volatilityLevel === 'low' && 'Safest: Only stocks with very low volatility scores'}
+            {volatilityLevel === 'medium' && 'Balanced: Moderate volatility tolerance'}
+            {volatilityLevel === 'high' && 'Aggressive: Higher volatility tolerance (original setting)'}
+          </small>
+        </div>
+        
+        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
+          <button className="analysis-button" onClick={fetchGapUpScan} disabled={loading}>
+            {loading ? 'Scanning for Gap Ups...' : 'Scan for Gap Ups'}
+          </button>
+          {scanData && (
+            <button className="analysis-button" onClick={clearScanData} style={{backgroundColor: '#e74c3c'}}>
+              Clear Results
+            </button>
+          )}
+          {scanData && (
+            <div style={{fontSize: '0.9rem', color: '#666'}}>
+              Last scanned: {new Date(scanData.timestamp).toLocaleString()}
+              {scanData.scanDuration && ` (${scanData.scanDuration})`}
+            </div>
+          )}
+        </div>
       </div>
 
       {scanData && (
@@ -373,7 +490,7 @@ const GapScannerPage: React.FC = () => {
                 
                 <div className="stock-details">
                   <div className="detail-row">
-                    <span className="label">Most Recent Closing Price:</span>
+                    <span className="label">{getMarketStatus(stock.exchange).status === 'OPEN' ? 'Current Price:' : 'Today\'s Closing Price:'}</span>
                     <span className="value">{stock.currentPrice}</span>
                   </div>
                   {stock.livePrice && !trackingStocks.has(stock.stockSymbol) && (
@@ -488,27 +605,6 @@ const GapScannerPage: React.FC = () => {
                   <p>{stock.analysis}</p>
                 </div>
 
-                {riskAssessments.has(stock.stockSymbol) && (
-                  <div className="risk-assessment" style={{
-                    marginTop: '1rem',
-                    padding: '0.75rem',
-                    backgroundColor: '#fff3cd',
-                    border: '1px solid #ffeaa7',
-                    borderRadius: '4px'
-                  }}>
-                    <h4 style={{margin: '0 0 0.5rem 0', color: '#856404', fontSize: '0.9rem'}}>
-                      🤖 Risk Assessment
-                    </h4>
-                    <div style={{fontSize: '1.1rem', lineHeight: '1.4', color: '#856404'}}>
-                      {riskAssessments.get(stock.stockSymbol)?.assessment.split('\n').map((line, index) => (
-                        <p key={index} style={{margin: '0.25rem 0'}}>{line}</p>
-                      ))}
-                    </div>
-                    <small style={{color: '#666', fontSize: '0.75rem'}}>
-                      Generated: {new Date(riskAssessments.get(stock.stockSymbol)!.timestamp).toLocaleString()}
-                    </small>
-                  </div>
-                )}
 
                 <div className="live-tracking-controls" style={{
                   position: 'relative',
@@ -522,18 +618,23 @@ const GapScannerPage: React.FC = () => {
                 }}>
                   <div style={{display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center'}}>
                     {!trackingStocks.has(stock.stockSymbol) ? (
-                      <button 
-                        className="analysis-button"
-                        onClick={() => startTracking(stock.stockSymbol, stock.livePrice || stock.currentPrice)}
-                        style={{
-                          backgroundColor: '#2980b9',
-                          color: 'white',
-                          fontSize: '0.9rem',
-                          padding: '0.5rem 1rem'
-                        }}
-                      >
-                        📈 Start Live Tracking (45s intervals)
-                      </button>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                        <button 
+                          className="analysis-button"
+                          onClick={() => startTracking(stock.stockSymbol, stock.livePrice || stock.currentPrice)}
+                          style={{
+                            backgroundColor: '#2980b9',
+                            color: 'white',
+                            fontSize: '0.9rem',
+                            padding: '0.5rem 1rem'
+                          }}
+                        >
+                          📈 Start Price Tracking (45s intervals)
+                        </button>
+                        <small style={{color: '#666', fontSize: '0.75rem', fontStyle: 'italic'}}>
+                          Note: Using most recent close price (real-time data requires subscription upgrade)
+                        </small>
+                      </div>
                     ) : (
                       <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
                         <button 
@@ -549,14 +650,23 @@ const GapScannerPage: React.FC = () => {
                           ⏹️ Stop Tracking
                         </button>
                         <small style={{color: '#666'}}>
-                          Tracking every 45 seconds • Next update in ~{45 - Math.floor((Date.now() - (livePrices.get(stock.stockSymbol)?.timestamp || 0)) / 1000)}s
+                          {(() => {
+                            const nextUpdate = nextUpdateTimes.get(stock.stockSymbol) || 0;
+                            const secondsLeft = Math.max(0, Math.floor((nextUpdate - currentTime) / 1000));
+                            console.log(`Countdown for ${stock.stockSymbol}: nextUpdate=${nextUpdate}, currentTime=${currentTime}, secondsLeft=${secondsLeft}`);
+                            return hasRealTimeAccess 
+                              ? `Tracking live prices every 45 seconds • Next update in ~${secondsLeft}s`
+                              : `Checking for price updates every 45 seconds • Next check in ~${secondsLeft}s`;
+                          })()}
                         </small>
                       </div>
                     )}
                     
                     <button 
                       className="analysis-button"
-                      onClick={() => getRiskAssessment(stock)}
+                      onClick={() => riskAssessments.has(stock.stockSymbol) 
+                        ? openRiskAssessment(stock.stockSymbol) 
+                        : getRiskAssessment(stock)}
                       disabled={loadingRisk.has(stock.stockSymbol)}
                       style={{
                         backgroundColor: loadingRisk.has(stock.stockSymbol) ? '#6c757d' : riskAssessments.has(stock.stockSymbol) ? '#17a2b8' : '#28a745',
@@ -570,13 +680,98 @@ const GapScannerPage: React.FC = () => {
                       {loadingRisk.has(stock.stockSymbol) 
                         ? '⏳ Getting AI Analysis...' 
                         : riskAssessments.has(stock.stockSymbol) 
-                          ? '✅ Assessment Complete' 
+                          ? '📊 View Risk Assessment' 
                           : '🤖 Get Risk Assessment'}
                     </button>
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Risk Assessment Modal */}
+      {showRiskModal && currentRiskAssessment && (
+        <div className="modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="modal-content" style={{
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '2rem',
+            maxWidth: '600px',
+            width: '90%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            position: 'relative',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <button 
+              onClick={() => setShowRiskModal(false)}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                cursor: 'pointer',
+                color: '#666'
+              }}
+            >
+              ×
+            </button>
+            
+            <h2 style={{marginTop: 0, marginBottom: '1rem', color: '#333'}}>
+              🤖 Risk Assessment for {currentRiskAssessment.symbol}
+            </h2>
+            
+            <div style={{
+              fontSize: '1.1rem',
+              lineHeight: '1.6',
+              color: '#444',
+              marginBottom: '1.5rem'
+            }}>
+              {currentRiskAssessment.assessment.split('\n').map((line, index) => (
+                <p key={index} style={{margin: '0.5rem 0'}}>{line}</p>
+              ))}
+            </div>
+            
+            <div style={{
+              borderTop: '1px solid #eee',
+              paddingTop: '1rem',
+              fontSize: '0.9rem',
+              color: '#666'
+            }}>
+              Generated: {new Date(currentRiskAssessment.timestamp).toLocaleString()}
+            </div>
+            
+            <div style={{marginTop: '1rem', textAlign: 'center'}}>
+              <button 
+                onClick={() => setShowRiskModal(false)}
+                style={{
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
