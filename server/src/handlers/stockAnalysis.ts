@@ -369,21 +369,36 @@ function calculateVolatilityScore(bars: PolygonBar[]): number {
 	return Math.min(volatilityScore, 100); // Cap at 100
 }
 
-function isVolatilityAcceptable(bars: PolygonBar[], currentPrice: number, volatilityLevel: 'low' | 'medium' | 'high' = 'low'): boolean {
+function isVolatilityAcceptable(bars: PolygonBar[], currentPrice: number, volatilityLevel: 'low' | 'medium' | 'high' = 'low', symbol?: string): boolean {
 	const volatilityScore = calculateVolatilityScore(bars);
+	
+	// Check if this is a blue chip stock
+	const isBlueChip = symbol ? BLUE_CHIP_STOCKS.has(symbol) : false;
 	
 	// Define thresholds for different volatility levels
 	let thresholds: { low: number; medium: number; high: number };
 	
 	if (currentPrice < 20) {
-		// Very strict for lower-priced stocks
-		thresholds = { low: 8, medium: 15, high: 25 };
+		// Very strict for lower-priced stocks, but more lenient for blue chips
+		thresholds = { 
+			low: isBlueChip ? 12 : 8, 
+			medium: isBlueChip ? 20 : 15, 
+			high: isBlueChip ? 35 : 25 
+		};
 	} else if (currentPrice < 50) {
-		// Moderate for mid-priced stocks
-		thresholds = { low: 12, medium: 20, high: 35 };
+		// Moderate for mid-priced stocks, more lenient for blue chips
+		thresholds = { 
+			low: isBlueChip ? 18 : 12, 
+			medium: isBlueChip ? 30 : 20, 
+			high: isBlueChip ? 50 : 35 
+		};
 	} else {
-		// More lenient for higher-priced stocks
-		thresholds = { low: 15, medium: 25, high: 50 };
+		// More lenient for higher-priced stocks, very lenient for blue chips
+		thresholds = { 
+			low: isBlueChip ? 25 : 15, 
+			medium: isBlueChip ? 40 : 25, 
+			high: isBlueChip ? 70 : 50 
+		};
 	}
 	
 	return volatilityScore < thresholds[volatilityLevel];
@@ -756,16 +771,28 @@ export const scanGapUps = async (req: Request, res: Response) => {
 					// Get volatility level from request body, default to 'low'
 					const volatilityLevel: 'low' | 'medium' | 'high' = req.body?.volatilityLevel || 'low';
 					
-					// Set gap limits based on volatility level
+					// Check if this is a blue chip stock
+					const isBlueChip = BLUE_CHIP_STOCKS.has(symbol);
+					
+					// Set gap limits based on volatility level and blue chip status
 					const gapLimits = {
-						low: { min: 2.5, max: 8 },
-						medium: { min: 2.0, max: 12 },
-						high: { min: 1.5, max: 20 }
+						low: { 
+							min: 2.5, 
+							max: isBlueChip ? 15 : 8  // Blue chips can gap higher on news
+						},
+						medium: { 
+							min: 2.0, 
+							max: isBlueChip ? 25 : 12  // Blue chips get even more tolerance
+						},
+						high: { 
+							min: 1.5, 
+							max: isBlueChip ? 40 : 20  // Blue chips can have major news gaps
+						}
 					};
 					
 					// Pre-filter: Only check stocks with significant gaps and decent volume/price
 					if (gapPercentage >= gapLimits[volatilityLevel].min && // Minimum gap based on volatility level
-						gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level
+						gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level and blue chip status
 						todayBar.v > 100000 && // Minimum volume (increased for quality)
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000) { // Reasonable price range
@@ -788,10 +815,10 @@ export const scanGapUps = async (req: Request, res: Response) => {
 								const historicalBars = await getPolygonDailyBars(symbol, fromDate, toDate);
 								// Get volatility level from request body, default to 'low'
 								const volatilityLevel = req.body?.volatilityLevel || 'low';
-								volatilityAcceptable = isVolatilityAcceptable(historicalBars, stockData.currentPrice, volatilityLevel);
+								volatilityAcceptable = isVolatilityAcceptable(historicalBars, stockData.currentPrice, volatilityLevel, symbol);
 								
 								if (!volatilityAcceptable) {
-									console.log(`Filtered out ${symbol} due to high volatility (${calculateVolatilityScore(historicalBars).toFixed(1)}) for ${volatilityLevel} level`);
+									console.log(`Filtered out ${symbol} due to high volatility (${calculateVolatilityScore(historicalBars).toFixed(1)}) for ${volatilityLevel} level${isBlueChip ? ' (Blue Chip)' : ''}`);
 								}
 							} catch (error) {
 								console.warn(`Could not calculate volatility for ${symbol}, allowing through:`, error);
@@ -812,7 +839,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 								
 								console.log(`Found suitable gap up: ${symbol}${blueChipLabel} +${gapPercentage.toFixed(2)}% (Open: $${todayBar.o.toFixed(2)}, Prev Close: $${yesterdayBar.c.toFixed(2)}, Volume: ${todayBar.v.toLocaleString()})`);
 								
-								const analysis = `${symbol} gapped up ${stockData.gapPercentage.toFixed(1)}% on ${todayStr}. Open: $${stockData.openPrice.toFixed(2)}, Previous close: $${stockData.previousClose.toFixed(2)}, Current: $${stockData.currentPrice.toFixed(2)}. Volume: ${stockData.volume.toLocaleString()}. SUITABLE for gap trading.${isBlueChip ? ' This is a blue chip company.' : ''}`;
+								const analysis = `${symbol} gapped up ${stockData.gapPercentage.toFixed(1)}% on ${todayStr}. Open: $${stockData.openPrice.toFixed(2)}, Previous close: $${stockData.previousClose.toFixed(2)}, Current: $${stockData.currentPrice.toFixed(2)}. Volume: ${stockData.volume.toLocaleString()}. SUITABLE for gap trading.${isBlueChip ? ' This is a blue chip company with higher gap tolerance due to news-driven moves.' : ''}`;
 
 								const gapUpStock: GapUpStock = {
 									stockSymbol: symbol,
