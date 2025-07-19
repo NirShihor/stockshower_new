@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import axios from 'axios';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
 
 // Load environment variables
@@ -92,12 +92,20 @@ interface EnhancedStockData {
   volume: number;
   marketCap: number;
   twentyDayHigh: number;
+  twentyDayLow?: number;
   gapPercentage: number;
   companyName: string;
   exchange: string;
   currency: string;
   first15MinHigh?: number;
+  first15MinLow?: number;
   first15MinClose?: number;
+}
+
+interface MarketStatus {
+  status: 'OPEN' | 'CLOSED' | 'PRE-MARKET' | 'AFTER HOURS';
+  reason: string;
+  color: string;
 }
 
 
@@ -140,6 +148,35 @@ const POLYGON_BASE_URL = 'https://api.polygon.io';
 const openai = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY,
 });
+
+// Market status helper function
+function getMarketStatus(exchange?: string): MarketStatus {
+	const now = new Date();
+	const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+	const currentHour = easternTime.getHours();
+	const currentMinute = easternTime.getMinutes();
+	const dayOfWeek = easternTime.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+	
+	// Check if it's a weekend
+	if (dayOfWeek === 0 || dayOfWeek === 6) {
+		return { status: 'CLOSED', reason: 'Weekend', color: '#e74c3c' };
+	}
+	
+	// US markets (NYSE, NASDAQ) are typically open 9:30 AM - 4:00 PM ET
+	const marketOpenTime = 9 * 60 + 30; // 9:30 AM in minutes
+	const marketCloseTime = 16 * 60; // 4:00 PM in minutes
+	const currentTimeInMinutes = currentHour * 60 + currentMinute;
+	
+	if (currentTimeInMinutes >= marketOpenTime && currentTimeInMinutes < marketCloseTime) {
+		return { status: 'OPEN', reason: 'Regular Hours', color: '#27ae60' };
+	} else if (currentTimeInMinutes >= 16 * 60 && currentTimeInMinutes < 20 * 60) {
+		return { status: 'AFTER HOURS', reason: 'Extended Trading', color: '#f39c12' };
+	} else if (currentTimeInMinutes >= 4 * 60 && currentTimeInMinutes < marketOpenTime) {
+		return { status: 'PRE-MARKET', reason: 'Extended Trading', color: '#f39c12' };
+	} else {
+		return { status: 'CLOSED', reason: 'After Hours', color: '#e74c3c' };
+	}
+}
 
 // Blue chip companies (S&P 100 + major companies)
 const BLUE_CHIP_STOCKS = new Set([
@@ -326,6 +363,31 @@ function calculate20DayHigh(bars: PolygonBar[]): number {
 	return maxHigh;
 }
 
+function calculate20DayLow(bars: PolygonBar[]): number {
+	console.log('Calculating 20-day low, bars count:', bars.length);
+	if (!bars || bars.length === 0) {
+		console.log('No bars data available');
+		return 0;
+	}
+
+	// Sort by timestamp descending (most recent first) and take the most recent 20 bars
+	// Since we already excluded today's data from the API call, these are all previous days
+	const sortedBars = bars.sort((a, b) => b.t - a.t).slice(0, 20);
+	console.log('Number of bars for 20-day low calc:', sortedBars.length);
+	
+	if (sortedBars.length === 0) {
+		console.log('No bars found for calculation');
+		return 0;
+	}
+	
+	const lows = sortedBars.map(bar => bar.l);
+	console.log('Sample lows (previous days):', lows.slice(0, 5));
+	
+	const minLow = Math.min(...lows);
+	console.log('20-day low (previous 20 days) calculated:', minLow);
+	return minLow;
+}
+
 function calculateGapPercentage(openPrice: number, previousClose: number): number {
 	if (previousClose === 0) return 0;
 	return ((openPrice - previousClose) / previousClose) * 100;
@@ -418,7 +480,7 @@ async function testPolygonApiKey(): Promise<boolean> {
 	}
 }
 
-async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yesterdayBar: GroupedDailyBar | null, twentyDayHigh: number): Promise<EnhancedStockData | null> {
+async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yesterdayBar: GroupedDailyBar | null, twentyDayValue: number, isGapDown: boolean = false): Promise<EnhancedStockData | null> {
 	try {
 		if (!yesterdayBar) {
 			console.warn(`No previous day data for ${todayBar.T}`);
@@ -436,8 +498,9 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 		// Calculate gap percentage (opening gap)
 		const gapPercentage = calculateGapPercentage(openPrice, previousClose);
 		
-		// Calculate first 15 minutes high and close
+		// Calculate first 15 minutes high, low and close
 		let first15MinHigh = highPrice; // Default to day's high if we can't get intraday data
+		let first15MinLow = lowPrice; // Default to day's low if we can't get intraday data
 		let first15MinClose = currentPrice; // Default to current price if we can't get intraday data
 		
 		try {
@@ -455,9 +518,10 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 				
 				if (first15Minutes.length > 0) {
 					first15MinHigh = Math.max(...first15Minutes.map(bar => bar.h));
+					first15MinLow = Math.min(...first15Minutes.map(bar => bar.l));
 					// The close price of the 15th minute (last bar in the first 15 minutes)
 					first15MinClose = first15Minutes[first15Minutes.length - 1].c;
-					console.log(`${symbol}: First 15min high: $${first15MinHigh.toFixed(2)}, close: $${first15MinClose.toFixed(2)} from ${first15Minutes.length} bars`);
+					console.log(`${symbol}: First 15min high: $${first15MinHigh.toFixed(2)}, low: $${first15MinLow.toFixed(2)}, close: $${first15MinClose.toFixed(2)} from ${first15Minutes.length} bars`);
 				}
 			}
 		} catch (error) {
@@ -489,12 +553,14 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 			previousClose,
 			volume,
 			marketCap,
-			twentyDayHigh,
+			twentyDayHigh: isGapDown ? 0 : twentyDayValue,
+			twentyDayLow: isGapDown ? twentyDayValue : undefined,
 			gapPercentage,
 			companyName,
 			exchange,
 			currency: 'USD',
 			first15MinHigh,
+			first15MinLow,
 			first15MinClose
 		};
 
@@ -797,11 +863,11 @@ export const scanGapUps = async (req: Request, res: Response) => {
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000) { // Reasonable price range
 						
-						// Skip 20-day high calculation during initial scan for speed
+						// Skip 20-day low calculation during initial scan for speed
 						// We'll calculate it for the top results later
-						const twentyDayHigh = 0;
+						const twentyDayLow = 0;
 						
-						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayHigh);
+						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayLow, true);
 						
 						if (stockData) {
 							// Get recent historical data for volatility analysis
@@ -955,6 +1021,269 @@ export const scanGapUps = async (req: Request, res: Response) => {
 	}
 };
 
+export const scanGapDowns = async (req: Request, res: Response) => {
+	try {
+		console.log('Starting market-wide Polygon gap down scan...');
+		
+		// Get the most recent trading dates - handle weekends and holidays properly
+		const today = new Date();
+		const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, 6=Saturday
+		
+		let mostRecentDay = new Date(today);
+		let previousDay = new Date(today);
+		
+		if (dayOfWeek === 0) { // Sunday
+			// Most recent trading day is Friday, previous is Thursday
+			mostRecentDay.setDate(today.getDate() - 2); // Friday
+			previousDay.setDate(today.getDate() - 3); // Thursday
+		} else if (dayOfWeek === 1) { // Monday
+			// Most recent trading day is TODAY (Monday), previous is Friday
+			mostRecentDay = new Date(today); // Today (Monday)
+			previousDay.setDate(today.getDate() - 3); // Friday
+		} else if (dayOfWeek === 6) { // Saturday
+			// Most recent trading day is Friday, previous is Thursday
+			mostRecentDay.setDate(today.getDate() - 1); // Friday
+			previousDay.setDate(today.getDate() - 2); // Thursday
+		} else { // Tuesday-Friday
+			// Most recent trading day is TODAY, previous is yesterday
+			mostRecentDay = new Date(today); // Today
+			previousDay.setDate(today.getDate() - 1); // Yesterday
+		}
+		
+		let todayStr = mostRecentDay.toISOString().split('T')[0];
+		let yesterdayStr = previousDay.toISOString().split('T')[0];
+		
+		console.log(`Scanning market data: Most Recent Trading Day=${todayStr}, Previous Trading Day=${yesterdayStr}`);
+
+		const startTime = Date.now();
+		const maxProcessingTime = 20000; // 20 seconds max to avoid Heroku timeout
+
+		// Get market-wide data for today and yesterday
+		let [todayData, yesterdayData] = await Promise.all([
+			getPolygonGroupedDaily(todayStr),
+			getPolygonGroupedDaily(yesterdayStr)
+		]);
+
+		if (!todayData || todayData.length === 0) {
+			console.log(`No market data for ${todayStr}. Falling back to previous day analysis.`);
+			// Similar fallback logic as gap ups...
+			
+			return res.status(404).json({ 
+				error: `No market data available for gap down scan.` 
+			});
+		}
+
+		if (!yesterdayData || yesterdayData.length === 0) {
+			console.log(`No market data for ${yesterdayStr}. Response:`, yesterdayData);
+			return res.status(404).json({ 
+				error: `No previous day market data available for ${yesterdayStr}.` 
+			});
+		}
+
+		// Create lookup map for yesterday's data
+		const yesterdayMap = new Map<string, GroupedDailyBar>();
+		yesterdayData.forEach(bar => yesterdayMap.set(bar.T, bar));
+
+		console.log(`Processing ${todayData.length} stocks from market-wide gap down scan...`);
+
+		const gapDownStocks: GapUpStock[] = [];
+		let processedCount = 0;
+
+		// Filter and process stocks in batches
+		for (let i = 0; i < todayData.length; i += 100) {
+			// Check timeout
+			if (Date.now() - startTime > maxProcessingTime) {
+				console.log(`Stopping scan due to time limit (${maxProcessingTime/1000}s)`);
+				break;
+			}
+
+			const batch = todayData.slice(i, i + 100);
+			
+			for (const todayBar of batch) {
+				try {
+					const symbol = todayBar.T;
+					const yesterdayBar = yesterdayMap.get(symbol);
+					
+					if (!yesterdayBar) continue;
+
+					// Calculate gap percentage (negative for gap downs)
+					const gapPercentage = calculateGapPercentage(todayBar.o, yesterdayBar.c);
+					
+					// Get volatility level from request body, default to 'low'
+					const volatilityLevel: 'low' | 'medium' | 'high' = req.body?.volatilityLevel || 'low';
+					
+					// Check if this is a blue chip stock
+					const isBlueChip = BLUE_CHIP_STOCKS.has(symbol);
+					
+					// Set gap limits based on volatility level and blue chip status (for gap downs)
+					const gapLimits = {
+						low: { 
+							min: isBlueChip ? -15 : -8,  // Blue chips can gap down more on news
+							max: -2.5 
+						},
+						medium: { 
+							min: isBlueChip ? -25 : -12,  // Blue chips get more tolerance
+							max: -2.0 
+						},
+						high: { 
+							min: isBlueChip ? -40 : -20,  // Blue chips can have major news gaps down
+							max: -1.5 
+						}
+					};
+					
+					// Pre-filter: Only check stocks with significant gap downs and decent volume/price
+					if (gapPercentage <= gapLimits[volatilityLevel].max && // Must be negative enough (gap down)
+						gapPercentage >= gapLimits[volatilityLevel].min && // But not too extreme
+						todayBar.v > 100000 && // Minimum volume (increased for quality)
+						todayBar.o >= 5 && // No penny stocks (>= $5)
+						todayBar.o < 1000) { // Reasonable price range
+						
+						// Skip 20-day high calculation during initial scan for speed
+						const twentyDayHigh = 0;
+						
+						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayHigh, true);
+						
+						if (stockData) {
+							// Enhanced suitable criteria for gap down trading based on volatility level
+							const suitable = stockData.volume > 100000 && 
+								stockData.gapPercentage <= gapLimits[volatilityLevel as keyof typeof gapLimits].max && 
+								stockData.gapPercentage >= gapLimits[volatilityLevel as keyof typeof gapLimits].min && 
+								stockData.currentPrice >= 5 && // No penny stocks
+								stockData.currentPrice <= 300; // Avoid extremely high-priced stocks
+							
+							// ONLY show stocks that meet ALL criteria
+							if (suitable) {
+								const blueChipLabel = isBlueChip ? ' [BLUE CHIP]' : '';
+								
+								console.log(`Found suitable gap down: ${symbol}${blueChipLabel} ${gapPercentage.toFixed(2)}% (Open: $${todayBar.o.toFixed(2)}, Prev Close: $${yesterdayBar.c.toFixed(2)}, Volume: ${todayBar.v.toLocaleString()})`);
+								
+								const analysis = `${symbol} gapped down ${Math.abs(stockData.gapPercentage).toFixed(1)}% on ${todayStr}. Open: $${stockData.openPrice.toFixed(2)}, Previous close: $${stockData.previousClose.toFixed(2)}, Current: $${stockData.currentPrice.toFixed(2)}. Volume: ${stockData.volume.toLocaleString()}. SUITABLE for gap down trading.${isBlueChip ? ' This is a blue chip company with higher gap tolerance due to news-driven moves.' : ''}`;
+
+								const gapDownStock: GapUpStock = {
+									stockSymbol: symbol,
+									currentPrice: `$${stockData.currentPrice.toFixed(2)}`,
+									livePrice: stockData.livePrice ? `$${stockData.livePrice.toFixed(2)}` : undefined,
+									twentyDayHigh: stockData.twentyDayLow ? `$${stockData.twentyDayLow.toFixed(2)}` : `$${stockData.twentyDayHigh.toFixed(2)}`,
+									gapPercentage: `${stockData.gapPercentage.toFixed(2)}%`,
+									openPrice: `$${stockData.openPrice.toFixed(2)}`,
+									highPrice: `$${stockData.highPrice.toFixed(2)}`,
+									lowPrice: `$${stockData.lowPrice.toFixed(2)}`,
+									previousClose: `$${stockData.previousClose.toFixed(2)}`,
+									volume: stockData.volume,
+									marketCap: stockData.marketCap,
+									companyName: stockData.companyName,
+									exchange: stockData.exchange,
+									analysis: analysis,
+									suitable: true, // All displayed stocks are suitable
+									isBlueChip: isBlueChip,
+									first15MinHigh: stockData.first15MinHigh ? `$${stockData.first15MinHigh.toFixed(2)}` : undefined,
+									first15MinLow: stockData.first15MinLow ? `$${stockData.first15MinLow.toFixed(2)}` : undefined,
+									first15MinClose: stockData.first15MinClose ? `$${stockData.first15MinClose.toFixed(2)}` : undefined
+								};
+								
+								gapDownStocks.push(gapDownStock);
+							}
+						}
+					}
+				} catch (error: any) {
+					console.error(`Error processing ${todayBar.T}:`, error.message || error);
+				}
+				processedCount++;
+			}
+		}
+
+		// Sort by gap percentage (most negative first)
+		gapDownStocks.sort((a, b) => parseFloat(a.gapPercentage) - parseFloat(b.gapPercentage));
+
+		// Phase 2: Calculate 20-day lows for final results
+		console.log('Phase 2: Calculating 20-day lows for final gap down stocks...');
+		const topStocks = gapDownStocks.slice(0, 50); // Limit to top 50 for performance
+		
+		for (let i = 0; i < topStocks.length; i++) {
+			const stock = topStocks[i];
+			try {
+				// Get historical data EXCLUDING the most recent trading day
+				// We want 20-day low from BEFORE today's gap, not including today
+				// Use 40 days to ensure we get at least 20 trading days (accounting for weekends/holidays)
+				const fortyDaysAgo = new Date();
+				fortyDaysAgo.setDate(fortyDaysAgo.getDate() - 40);
+				const fromDate = fortyDaysAgo.toISOString().split('T')[0];
+				
+				// Use previousDay as the end date to EXCLUDE today's data
+				const toDate = previousDay.toISOString().split('T')[0];
+				
+				console.log(`Getting historical data for ${stock.stockSymbol}: ${fromDate} to ${toDate} (excluding most recent day)`);
+				
+				const historicalBars = await getPolygonDailyBars(stock.stockSymbol, fromDate, toDate);
+				
+				if (historicalBars && historicalBars.length >= 20) {
+					console.log(`${stock.stockSymbol}: Processing ${historicalBars.length} historical bars`);
+					
+					// Debug: show the date range of the data we got
+					const sortedBars = historicalBars.sort((a, b) => b.t - a.t);
+					const latestBarDate = new Date(sortedBars[0].t).toISOString().split('T')[0];
+					const oldestBarDate = new Date(sortedBars[sortedBars.length - 1].t).toISOString().split('T')[0];
+					console.log(`${stock.stockSymbol}: Historical data range: ${oldestBarDate} to ${latestBarDate}`);
+					
+					// Debug: show current price vs what we're about to calculate
+					const currentPrice = parseFloat(stock.currentPrice.replace('$', ''));
+					console.log(`${stock.stockSymbol}: Current price: $${currentPrice.toFixed(2)}`);
+					
+					const twentyDayLow = calculate20DayLow(historicalBars);
+					stock.twentyDayHigh = `$${twentyDayLow.toFixed(2)}`; // Update the display field
+					
+					// Get first 15-minute low from the stock data
+					const first15MinLow = stock.first15MinLow ? parseFloat(stock.first15MinLow.replace('$', '')) : currentPrice;
+					
+					console.log(`${stock.stockSymbol}: 20-day low: $${twentyDayLow.toFixed(2)}, First 15min low: $${first15MinLow.toFixed(2)}, Current: $${currentPrice.toFixed(2)}`);
+					
+					// CRITICAL GAP DOWN LOGIC: First 15-minute low must be below 20-day low
+					if (first15MinLow > twentyDayLow) {
+						console.log(`${stock.stockSymbol}: REMOVING - First 15min low ($${first15MinLow.toFixed(2)}) is NOT below 20-day low ($${twentyDayLow.toFixed(2)})`);
+						// Mark this stock for removal
+						stock.twentyDayHigh = '$REMOVE';
+					} else {
+						console.log(`${stock.stockSymbol}: QUALIFIED - First 15min low ($${first15MinLow.toFixed(2)}) is below 20-day low ($${twentyDayLow.toFixed(2)}) ✓`);
+					}
+				} else {
+					console.log(`${stock.stockSymbol}: Not enough historical data (${historicalBars?.length || 0} bars)`);
+					// Use today's low as fallback
+					const currentPrice = parseFloat(stock.currentPrice.replace('$', ''));
+					stock.twentyDayHigh = `$${currentPrice.toFixed(2)}`;
+					console.log(`${stock.stockSymbol}: Using current price as 20-day low fallback`);
+				}
+			} catch (error) {
+				console.warn(`Could not calculate 20-day low for ${stock.stockSymbol}:`, error);
+				// Keep the $0.00 value to indicate calculation failed
+			}
+		}
+
+		// Filter out stocks that didn't meet the gap down trading criteria
+		const qualifiedGapDownStocks = gapDownStocks.filter(stock => stock.twentyDayHigh !== '$REMOVE');
+		console.log(`Filtered gap down stocks: ${gapDownStocks.length} -> ${qualifiedGapDownStocks.length} (removed ${gapDownStocks.length - qualifiedGapDownStocks.length} that didn't meet 15min low < 20-day low criteria)`);
+
+		const endTime = Date.now();
+		const duration = (endTime - startTime) / 1000;
+		console.log(`Market-wide gap down scan complete: Found ${qualifiedGapDownStocks.length} qualified gap-down stocks`);
+		console.log(`Processed ${processedCount}/${todayData.length} stocks in ${duration.toFixed(2)} seconds`);
+
+		const result: ScanResult = {
+			stocks: qualifiedGapDownStocks.slice(0, 50), // Limit to top 50 results
+			totalFound: qualifiedGapDownStocks.length,
+			timestamp: new Date(),
+			scanDuration: `${duration.toFixed(2)}s`,
+			status: processedCount === todayData.length ? 'completed' : 'timeout',
+			processedCount,
+			totalCount: todayData.length
+		};
+
+		return res.status(200).json(result);
+	} catch (error) {
+		console.error('Error scanning for gap downs:', error);
+		return res.status(500).json({ error: 'Failed to scan for gap downs' });
+	}
+};
+
 // Function to get all available stocks for charting
 export const getAvailableStocks = async (req: Request, res: Response) => {
 	try {
@@ -1047,12 +1376,26 @@ export const getChartData = async (req: Request, res: Response) => {
 			const toDate = new Date();
 			const fromDate = new Date();
 			
-			// Check if it's weekend
-			const dayOfWeek = toDate.getDay(); // 0 = Sunday, 6 = Saturday
-			const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-			
+			// Check market status for intraday requests
+			const marketStatus = getMarketStatus();
 			console.log(`Intraday request: minutesBack=${minutesBack}, hoursBack=${hoursBack}`);
-			console.log(`Day of week: ${dayOfWeek}, isWeekend: ${isWeekend}`);
+			console.log(`Market status: ${marketStatus.status}, reason: ${marketStatus.reason}`);
+			
+			// For intraday charts, check if it's a non-trading time
+			if (marketStatus.status === 'CLOSED' && marketStatus.reason === 'Weekend') {
+				return res.status(400).json({ 
+					error: `Intraday chart data not available on weekends. Markets are closed on ${marketStatus.reason.toLowerCase()}. Please try again during trading hours (Monday-Friday 9:30 AM - 4:00 PM ET) or use daily/weekly charts instead.`,
+					marketStatus: marketStatus
+				});
+			}
+			
+			// For very short timeframes (15min, 1hour), also check trading hours
+			if ((minutesBack <= 15 || hoursBack <= 1) && marketStatus.status === 'CLOSED' && marketStatus.reason === 'After Hours') {
+				return res.status(400).json({ 
+					error: `Intraday chart data for ${minutesBack <= 15 ? '15-minute' : '1-hour'} timeframes not available during after-hours. Current market status: ${marketStatus.status}. Please try again during trading hours (9:30 AM - 4:00 PM ET) or use daily charts instead.`,
+					marketStatus: marketStatus
+				});
+			}
 			
 			if (minutesBack <= 15) {
 				// 15 minutes - use 1 minute bars for today only

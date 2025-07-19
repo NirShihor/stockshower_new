@@ -19,6 +19,7 @@ interface GapUpStock {
   companyName?: string;
   exchange?: string;
   first15MinHigh?: string;
+  first15MinLow?: string;
   first15MinClose?: string;
 }
 
@@ -33,6 +34,7 @@ interface GapUpScanData {
 }
 
 const GapScannerPage: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'up' | 'down'>('up');
   const [scanData, setScanData] = useState<GapUpScanData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [volatilityLevel, setVolatilityLevel] = useState<'low' | 'medium' | 'high'>('low');
@@ -80,10 +82,11 @@ const GapScannerPage: React.FC = () => {
     }
   }, [scanData]);
 
-  const fetchGapUpScan = async () => {
+  const fetchGapScan = async () => {
     setLoading(true);
     try {
-      const response = await fetch(API_ENDPOINTS.scanGapUps, {
+      const endpoint = activeTab === 'up' ? API_ENDPOINTS.scanGapUps : API_ENDPOINTS.scanGapDowns;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,13 +99,13 @@ const GapScannerPage: React.FC = () => {
       }
       
       const data = await response.json();
-      console.log("Gap Up Scan Data:", data);
+      console.log(`Gap ${activeTab === 'up' ? 'Up' : 'Down'} Scan Data:`, data);
       setScanData(data);
     } catch (error) {
-      console.error('Error fetching gap up scan:', error);
+      console.error(`Error fetching gap ${activeTab} scan:`, error);
       setScanData(null);
       // Show error message to user
-      alert('Error scanning for gap-ups. Please try again.');
+      alert(`Error scanning for gap-${activeTab}s. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -292,9 +295,7 @@ const GapScannerPage: React.FC = () => {
   // Update current time every second for countdown display
   useEffect(() => {
     const timer = setInterval(() => {
-      const now = Date.now();
-      console.log(`Timer tick: updating currentTime to ${now}`);
-      setCurrentTime(now);
+      setCurrentTime(Date.now());
     }, 1000);
     
     return () => clearInterval(timer);
@@ -305,7 +306,7 @@ const GapScannerPage: React.FC = () => {
     return () => {
       priceIntervals.forEach(interval => clearInterval(interval));
     };
-  }, [priceIntervals]);
+  }, []);
 
   const getRiskAssessment = async (stock: GapUpStock) => {
     const symbol = stock.stockSymbol;
@@ -397,8 +398,53 @@ const GapScannerPage: React.FC = () => {
   return (
     <div className="gap-scanner-page">
       <div className="page-header">
-        <h1>Gap Up Scanner</h1>
-        <p>Find stocks gapping up above their 20-day highs with real-time Polygon data</p>
+        <h1>Gap Scanner</h1>
+        <p>Find stocks gapping up or down with significant moves</p>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="tab-navigation" style={{
+        display: 'flex',
+        marginBottom: '1rem',
+        borderBottom: '1px solid #ddd'
+      }}>
+        <button
+          onClick={() => {
+            setActiveTab('up');
+            setScanData(null); // Clear data when switching tabs
+          }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            border: 'none',
+            backgroundColor: activeTab === 'up' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'up' ? 'white' : '#333',
+            cursor: 'pointer',
+            borderTopLeftRadius: '4px',
+            borderTopRightRadius: '4px',
+            fontWeight: activeTab === 'up' ? 'bold' : 'normal'
+          }}
+        >
+          📈 Gap Ups
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('down');
+            setScanData(null); // Clear data when switching tabs
+          }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            border: 'none',
+            backgroundColor: activeTab === 'down' ? '#007bff' : '#f8f9fa',
+            color: activeTab === 'down' ? 'white' : '#333',
+            cursor: 'pointer',
+            borderTopLeftRadius: '4px',
+            borderTopRightRadius: '4px',
+            fontWeight: activeTab === 'down' ? 'bold' : 'normal',
+            marginLeft: '2px'
+          }}
+        >
+          📉 Gap Downs
+        </button>
       </div>
 
       <div className="scanner-controls">
@@ -433,8 +479,8 @@ const GapScannerPage: React.FC = () => {
         </div>
         
         <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-          <button className="analysis-button" onClick={fetchGapUpScan} disabled={loading}>
-            {loading ? 'Scanning for Gap Ups...' : 'Scan for Gap Ups'}
+          <button className="analysis-button" onClick={fetchGapScan} disabled={loading}>
+            {loading ? `Scanning for Gap ${activeTab === 'up' ? 'Ups' : 'Downs'}...` : `Scan for Gap ${activeTab === 'up' ? 'Ups' : 'Downs'}`}
           </button>
           {scanData && (
             <button className="analysis-button" onClick={clearScanData} style={{backgroundColor: '#e74c3c'}}>
@@ -453,7 +499,7 @@ const GapScannerPage: React.FC = () => {
       {scanData && (
         <div className="scan-container">
           <div className="scan-header">
-            <h2>Gap Up Stocks Found: {scanData.totalFound}</h2>
+            <h2>Gap {activeTab === 'up' ? 'Up' : 'Down'} Stocks Found: {scanData.totalFound}</h2>
             <small>Last updated: {new Date(scanData.timestamp).toLocaleString()}</small>
             {scanData.scanDuration && <small> • Duration: {scanData.scanDuration}</small>}
             {scanData.status && scanData.status !== 'completed' && (
@@ -537,7 +583,7 @@ const GapScannerPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="detail-row">
-                    <span className="label">20-Day High:</span>
+                    <span className="label">{activeTab === 'up' ? '20-Day High:' : '20-Day Low:'}</span>
                     <span className="value">{stock.twentyDayHigh}</span>
                   </div>
                   <div className="detail-row">
@@ -551,10 +597,16 @@ const GapScannerPage: React.FC = () => {
                       <span className="value">{stock.openPrice}</span>
                     </div>
                   )}
-                  {stock.first15MinHigh && (
+                  {stock.first15MinHigh && activeTab === 'up' && (
                     <div className="detail-row">
                       <span className="label">First 15min High:</span>
                       <span className="value" style={{color: '#27ae60', fontWeight: 'bold'}}>{stock.first15MinHigh}</span>
+                    </div>
+                  )}
+                  {stock.first15MinLow && activeTab === 'down' && (
+                    <div className="detail-row">
+                      <span className="label">First 15min Low:</span>
+                      <span className="value" style={{color: '#e74c3c', fontWeight: 'bold'}}>{stock.first15MinLow}</span>
                     </div>
                   )}
                   {stock.first15MinClose && (
