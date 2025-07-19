@@ -1,10 +1,14 @@
 import express, { Request, Response, Router } from 'express';
-import { scanGapUps, testPolygon, getChartData, getAvailableStocks, getLivePrice, getRiskAssessment } from '../handlers/stockAnalysis.js';
+import { scanGapUps, scanGapDowns, testPolygon, getChartData, getAvailableStocks, getLivePrice, getRiskAssessment } from '../handlers/stockAnalysis.js';
 
 const router: Router = express.Router();
 
 router.post('/scan-gap-ups', (req: Request, res: Response) => {
   scanGapUps(req, res);
+});
+
+router.post('/scan-gap-downs', (req: Request, res: Response) => {
+  scanGapDowns(req, res);
 });
 
 router.get('/test-polygon', (req: Request, res: Response) => {

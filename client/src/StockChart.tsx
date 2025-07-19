@@ -84,7 +84,12 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
       const response = await fetch(`${API_ENDPOINTS.chart(symbol)}?days=${days}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch chart data: ${response.status}`);
+        const errorData = await response.json().catch(() => null);
+        if (errorData && errorData.error) {
+          throw new Error(errorData.error);
+        } else {
+          throw new Error(`Failed to fetch chart data: ${response.status}`);
+        }
       }
       
       const data = await response.json();
@@ -95,7 +100,11 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
       setChartData(data);
     } catch (err) {
       console.error('Error fetching chart data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch chart data');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('Failed to fetch chart data');
+      }
     } finally {
       setLoading(false);
     }
@@ -110,7 +119,19 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
   }
 
   if (error) {
-    return <div className="chart-error">Error: {error}</div>;
+    return (
+      <div className="chart-error" style={{
+        padding: '2rem',
+        textAlign: 'center',
+        backgroundColor: '#fff3cd',
+        border: '1px solid #ffeaa7',
+        borderRadius: '8px',
+        margin: '1rem 0'
+      }}>
+        <h3 style={{ color: '#856404', marginBottom: '1rem' }}>Chart Not Available</h3>
+        <p style={{ color: '#856404', lineHeight: '1.5', margin: 0 }}>{error}</p>
+      </div>
+    );
   }
 
   if (!chartData || !chartData.data.length) {
