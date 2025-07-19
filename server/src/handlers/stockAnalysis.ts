@@ -127,6 +127,7 @@ interface GapUpStock {
 	companyName?: string;
 	exchange?: string;
 	first15MinHigh?: string;
+	first15MinLow?: string;
 	first15MinClose?: string;
 }
 
