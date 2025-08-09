@@ -123,13 +123,11 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
       <div className="chart-error" style={{
         padding: '2rem',
         textAlign: 'center',
-        backgroundColor: '#fff3cd',
-        border: '1px solid #ffeaa7',
         borderRadius: '8px',
         margin: '1rem 0'
       }}>
-        <h3 style={{ color: '#856404', marginBottom: '1rem' }}>Chart Not Available</h3>
-        <p style={{ color: '#856404', lineHeight: '1.5', margin: 0 }}>{error}</p>
+        <h2 style={{ color: '#333', marginBottom: '1rem', fontSize: '1.5rem' }}>Chart Not Available</h2>
+        <p style={{ color: '#666', lineHeight: '1.5', margin: 0 }}>{error}</p>
       </div>
     );
   }

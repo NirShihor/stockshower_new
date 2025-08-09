@@ -415,13 +415,14 @@ const GapScannerPage: React.FC = () => {
           }}
           style={{
             padding: '0.75rem 1.5rem',
-            border: 'none',
-            backgroundColor: activeTab === 'up' ? '#007bff' : '#f8f9fa',
-            color: activeTab === 'up' ? 'white' : '#333',
+            border: '2px solid black',
+            backgroundColor: activeTab === 'up' ? '#e0e0e0' : 'white',
+            color: activeTab === 'up' ? 'black' : 'black',
             cursor: 'pointer',
             borderTopLeftRadius: '4px',
             borderTopRightRadius: '4px',
-            fontWeight: activeTab === 'up' ? 'bold' : 'normal'
+            fontWeight: activeTab === 'up' ? 'bold' : 'normal',
+            fontFamily: 'PencilFont, sans-serif'
           }}
         >
           📈 Gap Ups
@@ -433,14 +434,15 @@ const GapScannerPage: React.FC = () => {
           }}
           style={{
             padding: '0.75rem 1.5rem',
-            border: 'none',
-            backgroundColor: activeTab === 'down' ? '#007bff' : '#f8f9fa',
-            color: activeTab === 'down' ? 'white' : '#333',
+            border: '2px solid black',
+            backgroundColor: activeTab === 'down' ? '#e0e0e0' : 'white',
+            color: activeTab === 'down' ? 'black' : 'black',
             cursor: 'pointer',
             borderTopLeftRadius: '4px',
             borderTopRightRadius: '4px',
             fontWeight: activeTab === 'down' ? 'bold' : 'normal',
-            marginLeft: '2px'
+            marginLeft: '2px',
+            fontFamily: 'PencilFont, sans-serif'
           }}
         >
           📉 Gap Downs
@@ -450,7 +452,7 @@ const GapScannerPage: React.FC = () => {
       <div className="scanner-controls">
         <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem'}}>
           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <label htmlFor="volatility-select" style={{fontSize: '0.9rem', color: '#333', fontWeight: 'bold'}}>
+            <label htmlFor="volatility-select" style={{fontSize: '1.2rem', color: '#333', fontWeight: 'bold'}}>
               Volatility Level:
             </label>
             <select 
@@ -471,7 +473,7 @@ const GapScannerPage: React.FC = () => {
               <option value="high">High (More Results)</option>
             </select>
           </div>
-          <small style={{color: '#666', fontSize: '0.8rem', maxWidth: '300px'}}>
+          <small style={{color: '#666', fontSize: '1rem', maxWidth: '300px'}}>
             {volatilityLevel === 'low' && 'Safest: Only stocks with very low volatility scores'}
             {volatilityLevel === 'medium' && 'Balanced: Moderate volatility tolerance'}
             {volatilityLevel === 'high' && 'Aggressive: Higher volatility tolerance (original setting)'}
@@ -483,7 +485,7 @@ const GapScannerPage: React.FC = () => {
             {loading ? `Scanning for Gap ${activeTab === 'up' ? 'Ups' : 'Downs'}...` : `Scan for Gap ${activeTab === 'up' ? 'Ups' : 'Downs'}`}
           </button>
           {scanData && (
-            <button className="analysis-button" onClick={clearScanData} style={{backgroundColor: '#e74c3c'}}>
+            <button className="analysis-button" onClick={clearScanData}>
               Clear Results
             </button>
           )}
@@ -675,15 +677,16 @@ const GapScannerPage: React.FC = () => {
                           className="analysis-button"
                           onClick={() => startTracking(stock.stockSymbol, stock.livePrice || stock.currentPrice)}
                           style={{
-                            backgroundColor: '#2980b9',
-                            color: 'white',
+                            backgroundColor: '#87CEEB',
+                            color: 'black',
                             fontSize: '0.9rem',
-                            padding: '0.5rem 1rem'
+                            padding: '0.5rem 1rem',
+                            fontFamily: 'PencilFont, sans-serif'
                           }}
                         >
                           📈 Start Price Tracking (45s intervals)
                         </button>
-                        <small style={{color: '#666', fontSize: '0.75rem', fontStyle: 'italic'}}>
+                        <small style={{color: '#666', fontSize: '0.75rem', fontStyle: 'italic', fontFamily: 'PencilFont, sans-serif'}}>
                           Note: Using most recent close price (real-time data requires subscription upgrade)
                         </small>
                       </div>
@@ -701,7 +704,7 @@ const GapScannerPage: React.FC = () => {
                         >
                           ⏹️ Stop Tracking
                         </button>
-                        <small style={{color: '#666'}}>
+                        <small style={{color: '#666', fontFamily: 'PencilFont, sans-serif'}}>
                           {(() => {
                             const nextUpdate = nextUpdateTimes.get(stock.stockSymbol) || 0;
                             const secondsLeft = Math.max(0, Math.floor((nextUpdate - currentTime) / 1000));
@@ -721,8 +724,8 @@ const GapScannerPage: React.FC = () => {
                         : getRiskAssessment(stock)}
                       disabled={loadingRisk.has(stock.stockSymbol)}
                       style={{
-                        backgroundColor: loadingRisk.has(stock.stockSymbol) ? '#6c757d' : riskAssessments.has(stock.stockSymbol) ? '#17a2b8' : '#28a745',
-                        color: 'white',
+                        backgroundColor: loadingRisk.has(stock.stockSymbol) ? '#6c757d' : riskAssessments.has(stock.stockSymbol) ? '#87CEEB' : '#FFB366',
+                        color: loadingRisk.has(stock.stockSymbol) ? 'white' : 'black',
                         fontSize: '0.9rem',
                         padding: '0.5rem 1rem',
                         opacity: loadingRisk.has(stock.stockSymbol) ? 0.6 : 1,
