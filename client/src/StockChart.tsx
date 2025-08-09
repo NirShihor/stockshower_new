@@ -16,6 +16,12 @@ import { Chart } from 'react-chartjs-2';
 import { CandlestickController, CandlestickElement } from 'chartjs-chart-financial';
 import 'chartjs-adapter-date-fns';
 
+// Set global font defaults - try with quotes
+ChartJS.defaults.font = {
+  ...ChartJS.defaults.font,
+  family: "'PencilFont'"
+};
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -187,15 +193,33 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
 
   const options: any = {
     responsive: true,
+    font: {
+      family: "PencilFont, sans-serif"
+    },
     plugins: {
       legend: {
         position: 'top' as const,
+        labels: {
+          font: {
+            family: 'PencilFont, sans-serif'
+          }
+        }
       },
       title: {
         display: true,
         text: `${chartData.companyName} (${chartData.symbol}) - ${getTimeframeLabel(days)} ${chartType === 'candlestick' ? 'Candlestick' : 'Line'} Chart`,
+        font: {
+          family: 'PencilFont, sans-serif',
+          size: 16
+        }
       },
       tooltip: {
+        titleFont: {
+          family: 'PencilFont, sans-serif'
+        },
+        bodyFont: {
+          family: 'PencilFont, sans-serif'
+        },
         callbacks: {
           title: (context: any) => {
             return new Date(context[0].label).toLocaleDateString();
@@ -232,14 +256,38 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
         },
         title: {
           display: true,
-          text: 'Time'
+          text: 'Time',
+          font: {
+            family: 'PencilFont, sans-serif',
+            size: 14
+          }
+        },
+        ticks: {
+          font: {
+            family: "PencilFont, sans-serif",
+            size: 12,
+            weight: 'normal'
+          },
+          color: '#333'
         }
       },
       y: {
         type: 'linear' as const,
         title: {
           display: true,
-          text: 'Price ($)'
+          text: 'Price ($)',
+          font: {
+            family: 'PencilFont, sans-serif',
+            size: 14
+          }
+        },
+        ticks: {
+          font: {
+            family: "PencilFont, sans-serif",
+            size: 12,
+            weight: 'normal'
+          },
+          color: '#333'
         }
       }
     },

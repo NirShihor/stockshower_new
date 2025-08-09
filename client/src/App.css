@@ -284,9 +284,24 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
+	margin-left: 4rem;
 }
 
 .chart-days-selector select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-family: 'PencilFont', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.chart-type-selector {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.chart-type-selector select {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -304,6 +319,11 @@
   height: 400px;
   width: 100%;
   margin-bottom: 1rem;
+  font-family: 'PencilFont', sans-serif;
+}
+
+.chart-container canvas {
+  font-family: 'PencilFont', sans-serif !important;
 }
 
 .chart-loading {
