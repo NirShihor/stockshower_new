@@ -413,17 +413,7 @@ const GapScannerPage: React.FC = () => {
             setActiveTab('up');
             setScanData(null); // Clear data when switching tabs
           }}
-          style={{
-            padding: '0.75rem 1.5rem',
-            border: '2px solid black',
-            backgroundColor: activeTab === 'up' ? '#e0e0e0' : 'white',
-            color: activeTab === 'up' ? 'black' : 'black',
-            cursor: 'pointer',
-            borderTopLeftRadius: '4px',
-            borderTopRightRadius: '4px',
-            fontWeight: activeTab === 'up' ? 'bold' : 'normal',
-            fontFamily: 'PencilFont, sans-serif'
-          }}
+          className={`tab-button ${activeTab === 'up' ? 'active' : ''}`}
         >
           📈 Gap Ups
         </button>
@@ -432,18 +422,7 @@ const GapScannerPage: React.FC = () => {
             setActiveTab('down');
             setScanData(null); // Clear data when switching tabs
           }}
-          style={{
-            padding: '0.75rem 1.5rem',
-            border: '2px solid black',
-            backgroundColor: activeTab === 'down' ? '#e0e0e0' : 'white',
-            color: activeTab === 'down' ? 'black' : 'black',
-            cursor: 'pointer',
-            borderTopLeftRadius: '4px',
-            borderTopRightRadius: '4px',
-            fontWeight: activeTab === 'down' ? 'bold' : 'normal',
-            marginLeft: '2px',
-            fontFamily: 'PencilFont, sans-serif'
-          }}
+          className={`tab-button ${activeTab === 'down' ? 'active' : ''}`}
         >
           📉 Gap Downs
         </button>
