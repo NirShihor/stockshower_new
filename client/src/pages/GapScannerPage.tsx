@@ -461,7 +461,7 @@ const GapScannerPage: React.FC = () => {
           <small style={{color: '#666', fontSize: '1.5rem', maxWidth: '300px'}}>
             {volatilityLevel === 'low' && 'Safest: Only stocks with very low volatility scores'}
             {volatilityLevel === 'medium' && 'Balanced: Moderate volatility tolerance'}
-            {volatilityLevel === 'high' && 'Aggressive: Higher volatility toleranc'}
+            {volatilityLevel === 'high' && 'Aggressive: Higher volatility tolerance'}
           </small>
         </div>
         
