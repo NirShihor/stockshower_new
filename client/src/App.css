@@ -840,4 +840,9 @@ h1 {
       min-width: 280px;
     }
   }
+  
+  /* Risk assessment modal should not be centered on mobile */
+  .modal-content {
+    text-align: left;
+  }
 }
