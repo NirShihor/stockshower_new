@@ -660,7 +660,7 @@ h1 {
   color: #7f8c8d;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 770px) {
   .App {
     padding: 0.5rem;
     text-align: center;
@@ -741,9 +741,11 @@ h1 {
   
   .scanner-controls button {
     margin-left: 0 !important;
-    width: 100%;
-    max-width: calc(100vw - 2rem);
+    width: auto;
+    max-width: calc(100vw - 4rem);
     box-sizing: border-box;
+    font-size: 1.4rem !important;
+    padding: 0.6rem 1rem !important;
   }
   
   .nav-links {
@@ -828,5 +830,14 @@ h1 {
     max-width: calc(100vw - 3rem);
     left: 0 !important;
     right: 0 !important;
+  }
+  
+  /* Override for tablet/medium screens within this media query */
+  @media (min-width: 480px) {
+    .scanner-controls button.analysis-button {
+      width: 280px;
+      max-width: 280px;
+      min-width: 280px;
+    }
   }
 }
