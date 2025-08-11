@@ -50,6 +50,7 @@ const GapScannerPage: React.FC = () => {
   const [showRiskModal, setShowRiskModal] = useState<boolean>(false);
   const [currentRiskAssessment, setCurrentRiskAssessment] = useState<{symbol: string, assessment: string, timestamp: number} | null>(null);
   const [hasRealTimeAccess, setHasRealTimeAccess] = useState<boolean>(true); // Assume true initially
+  const [showScanningMessage, setShowScanningMessage] = useState<boolean>(false);
 
   // Load persisted scan data on component mount
   useEffect(() => {
@@ -112,6 +113,7 @@ const GapScannerPage: React.FC = () => {
       alert(`Error scanning for gap-${activeTab}s. Please try again.`);
     } finally {
       setLoading(false);
+      setShowScanningMessage(false); // Hide message when scan completes
     }
   };
 
@@ -418,27 +420,60 @@ const GapScannerPage: React.FC = () => {
       }}>
         <button
           onClick={() => {
-            setActiveTab('up');
-            setScanData(null); // Clear data when switching tabs
+            if (!loading) {
+              setActiveTab('up');
+              setScanData(null); // Clear data when switching tabs
+              setShowScanningMessage(false); // Hide message if switching successfully
+            } else {
+              setShowScanningMessage(true); // Show message when clicking during scan
+            }
           }}
           className={`tab-button ${activeTab === 'up' ? 'active' : ''}`}
+          style={{
+            opacity: loading && activeTab !== 'up' ? 0.6 : 1,
+            cursor: loading && activeTab !== 'up' ? 'not-allowed' : 'pointer'
+          }}
         >
           📈 Gap Ups
         </button>
         <button
           onClick={() => {
-            setActiveTab('down');
-            setScanData(null); // Clear data when switching tabs
+            if (!loading) {
+              setActiveTab('down');
+              setScanData(null); // Clear data when switching tabs
+              setShowScanningMessage(false); // Hide message if switching successfully
+            } else {
+              setShowScanningMessage(true); // Show message when clicking during scan
+            }
           }}
           className={`tab-button ${activeTab === 'down' ? 'active' : ''}`}
+          style={{
+            opacity: loading && activeTab !== 'down' ? 0.6 : 1,
+            cursor: loading && activeTab !== 'down' ? 'not-allowed' : 'pointer'
+          }}
         >
           📉 Gap Downs
         </button>
       </div>
 
+      {showScanningMessage && loading && (
+        <div style={{
+          textAlign: 'center',
+          marginBottom: '1rem',
+          padding: '0.5rem',
+          backgroundColor: '#fff3cd',
+          color: '#856404',
+          border: '1px solid #ffeaa7',
+          borderRadius: '4px',
+          fontSize: '1.3rem'
+        }}>
+          ⏳ Please wait until scan is done before switching tabs
+        </div>
+      )}
+
       <div className="scanner-controls">
-        <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem'}}>
-          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+        <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap'}}>
             <label htmlFor="volatility-select" style={{fontSize: '1.8rem', color: '#333', fontWeight: 'bold'}}>
               Volatility Level:
             </label>
@@ -467,7 +502,7 @@ const GapScannerPage: React.FC = () => {
           </small>
         </div>
         
-        <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
+        <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap'}}>
           <button 
             className="analysis-button" 
             onClick={fetchGapScan} 
@@ -482,7 +517,7 @@ const GapScannerPage: React.FC = () => {
             </button>
           )}
           {scanData && (
-            <div style={{fontSize: '1.2rem', color: '#666'}}>
+            <div style={{fontSize: '1.2rem', color: '#666', minWidth: 'fit-content'}}>
               Last scanned: {new Date(scanData.timestamp).toLocaleString()}
               {scanData.scanDuration && ` (${scanData.scanDuration})`}
             </div>
