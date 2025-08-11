@@ -222,7 +222,8 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
         },
         callbacks: {
           title: (context: any) => {
-            return new Date(context[0].label).toLocaleDateString();
+            const timestamp = context[0].parsed.x;
+            return new Date(timestamp).toLocaleDateString();
           },
           label: (context: any) => {
             const dataPoint = chartData.data[context.dataIndex];
