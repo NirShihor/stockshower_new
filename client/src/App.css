@@ -356,6 +356,11 @@
   padding: 0.3rem;
 }
 
+#volatility-select option {
+  font-size: 0.8rem;
+  padding: 0.3rem;
+}
+
 .stock-chart {
   width: 100%;
   max-width: 100%;
