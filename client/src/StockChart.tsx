@@ -19,7 +19,7 @@ import 'chartjs-adapter-date-fns';
 // Set global font defaults - try with quotes
 ChartJS.defaults.font = {
   ...ChartJS.defaults.font,
-  family: "'PencilFont'"
+  family: "'SchoolPencil-Regular'"
 };
 
 ChartJS.register(
@@ -132,7 +132,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
         borderRadius: '8px',
         margin: '1rem 0'
       }}>
-        <h2 style={{ color: '#333', marginBottom: '1rem', fontSize: '1.5rem' }}>Chart Not Available</h2>
+        <h2 style={{ color: '#333', marginBottom: '1rem', fontSize: '2rem' }}>Chart Not Available</h2>
         <p style={{ color: '#666', lineHeight: '1.5', margin: 0 }}>{error}</p>
       </div>
     );
@@ -194,14 +194,14 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
   const options: any = {
     responsive: true,
     font: {
-      family: "PencilFont, sans-serif"
+      family: "SchoolPencil-Regular, sans-serif"
     },
     plugins: {
       legend: {
         position: 'top' as const,
         labels: {
           font: {
-            family: 'PencilFont, sans-serif'
+            family: 'SchoolPencil-Regular, sans-serif'
           }
         }
       },
@@ -209,16 +209,16 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
         display: true,
         text: `${chartData.companyName} (${chartData.symbol}) - ${getTimeframeLabel(days)} ${chartType === 'candlestick' ? 'Candlestick' : 'Line'} Chart`,
         font: {
-          family: 'PencilFont, sans-serif',
+          family: 'SchoolPencil-Regular, sans-serif',
           size: 16
         }
       },
       tooltip: {
         titleFont: {
-          family: 'PencilFont, sans-serif'
+          family: 'SchoolPencil-Regular, sans-serif'
         },
         bodyFont: {
-          family: 'PencilFont, sans-serif'
+          family: 'SchoolPencil-Regular, sans-serif'
         },
         callbacks: {
           title: (context: any) => {
@@ -258,13 +258,13 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
           display: true,
           text: 'Time',
           font: {
-            family: 'PencilFont, sans-serif',
+            family: 'SchoolPencil-Regular, sans-serif',
             size: 14
           }
         },
         ticks: {
           font: {
-            family: "PencilFont, sans-serif",
+            family: "SchoolPencil-Regular, sans-serif",
             size: 12,
             weight: 'normal'
           },
@@ -277,13 +277,13 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, days = 30, chartType = 
           display: true,
           text: 'Price ($)',
           font: {
-            family: 'PencilFont, sans-serif',
+            family: 'SchoolPencil-Regular, sans-serif',
             size: 14
           }
         },
         ticks: {
           font: {
-            family: "PencilFont, sans-serif",
+            family: "SchoolPencil-Regular, sans-serif",
             size: 12,
             weight: 'normal'
           },
