@@ -85,6 +85,8 @@ const GapScannerPage: React.FC = () => {
   }, [scanData]);
 
   const fetchGapScan = async () => {
+    // Clear existing results before scanning
+    clearScanData();
     setLoading(true);
     try {
       const endpoint = activeTab === 'up' ? API_ENDPOINTS.scanGapUps : API_ENDPOINTS.scanGapDowns;
@@ -465,8 +467,13 @@ const GapScannerPage: React.FC = () => {
           </small>
         </div>
         
-        <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-          <button className="analysis-button" onClick={fetchGapScan} disabled={loading}>
+        <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem'}}>
+          <button 
+            className="analysis-button" 
+            onClick={fetchGapScan} 
+            disabled={loading}
+            style={{marginLeft: '2rem'}}
+          >
             {loading ? `Scanning for Gap ${activeTab === 'up' ? 'Ups' : 'Downs'}...` : `Scan for Gap ${activeTab === 'up' ? 'Ups' : 'Downs'}`}
           </button>
           {scanData && (
