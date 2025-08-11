@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import StockChart from '../StockChart';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -10,12 +11,15 @@ interface AvailableStock {
 }
 
 const ChartsPage: React.FC = () => {
-  const [selectedStock, setSelectedStock] = useState<string>('AAPL');
+  const [searchParams] = useSearchParams();
+  const symbolFromUrl = searchParams.get('symbol');
+  
+  const [selectedStock, setSelectedStock] = useState<string>(symbolFromUrl || 'AAPL');
   const [chartDays, setChartDays] = useState<number>(0.01);
   const [chartType, setChartType] = useState<'candlestick' | 'line'>('candlestick');
   const [availableStocks, setAvailableStocks] = useState<AvailableStock[]>([]);
   const [filteredStocks, setFilteredStocks] = useState<AvailableStock[]>([]);
-  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>(symbolFromUrl || '');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
 
@@ -162,7 +166,7 @@ const ChartsPage: React.FC = () => {
     <div className="charts-page">
       <div className="page-header">
         <h1>Stock Charts</h1>
-        <p>Interactive candlestick charts with real-time data from Polygon</p>
+        <p>Interactive charts with real-time data</p>
       </div>
 
       <div className="chart-section">
