@@ -79,6 +79,10 @@ const PreMarketPage: React.FC = () => {
   const isMarketClosed = estHours >= 16 || estHours < 4;
   
   const runPreMarketAnalysis = async () => {
+    // Clear previous analysis
+    setPreMarketAnalysis('');
+    setAnalysisTimestamp(null);
+    
     setLoading(true);
     try {
       // Get the latest gap scanner data from localStorage if available
@@ -166,11 +170,6 @@ Remember the key principles:
     }
   };
   
-  const clearAnalysis = () => {
-    setPreMarketAnalysis('');
-    setAnalysisTimestamp(null);
-    localStorage.removeItem('preMarketAnalysis');
-  };
   
   return (
     <div className="pre-market-page">
@@ -184,9 +183,11 @@ Remember the key principles:
         textAlign: 'center',
         marginBottom: '2rem',
         padding: '1rem',
-        backgroundColor: isOptimalTime ? '#d4edda' : isPreMarket ? '#fff3cd' : '#f8d7da',
+        backgroundColor: isOptimalTime ? '#d4edda' : isPreMarket ? '#fff3cd' : 'white',
         borderRadius: '8px',
-        border: `1px solid ${isOptimalTime ? '#c3e6cb' : isPreMarket ? '#ffeaa7' : '#f5c6cb'}`
+        border: `1px solid ${isOptimalTime ? '#c3e6cb' : isPreMarket ? '#ffeaa7' : '#e0e0e0'}`,
+        maxWidth: '50%',
+        margin: '0 auto 2rem auto'
       }}>
         <h3 style={{margin: '0 0 0.5rem 0', fontSize: '1.8rem'}}>
           Current Time (EST): {estTimeString}
@@ -209,7 +210,7 @@ Remember the key principles:
       </div>
       
       {/* Run Analysis Button */}
-      <div style={{textAlign: 'center', marginBottom: '2rem', display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap'}}>
+      <div style={{textAlign: 'center', marginBottom: '2rem'}}>
         <button 
           className="analysis-button"
           onClick={runPreMarketAnalysis}
@@ -223,20 +224,6 @@ Remember the key principles:
         >
           {loading ? '🤖 Analyzing Market Conditions...' : '🚀 Run Pre-Market Analysis'}
         </button>
-        {preMarketAnalysis && (
-          <button 
-            className="analysis-button"
-            onClick={clearAnalysis}
-            style={{
-              backgroundColor: '#e74c3c',
-              color: 'white',
-              fontSize: '1.6rem',
-              padding: '0.75rem 2rem'
-            }}
-          >
-            Clear Analysis
-          </button>
-        )}
       </div>
       
       {/* Analysis Results */}
