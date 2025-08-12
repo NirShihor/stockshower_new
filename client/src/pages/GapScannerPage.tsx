@@ -640,7 +640,7 @@ const GapScannerPage: React.FC = () => {
                   )}
                   {stock.first15MinClose && (
                     <div className="detail-row">
-                      <span className="label">First 15min Close:</span>
+                      <span className="label">First 15min Close (use as buy limit order):</span>
                       <span className="value" style={{color: '#2980b9', fontWeight: 'bold'}}>{stock.first15MinClose}</span>
                     </div>
                   )}
@@ -662,18 +662,18 @@ const GapScannerPage: React.FC = () => {
                       <span className="value">{stock.previousClose}</span>
                     </div>
                   )}
-                  {stock.volume && (
-                    <div className="detail-row">
-                      <span className="label">Volume:</span>
-                      <span className="value">{stock.volume.toLocaleString()}</span>
-                    </div>
-                  )}
-                  {stock.marketCap && stock.marketCap > 0 && (
-                    <div className="detail-row">
-                      <span className="label">Market Cap:</span>
-                      <span className="value">${(stock.marketCap / 1000000).toFixed(0)}M</span>
-                    </div>
-                  )}
+                  <div className="detail-row">
+                    <span className="label">Volume:</span>
+                    <span className="value">
+                      {stock.volume && stock.volume > 0 ? stock.volume.toLocaleString() : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="detail-row">
+                    <span className="label">Market Cap:</span>
+                    <span className="value">
+                      {stock.marketCap && stock.marketCap > 0 ? `$${(stock.marketCap / 1000000).toFixed(0)}M` : 'N/A'}
+                    </span>
+                  </div>
                   {stock.exchange && (
                     <div className="detail-row">
                       <span className="label">Exchange:</span>
