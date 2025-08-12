@@ -1667,7 +1667,7 @@ export const getPreMarketAnalysis = async (req: Request, res: Response): Promise
 
 	} catch (error) {
 		console.error('Error getting pre-market analysis:', error);
-		return res.status(500).json({ error: 'Failed to get pre-market analysis' });
+		res.status(500).json({ error: 'Failed to get pre-market analysis' });
 	}
 };
 
