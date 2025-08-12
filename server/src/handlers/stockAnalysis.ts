@@ -1627,4 +1627,48 @@ Keep the response concise but comprehensive, suitable for day trading decisions.
 	}
 };
 
+export const getPreMarketAnalysis = async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { currentTime, isOptimalTime, recentGapData, prompt } = req.body;
+
+		if (!prompt) {
+			res.status(400).json({ error: 'Prompt is required' });
+			return;
+		}
+
+		console.log('Getting pre-market analysis...');
+		console.log('Current time (EST):', currentTime);
+		console.log('Is optimal time:', isOptimalTime);
+		console.log('Recent gap data:', recentGapData);
+
+		// Call OpenAI API for pre-market analysis
+		const completion = await openai.chat.completions.create({
+			model: "gpt-4o-mini", // Using same model as risk assessment
+			messages: [
+				{
+					role: "system",
+					content: "You are a pre-market stock analysis expert with deep knowledge of market futures, volatility indicators, and gap trading strategies. Provide clear, actionable guidance based on current market conditions."
+				},
+				{
+					role: "user",
+					content: prompt
+				}
+			],
+			temperature: 0.7,
+			max_tokens: 1500
+		});
+
+		const analysis = completion.choices[0]?.message?.content || 'Unable to generate analysis';
+
+		res.json({
+			analysis: analysis,
+			timestamp: new Date().toISOString()
+		});
+
+	} catch (error) {
+		console.error('Error getting pre-market analysis:', error);
+		return res.status(500).json({ error: 'Failed to get pre-market analysis' });
+	}
+};
+
 // End of file
