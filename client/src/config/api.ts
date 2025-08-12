@@ -17,4 +17,5 @@ export const API_ENDPOINTS = {
   chart: (symbol: string) => `${API_BASE_URL}/chart/${symbol}`,
   availableStocks: `${API_BASE_URL}/available-stocks`,
   riskAssessment: `${API_BASE_URL}/risk-assessment`,
+  preMarketAnalysis: `${API_BASE_URL}/pre-market-analysis`,
 };

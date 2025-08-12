@@ -22,6 +22,12 @@ const Navigation: React.FC = () => {
         >
           Charts
         </Link>
+        <Link 
+          to="/pre-market" 
+          className={`nav-link ${location.pathname === '/pre-market' ? 'active' : ''}`}
+        >
+          Pre-Market
+        </Link>
       </div>
     </nav>
   );
