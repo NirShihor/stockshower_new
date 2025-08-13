@@ -31,7 +31,15 @@ const HappyTwistsPage: React.FC = () => {
         
         if (isToday) {
           console.log('Restored previous happy twists data from localStorage');
-          setHappyTwists(parsedData.twists);
+          console.log('Restored twists:', parsedData.twists);
+          
+          // Clean URLs in existing data
+          const cleanedTwists = parsedData.twists.map((twist: HappyTwist) => ({
+            ...twist,
+            sourceUrl: twist.sourceUrl ? cleanUrl(twist.sourceUrl) : twist.sourceUrl
+          }));
+          
+          setHappyTwists(cleanedTwists);
           setAnalysis(parsedData.analysis);
           setLastUpdated(new Date(parsedData.timestamp));
         } else {
@@ -90,12 +98,18 @@ For each opportunity found, provide:
 - Stock Symbol
 - Company Name
 - News Headline
+- Clean source URL (IMPORTANT: provide ONLY the clean URL without any extra text, dates, or parentheses)
 - Why this could cause a 10%+ jump
 - Risk factors to consider
 
 Focus on news from the last 48 hours. Prioritize smaller companies ($10M-$10B market cap) as they move more on news.
 
-Format your response as:
+CRITICAL FORMATTING REQUIREMENTS:
+- For source URLs, provide ONLY the clean URL like: https://www.example.com/article
+- Do NOT include dates, parentheses, or extra text in the URL
+- Make sure each URL is complete and functional
+
+Format your response EXACTLY as:
 
 **Market Scan Summary:**
 [Brief overview of current market conditions for positive catalysts]
@@ -104,6 +118,7 @@ Format your response as:
 
 1. **[SYMBOL] - [Company Name]**
    📰 Headline: [News headline]
+   🔗 Source: [Clean URL only - no extra text]
    🚀 Potential Impact: [Why this could cause 10%+ move]
    ⚠️ Risk: [Key risk to consider]
 
@@ -119,6 +134,8 @@ Format your response as:
         
         // Parse the AI response to extract structured data
         const parsedTwists = parseAIResponse(data.analysis);
+        console.log('AI Response:', data.analysis);
+        console.log('Parsed Twists:', parsedTwists);
         setHappyTwists(parsedTwists);
         setAnalysis(data.analysis);
         setLastUpdated(new Date());
@@ -133,25 +150,92 @@ Format your response as:
     }
   };
   
+  // Helper function to clean and validate URLs
+  const cleanUrl = (rawUrl: string): string | undefined => {
+    if (!rawUrl) return undefined;
+    
+    console.log('Original raw URL:', rawUrl);
+    
+    // Remove common formatting issues
+    let cleanedUrl = rawUrl
+      .trim()
+      .replace(/^["']|["']$/g, '') // Remove quotes
+      .replace(/\s+\(.*?\)$/g, '') // Remove trailing text in parentheses like "(August 12, 2025)"
+      .replace(/\(.*?\)$/g, '') // Remove any trailing parentheses content
+      .replace(/%20/g, '') // Remove URL encoded spaces entirely
+      .replace(/\s+.*$/, '') // Remove everything after first space
+      .replace(/\s/g, '') // Remove any remaining spaces
+      .split(/[\s(]/)[0]; // Take only the first part before space or parenthesis
+    
+    console.log('After initial cleaning:', cleanedUrl);
+    
+    // If it doesn't start with http, try to fix it
+    if (!cleanedUrl.startsWith('http')) {
+      if (cleanedUrl.startsWith('www.')) {
+        cleanedUrl = 'https://' + cleanedUrl;
+      } else if (cleanedUrl.includes('.')) {
+        cleanedUrl = 'https://' + cleanedUrl;
+      } else {
+        console.warn('No valid domain found in URL:', cleanedUrl);
+        return undefined; // Invalid URL
+      }
+    }
+    
+    console.log('Final cleaned URL:', cleanedUrl);
+    
+    // Basic URL validation
+    try {
+      new URL(cleanedUrl);
+      return cleanedUrl;
+    } catch (error) {
+      console.warn('Invalid URL after cleaning:', cleanedUrl, error);
+      return undefined;
+    }
+  };
+
   // Helper function to parse AI response into structured data
   const parseAIResponse = (aiText: string): HappyTwist[] => {
     const twists: HappyTwist[] = [];
     
-    // Enhanced regex pattern to extract stock entries with source URLs
-    const pattern = /\*\*\[([A-Z]+)\] - ([^*]+)\*\*[\s\S]*?📰 Headline: ([^\n]+)[\s\S]*?🔗 Source: ([^\n]+)[\s\S]*?🚀 (?:Impact|Potential Impact): ([^\n]+)/g;
+    // Multiple regex patterns to handle different formatting
+    const patterns = [
+      // Original pattern with brackets and emojis
+      /\*\*\[([A-Z]+)\] - ([^*]+)\*\*[\s\S]*?📰 Headline: ([^\n]+)[\s\S]*?🔗 Source: ([^\n]+)[\s\S]*?🚀 (?:Impact|Potential Impact): ([^\n]+)/g,
+      
+      // Pattern without brackets
+      /\*\*([A-Z]+) - ([^*]+)\*\*[\s\S]*?📰 Headline: ([^\n]+)[\s\S]*?🔗 Source: ([^\n]+)[\s\S]*?🚀 (?:Impact|Potential Impact): ([^\n]+)/g,
+      
+      // Pattern with different formatting
+      /\*\*([A-Z]+)[\s]*-[\s]*([^*]+)\*\*[\s\S]*?Headline:[\s]*([^\n]+)[\s\S]*?Source:[\s]*([^\n]+)[\s\S]*?Impact:[\s]*([^\n]+)/g,
+      
+      // Simpler pattern for basic extraction
+      /([A-Z]{2,5})[\s]*-[\s]*([^:\n]+)[\s\S]*?(?:Headline|News):[\s]*([^:\n]+)[\s\S]*?(?:Source|URL):[\s]*([^:\n]+)[\s\S]*?(?:Impact|Why):[\s]*([^:\n]+)/g
+    ];
     
-    let match;
-    while ((match = pattern.exec(aiText)) !== null) {
-      twists.push({
-        symbol: match[1],
-        companyName: match[2].trim(),
-        newsHeadline: match[3].trim(),
-        sourceUrl: match[4].trim(),
-        potentialImpact: match[5].trim(),
-        timestamp: new Date().toISOString()
-      });
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(aiText)) !== null) {
+        const rawUrl = match[4].trim();
+        const cleanedUrl = cleanUrl(rawUrl);
+        
+        console.log('Raw URL:', rawUrl);
+        console.log('Cleaned URL:', cleanedUrl);
+        
+        twists.push({
+          symbol: match[1],
+          companyName: match[2].trim(),
+          newsHeadline: match[3].trim(),
+          sourceUrl: cleanedUrl,
+          potentialImpact: match[5].trim(),
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // If we found matches with this pattern, don't try others
+      if (twists.length > 0) break;
     }
     
+    console.log(`Parsed ${twists.length} twists from AI response`);
     return twists;
   };
   
@@ -240,26 +324,26 @@ Format your response as:
               }}>
                 {twist.sourceUrl && (
                   <button 
-                    className="analysis-button"
+                    className="analysis-button happy-twists-card-button"
                     onClick={() => window.open(twist.sourceUrl, '_blank')}
                     style={{
                       backgroundColor: '#2196F3',
                       color: 'white',
-                      fontSize: '1.4rem',
-                      padding: '0.5rem 1rem'
+                      fontSize: '1.2rem',
+                      padding: '0.4rem 0.8rem'
                     }}
                   >
                     📰 Read Full Article
                   </button>
                 )}
                 <button 
-                  className="analysis-button"
+                  className="analysis-button happy-twists-card-button"
                   onClick={() => window.location.href = `/charts?symbol=${twist.symbol}`}
                   style={{
                     backgroundColor: '#90EE90',
                     color: 'black',
-                    fontSize: '1.4rem',
-                    padding: '0.5rem 1rem'
+                    fontSize: '1.2rem',
+                    padding: '0.4rem 0.8rem'
                   }}
                 >
                   📈 View Chart
