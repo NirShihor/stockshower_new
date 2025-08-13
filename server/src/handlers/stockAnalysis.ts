@@ -1714,4 +1714,40 @@ export const getPreMarketAnalysis = async (req: Request, res: Response): Promise
 	}
 };
 
+export const getHappyTwists = async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { prompt } = req.body;
+		
+		console.log('Getting happy twists analysis...');
+		
+		// Call OpenAI API for analysis
+		const completion = await openai.chat.completions.create({
+			model: 'gpt-4o-mini',
+			messages: [
+				{
+					role: 'system',
+					content: 'You are a financial news analyst specializing in identifying extreme positive catalysts that could cause significant stock price jumps. Focus on recent news that could lead to 10%+ single-day moves.'
+				},
+				{
+					role: 'user',
+					content: prompt
+				}
+			],
+			temperature: 0.7,
+			max_tokens: 2000
+		});
+		
+		const analysis = completion.choices[0]?.message?.content || 'No analysis available';
+		
+		res.json({ 
+			analysis: analysis,
+			timestamp: new Date().toISOString()
+		});
+		
+	} catch (error) {
+		console.error('Error getting happy twists analysis:', error);
+		res.status(500).json({ error: 'Failed to get happy twists analysis' });
+	}
+};
+
 // End of file
