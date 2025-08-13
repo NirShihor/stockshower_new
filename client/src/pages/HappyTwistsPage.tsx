@@ -58,9 +58,12 @@ const HappyTwistsPage: React.FC = () => {
   }, [happyTwists, analysis, lastUpdated]);
   
   const scanForHappyTwists = async () => {
-    setLoading(true);
+    // Clear previous results first
     setHappyTwists([]);
     setAnalysis('');
+    setLastUpdated(null);
+    
+    setLoading(true);
     
     try {
       const response = await fetch(API_ENDPOINTS.happyTwists, {
@@ -167,7 +170,7 @@ Format your response as:
       {/* Scan Controls */}
       <div style={{textAlign: 'center', marginBottom: '2rem'}}>
         <button 
-          className="analysis-button"
+          className="analysis-button happy-twists-scan-button"
           onClick={scanForHappyTwists}
           disabled={loading}
           style={{
@@ -179,20 +182,6 @@ Format your response as:
         >
           {loading ? '🔍 Scanning for Happy Twists...' : '🎯 Find Happy Twists'}
         </button>
-        
-        {happyTwists.length > 0 && (
-          <button 
-            className="analysis-button"
-            onClick={clearData}
-            style={{
-              marginLeft: '1rem',
-              backgroundColor: 'white',
-              color: 'black'
-            }}
-          >
-            Clear Results
-          </button>
-        )}
       </div>
       
       {/* Last Updated */}
