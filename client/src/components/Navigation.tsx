@@ -28,6 +28,12 @@ const Navigation: React.FC = () => {
         >
           Pre-Market
         </Link>
+        <Link 
+          to="/happy-twists" 
+          className={`nav-link ${location.pathname === '/happy-twists' ? 'active' : ''}`}
+        >
+          Happy Twists
+        </Link>
       </div>
     </nav>
   );

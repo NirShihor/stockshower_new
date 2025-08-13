@@ -1,5 +1,5 @@
 import express, { Request, Response, Router } from 'express';
-import { scanGapUps, scanGapDowns, testPolygon, getChartData, getAvailableStocks, getLivePrice, getRiskAssessment, getPreMarketAnalysis } from '../handlers/stockAnalysis.js';
+import { scanGapUps, scanGapDowns, testPolygon, getChartData, getAvailableStocks, getLivePrice, getRiskAssessment, getPreMarketAnalysis, getHappyTwists } from '../handlers/stockAnalysis.js';
 
 const router: Router = express.Router();
 
@@ -33,6 +33,10 @@ router.post('/risk-assessment', (req: Request, res: Response) => {
 
 router.post('/pre-market-analysis', (req: Request, res: Response) => {
   getPreMarketAnalysis(req, res);
+});
+
+router.post('/happy-twists', (req: Request, res: Response) => {
+  getHappyTwists(req, res);
 });
 
 export default router;

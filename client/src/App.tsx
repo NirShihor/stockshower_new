@@ -5,6 +5,7 @@ import Navigation from './components/Navigation';
 import GapScannerPage from './pages/GapScannerPage';
 import ChartsPage from './pages/ChartsPage';
 import PreMarketPage from './pages/PreMarketPage';
+import HappyTwistsPage from './pages/HappyTwistsPage';
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
             <Route path="/" element={<GapScannerPage />} />
             <Route path="/charts" element={<ChartsPage />} />
             <Route path="/pre-market" element={<PreMarketPage />} />
+            <Route path="/happy-twists" element={<HappyTwistsPage />} />
           </Routes>
         </main>
       </div>
