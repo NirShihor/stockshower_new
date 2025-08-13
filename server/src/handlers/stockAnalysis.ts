@@ -812,7 +812,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 
 		console.log(`Processing ${todayData.length} stocks from market-wide scan...`);
 
-		const gapUpStocks: GapUpStock[] = [];
+		let gapUpStocks: GapUpStock[] = [];
 		let processedCount = 0;
 
 		// Filter and process stocks in batches
@@ -864,11 +864,11 @@ export const scanGapUps = async (req: Request, res: Response) => {
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000) { // Reasonable price range
 						
-						// Skip 20-day low calculation during initial scan for speed
-						// We'll calculate it for the top results later
-						const twentyDayLow = 0;
+						// Skip 20-day high calculation during initial scan for speed
+						// We'll calculate it for the top results later and apply the proper filter there
+						const twentyDayHigh = 0;
 						
-						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayLow, true);
+						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayHigh, false);
 						
 						if (stockData) {
 							// Get recent historical data for volatility analysis
@@ -892,11 +892,12 @@ export const scanGapUps = async (req: Request, res: Response) => {
 							}
 							
 							// Enhanced suitable criteria for gap trading based on volatility level
+							// Note: 20-day high filter will be applied in Phase 2 where real values are calculated
 							const suitable = stockData.volume > 100000 && 
 								stockData.gapPercentage >= gapLimits[volatilityLevel as keyof typeof gapLimits].min && 
 								stockData.gapPercentage <= gapLimits[volatilityLevel as keyof typeof gapLimits].max && 
 								stockData.currentPrice >= 5 && // No penny stocks
-								stockData.currentPrice <= 300 && // Avoid extremely high-priced stocks
+								// stockData.currentPrice <= 300 && // Avoid extremely high-priced stocks (commented out for now)
 								volatilityAcceptable; // Add volatility filter
 							
 							// ONLY show stocks that meet ALL criteria
@@ -926,6 +927,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 									suitable: true, // All displayed stocks are suitable
 									isBlueChip: isBlueChip,
 									first15MinHigh: stockData.first15MinHigh ? `$${stockData.first15MinHigh.toFixed(2)}` : undefined,
+									first15MinLow: stockData.first15MinLow ? `$${stockData.first15MinLow.toFixed(2)}` : undefined,
 									first15MinClose: stockData.first15MinClose ? `$${stockData.first15MinClose.toFixed(2)}` : undefined
 								};
 								
@@ -999,6 +1001,26 @@ export const scanGapUps = async (req: Request, res: Response) => {
 				// Keep the $0.00 value to indicate calculation failed
 			}
 		}
+
+		// CRITICAL: Filter stocks where openPrice > twentyDayHigh using real calculated values
+		console.log(`Applying openPrice > twentyDayHigh filter...`);
+		const beforeFilterCount = gapUpStocks.length;
+		gapUpStocks = gapUpStocks.filter(stock => {
+			const openPrice = parseFloat(stock.openPrice?.replace('$', '') || '0');
+			const twentyDayHigh = parseFloat(stock.twentyDayHigh?.replace('$', '') || '0');
+			
+			const passesFilter = openPrice > twentyDayHigh;
+			
+			if (!passesFilter) {
+				console.log(`${stock.stockSymbol}: FILTERED OUT - Open: $${openPrice.toFixed(2)} not > 20-day high: $${twentyDayHigh.toFixed(2)}`);
+			} else {
+				console.log(`${stock.stockSymbol}: PASSES FILTER - Open: $${openPrice.toFixed(2)} > 20-day high: $${twentyDayHigh.toFixed(2)}`);
+			}
+			
+			return passesFilter;
+		});
+		
+		console.log(`Applied openPrice > twentyDayHigh filter: ${beforeFilterCount} -> ${gapUpStocks.length} stocks remaining`);
 
 		const endTime = Date.now();
 		const duration = (endTime - startTime) / 1000;
@@ -1087,7 +1109,7 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 
 		console.log(`Processing ${todayData.length} stocks from market-wide gap down scan...`);
 
-		const gapDownStocks: GapUpStock[] = [];
+		let gapDownStocks: GapUpStock[] = [];
 		let processedCount = 0;
 
 		// Filter and process stocks in batches
@@ -1139,18 +1161,19 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000) { // Reasonable price range
 						
-						// Skip 20-day high calculation during initial scan for speed
-						const twentyDayHigh = 0;
+						// Skip 20-day low calculation during initial scan for speed
+						// We'll calculate it for the top results later and apply the proper filter there
+						const twentyDayLow = 0;
 						
-						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayHigh, true);
+						const stockData = await getEnhancedStockDataFromGrouped(todayBar, yesterdayBar, twentyDayLow, true);
 						
 						if (stockData) {
 							// Enhanced suitable criteria for gap down trading based on volatility level
 							const suitable = stockData.volume > 100000 && 
 								stockData.gapPercentage <= gapLimits[volatilityLevel as keyof typeof gapLimits].max && 
 								stockData.gapPercentage >= gapLimits[volatilityLevel as keyof typeof gapLimits].min && 
-								stockData.currentPrice >= 5 && // No penny stocks
-								stockData.currentPrice <= 300; // Avoid extremely high-priced stocks
+								stockData.currentPrice >= 5; // No penny stocks
+								// stockData.currentPrice <= 300; // Avoid extremely high-priced stocks (commented out for now)
 							
 							// ONLY show stocks that meet ALL criteria
 							if (suitable) {
@@ -1259,9 +1282,29 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 			}
 		}
 
+		// CRITICAL: Filter stocks where openPrice < twentyDayLow using real calculated values
+		console.log(`Applying openPrice < twentyDayLow filter...`);
+		const beforeFilterCount = gapDownStocks.length;
+		const filteredByOpenPrice = gapDownStocks.filter(stock => {
+			const openPrice = parseFloat(stock.openPrice?.replace('$', '') || '0');
+			const twentyDayLow = parseFloat(stock.twentyDayHigh?.replace('$', '') || '0'); // Note: twentyDayHigh field contains twentyDayLow for gap downs
+			
+			const passesFilter = openPrice < twentyDayLow;
+			
+			if (!passesFilter) {
+				console.log(`${stock.stockSymbol}: FILTERED OUT - Open: $${openPrice.toFixed(2)} not < 20-day low: $${twentyDayLow.toFixed(2)}`);
+			} else {
+				console.log(`${stock.stockSymbol}: PASSES FILTER - Open: $${openPrice.toFixed(2)} < 20-day low: $${twentyDayLow.toFixed(2)}`);
+			}
+			
+			return passesFilter;
+		});
+		
+		console.log(`Applied openPrice < twentyDayLow filter: ${beforeFilterCount} -> ${filteredByOpenPrice.length} stocks remaining`);
+
 		// Filter out stocks that didn't meet the gap down trading criteria
-		const qualifiedGapDownStocks = gapDownStocks.filter(stock => stock.twentyDayHigh !== '$REMOVE');
-		console.log(`Filtered gap down stocks: ${gapDownStocks.length} -> ${qualifiedGapDownStocks.length} (removed ${gapDownStocks.length - qualifiedGapDownStocks.length} that didn't meet 15min low < 20-day low criteria)`);
+		const qualifiedGapDownStocks = filteredByOpenPrice.filter(stock => stock.twentyDayHigh !== '$REMOVE');
+		console.log(`Filtered gap down stocks by 15min low criteria: ${filteredByOpenPrice.length} -> ${qualifiedGapDownStocks.length} (removed ${filteredByOpenPrice.length - qualifiedGapDownStocks.length} that didn't meet 15min low < 20-day low criteria)`);
 
 		const endTime = Date.now();
 		const duration = (endTime - startTime) / 1000;
