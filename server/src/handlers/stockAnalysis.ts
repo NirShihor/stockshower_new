@@ -1718,34 +1718,73 @@ export const getHappyTwists = async (req: Request, res: Response): Promise<void>
 	try {
 		const { prompt } = req.body;
 		
-		console.log('Getting happy twists analysis...');
+		console.log('Getting happy twists analysis using Perplexity AI...');
+		console.log('Perplexity API Key:', process.env.PERPLEXITY_API_KEY ? 'Present' : 'Missing');
 		
-		// Call OpenAI API for analysis
-		const completion = await openai.chat.completions.create({
-			model: 'gpt-4o-mini',
+		// Call Perplexity API for real-time news analysis
+		const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
+			model: 'sonar',
 			messages: [
 				{
-					role: 'system',
-					content: 'You are a financial news analyst specializing in identifying extreme positive catalysts that could cause significant stock price jumps. Focus on recent news that could lead to 10%+ single-day moves.'
-				},
-				{
 					role: 'user',
-					content: prompt
+					content: `Search for recent financial news from the last 48 hours about extreme positive catalysts that could cause stocks to jump 10%+ in a single day.
+
+Find real news stories about:
+- FDA drug approvals for biotech/pharma companies
+- Major contract wins (billion+ dollar deals)  
+- Acquisition announcements with high premiums
+- Breakthrough technology discoveries
+- Massive earnings beats (50%+ above estimates)
+- Major legal victories or patent wins
+- Game-changing partnerships with large companies
+- New regulatory approvals for expanding into markets
+
+For each real news story found, provide:
+1. Stock Symbol (if publicly traded)
+2. Company Name
+3. News Headline (exact headline from source)
+4. Source URL (direct link to article)
+5. Why this could cause 10%+ jump
+6. Key risk factors
+
+Format as:
+
+**Real Happy Twists Found:**
+
+**[SYMBOL] - [Company Name]**
+📰 Headline: [Exact news headline]
+🔗 Source: [URL to article]
+🚀 Impact: [Why this could move 10%+]
+⚠️ Risk: [Key concerns]
+
+Focus on smaller to mid-cap companies that move more on news.`
 				}
 			],
-			temperature: 0.7,
-			max_tokens: 2000
+			temperature: 0.3,
+			max_tokens: 1500,
+			stream: false
+		}, {
+			headers: {
+				'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+				'Content-Type': 'application/json'
+			}
 		});
 		
-		const analysis = completion.choices[0]?.message?.content || 'No analysis available';
+		const analysis = perplexityResponse.data.choices[0]?.message?.content || 'No analysis available';
 		
 		res.json({ 
 			analysis: analysis,
 			timestamp: new Date().toISOString()
 		});
 		
-	} catch (error) {
+	} catch (error: any) {
 		console.error('Error getting happy twists analysis:', error);
+		
+		// Log the specific error response from Perplexity
+		if (error.response && error.response.data) {
+			console.error('Perplexity API error details:', JSON.stringify(error.response.data, null, 2));
+		}
+		
 		res.status(500).json({ error: 'Failed to get happy twists analysis' });
 	}
 };
