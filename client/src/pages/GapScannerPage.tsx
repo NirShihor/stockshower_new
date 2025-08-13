@@ -632,15 +632,15 @@ const GapScannerPage: React.FC = () => {
                       <span className="value" style={{color: '#27ae60', fontWeight: 'bold'}}>{stock.first15MinHigh}</span>
                     </div>
                   )}
-                  {stock.first15MinLow && activeTab === 'down' && (
+                  {stock.first15MinLow && (
                     <div className="detail-row">
-                      <span className="label">First 15min Low:</span>
+                      <span className="label">First 15min Low (stop loss):</span>
                       <span className="value" style={{color: '#e74c3c', fontWeight: 'bold'}}>{stock.first15MinLow}</span>
                     </div>
                   )}
                   {stock.first15MinClose && (
                     <div className="detail-row">
-                      <span className="label">First 15min Close (use as buy limit order):</span>
+                      <span className="label">First 15min Close (buy limit order):</span>
                       <span className="value" style={{color: '#2980b9', fontWeight: 'bold'}}>{stock.first15MinClose}</span>
                     </div>
                   )}
