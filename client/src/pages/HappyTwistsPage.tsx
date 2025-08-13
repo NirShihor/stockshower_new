@@ -5,6 +5,7 @@ interface HappyTwist {
   symbol: string;
   companyName: string;
   newsHeadline: string;
+  sourceUrl?: string;
   potentialImpact: string;
   currentPrice?: string;
   marketCap?: string;
@@ -136,8 +137,8 @@ Format your response as:
   const parseAIResponse = (aiText: string): HappyTwist[] => {
     const twists: HappyTwist[] = [];
     
-    // Simple regex pattern to extract stock entries
-    const pattern = /\*\*\[([A-Z]+)\] - ([^*]+)\*\*[\s\S]*?📰 Headline: ([^\n]+)[\s\S]*?🚀 Potential Impact: ([^\n]+)/g;
+    // Enhanced regex pattern to extract stock entries with source URLs
+    const pattern = /\*\*\[([A-Z]+)\] - ([^*]+)\*\*[\s\S]*?📰 Headline: ([^\n]+)[\s\S]*?🔗 Source: ([^\n]+)[\s\S]*?🚀 (?:Impact|Potential Impact): ([^\n]+)/g;
     
     let match;
     while ((match = pattern.exec(aiText)) !== null) {
@@ -145,7 +146,8 @@ Format your response as:
         symbol: match[1],
         companyName: match[2].trim(),
         newsHeadline: match[3].trim(),
-        potentialImpact: match[4].trim(),
+        sourceUrl: match[4].trim(),
+        potentialImpact: match[5].trim(),
         timestamp: new Date().toISOString()
       });
     }
@@ -231,8 +233,25 @@ Format your response as:
               
               <div style={{
                 marginTop: '1rem',
-                textAlign: 'center'
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.5rem'
               }}>
+                {twist.sourceUrl && (
+                  <button 
+                    className="analysis-button"
+                    onClick={() => window.open(twist.sourceUrl, '_blank')}
+                    style={{
+                      backgroundColor: '#2196F3',
+                      color: 'white',
+                      fontSize: '1.4rem',
+                      padding: '0.5rem 1rem'
+                    }}
+                  >
+                    📰 Read Full Article
+                  </button>
+                )}
                 <button 
                   className="analysis-button"
                   onClick={() => window.location.href = `/charts?symbol=${twist.symbol}`}
