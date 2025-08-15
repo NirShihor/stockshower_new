@@ -707,12 +707,13 @@ h1 {
 
 .blue-chip-badge {
   padding: 8px 16px;
-  border-radius: 20px;
+  border-radius: 5px;
   background-color: #56a0d1;
   color: white;
   font-weight: 600;
   font-size: 1.3rem;
   border: 2px solid #2980b9;
+  min-width: 100px;
 }
 
 .analysis-content {
