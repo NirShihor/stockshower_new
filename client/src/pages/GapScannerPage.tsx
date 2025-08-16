@@ -151,6 +151,45 @@ const GapScannerPage: React.FC = () => {
     }
   };
 
+  const getLastTradingDay = () => {
+    const now = new Date();
+    const easternTime = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+    const dayOfWeek = easternTime.getDay();
+    const currentHour = easternTime.getHours();
+    const currentMinute = easternTime.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    const marketCloseTime = 16 * 60; // 4:00 PM in minutes
+    
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    // If it's a weekday and market has closed, data is from today
+    if (dayOfWeek >= 1 && dayOfWeek <= 5 && currentTimeInMinutes >= marketCloseTime) {
+      return 'Today';
+    }
+    
+    // If it's a weekday and market is open, data is real-time
+    if (dayOfWeek >= 1 && dayOfWeek <= 5 && currentTimeInMinutes >= 9 * 60 + 30 && currentTimeInMinutes < marketCloseTime) {
+      return '';  // Empty string means current/live data
+    }
+    
+    // If it's Saturday or Sunday, last trading day was Friday
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      return 'Friday';
+    }
+    
+    // If it's Monday before market open, last trading day was Friday
+    if (dayOfWeek === 1 && currentTimeInMinutes < 9 * 60 + 30) {
+      return 'Friday';
+    }
+    
+    // For any other early morning (before market open), previous day
+    if (currentTimeInMinutes < 9 * 60 + 30) {
+      return dayNames[dayOfWeek - 1];
+    }
+    
+    return 'Today';
+  };
+
   const fetchLivePrice = async (symbol: string) => {
     try {
       const response = await fetch(`${API_ENDPOINTS.chart(symbol)}/live-price`);
@@ -565,7 +604,7 @@ const GapScannerPage: React.FC = () => {
                 
                 <div className="stock-details">
                   <div className="detail-row">
-                    <span className="label">{getMarketStatus(stock.exchange).status === 'OPEN' ? 'Current Price:' : 'Today\'s Closing Price:'}</span>
+                    <span className="label">{getMarketStatus(stock.exchange).status === 'OPEN' ? 'Current Price:' : `${getLastTradingDay()}'s Closing Price:`}</span>
                     <span className="value" style={{color: '#FF8C00', fontWeight: 'bold'}}>{stock.currentPrice}</span>
                   </div>
                   {stock.livePrice && !trackingStocks.has(stock.stockSymbol) && (
@@ -616,43 +655,43 @@ const GapScannerPage: React.FC = () => {
                     <span className="value">{stock.twentyDayHigh}</span>
                   </div>
                   <div className="detail-row">
-                    <span className="label">Gap:</span>
+                    <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s Gap:` : 'Gap:'}</span>
                     <span className="value gap-percentage">{stock.gapPercentage}</span>
                   </div>
                   
                   {stock.openPrice && (
                     <div className="detail-row">
-                      <span className="label">Open:</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s Open:` : 'Open:'}</span>
                       <span className="value" style={{color: '#8A2BE2', fontWeight: 'bold'}}>{stock.openPrice}</span>
                     </div>
                   )}
                   {stock.first15MinHigh && activeTab === 'up' && (
                     <div className="detail-row">
-                      <span className="label">First 15min High:</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s First 15min High:` : 'First 15min High:'}</span>
                       <span className="value" style={{color: '#27ae60', fontWeight: 'bold'}}>{stock.first15MinHigh}</span>
                     </div>
                   )}
                   {stock.first15MinLow && (
                     <div className="detail-row">
-                      <span className="label">First 15min Low (<strong>stop loss</strong>):</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s First 15min Low` : 'First 15min Low'} (<strong>stop loss</strong>):</span>
                       <span className="value" style={{color: '#e74c3c', fontWeight: 'bold'}}>{stock.first15MinLow}</span>
                     </div>
                   )}
                   {stock.first15MinClose && (
                     <div className="detail-row">
-                      <span className="label">First 15min Close (<strong>buy limit order</strong>):</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s First 15min Close` : 'First 15min Close'} (<strong>buy limit order</strong>):</span>
                       <span className="value" style={{color: '#FF8C00', fontWeight: 'bold'}}>{stock.first15MinClose}</span>
                     </div>
                   )}
                   {stock.highPrice && (
                     <div className="detail-row">
-                      <span className="label">Day High:</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s High:` : 'Day High:'}</span>
                       <span className="value">{stock.highPrice}</span>
                     </div>
                   )}
                   {stock.lowPrice && (
                     <div className="detail-row">
-                      <span className="label">Day Low:</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s Low:` : 'Day Low:'}</span>
                       <span className="value">{stock.lowPrice}</span>
                     </div>
                   )}
@@ -663,7 +702,7 @@ const GapScannerPage: React.FC = () => {
                     </div>
                   )}
                   <div className="detail-row">
-                    <span className="label">Volume:</span>
+                    <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s Volume:` : 'Volume:'}</span>
                     <span className="value">
                       {stock.volume && stock.volume > 0 ? stock.volume.toLocaleString() : 'N/A'}
                     </span>
