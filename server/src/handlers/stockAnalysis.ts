@@ -505,9 +505,10 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 		let first15MinClose = currentPrice; // Default to current price if we can't get intraday data
 		
 		try {
-			// Get today's intraday data to find first 15 minutes high and close
-			const today = new Date().toISOString().split('T')[0];
-			const intradayBars = await getPolygonIntradayBars(symbol, 1, 'minute', today, today);
+			// Get the actual trading day's intraday data (not today if it's weekend)
+			// todayBar.t is the timestamp of the most recent trading day
+			const tradingDate = new Date(todayBar.t).toISOString().split('T')[0];
+			const intradayBars = await getPolygonIntradayBars(symbol, 1, 'minute', tradingDate, tradingDate);
 			
 			if (intradayBars && intradayBars.length > 0) {
 				// Sort by timestamp to get chronological order
