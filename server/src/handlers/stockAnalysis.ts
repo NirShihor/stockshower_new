@@ -356,68 +356,23 @@ async function getPolygonGroupedDaily(date: string): Promise<GroupedDailyBar[]> 
 // Hybrid approach: Use Polygon.io for bulk operations, Marketstack for real-time prices only
 
 async function getPreviousClose(symbol: string): Promise<PolygonBar | null> {
-	if (DATA_PROVIDER === 'marketstack') {
-		const marketstackData = await getMarketstackPreviousClose(symbol);
-		if (marketstackData) {
-			return convertMarketstackToPolygonFormat(marketstackData);
-		}
-		return null;
-	} else {
-		return getPolygonPreviousClose(symbol);
-	}
+	// Always use Polygon.io for bulk operations
+	return getPolygonPreviousClose(symbol);
 }
 
 async function getTickerDetails(symbol: string): Promise<any> {
-	if (DATA_PROVIDER === 'marketstack') {
-		const marketstackData = await getMarketstackTickerDetails(symbol);
-		if (marketstackData) {
-			// Convert to Polygon format
-			return {
-				ticker: marketstackData.symbol,
-				name: marketstackData.name,
-				market: 'stocks',
-				locale: 'us',
-				primary_exchange: marketstackData.stock_exchange.acronym,
-				type: 'CS', // Common Stock
-				active: marketstackData.has_eod,
-				currency_name: 'usd',
-				market_cap: null // Marketstack doesn't provide market cap in ticker details
-			};
-		}
-		return null;
-	} else {
-		return getPolygonTickerDetails(symbol);
-	}
+	// Always use Polygon.io for bulk operations
+	return getPolygonTickerDetails(symbol);
 }
 
 async function getDailyBars(symbol: string, from: string, to: string): Promise<PolygonBar[]> {
-	if (DATA_PROVIDER === 'marketstack') {
-		const marketstackData = await getMarketstackHistoricalData(symbol, from, to);
-		return marketstackData.map(convertMarketstackToPolygonFormat);
-	} else {
-		return getPolygonDailyBars(symbol, from, to);
-	}
+	// Always use Polygon.io for bulk operations
+	return getPolygonDailyBars(symbol, from, to);
 }
 
 async function getIntradayBars(symbol: string, multiplier: number, timespan: string, from: string, to: string): Promise<PolygonBar[]> {
-	if (DATA_PROVIDER === 'marketstack') {
-		// Convert multiplier and timespan to marketstack interval format
-		let interval = '15min'; // default
-		if (timespan === 'minute' && multiplier === 15) {
-			interval = '15min';
-		} else if (timespan === 'minute' && multiplier === 5) {
-			interval = '5min';
-		} else if (timespan === 'minute' && multiplier === 1) {
-			interval = '1min';
-		} else if (timespan === 'hour' && multiplier === 1) {
-			interval = '1hour';
-		}
-		
-		const marketstackData = await getMarketstackIntradayData(symbol, from, to, interval);
-		return marketstackData.map(convertMarketstackIntradayToPolygonFormat);
-	} else {
-		return getPolygonIntradayBars(symbol, multiplier, timespan, from, to);
-	}
+	// Always use Polygon.io for bulk operations
+	return getPolygonIntradayBars(symbol, multiplier, timespan, from, to);
 }
 
 async function getUnifiedLivePrice(symbol: string): Promise<number | null> {
