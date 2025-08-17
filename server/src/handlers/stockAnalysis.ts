@@ -2,9 +2,22 @@ import { Request, Response } from 'express';
 import axios from 'axios';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
+import {
+  getMarketstackPreviousClose,
+  getMarketstackTickerDetails,
+  getMarketstackHistoricalData,
+  getMarketstackIntradayData,
+  getMarketstackRealTimePrice,
+  getMarketstackBulkEOD,
+  convertMarketstackToPolygonFormat,
+  convertMarketstackIntradayToPolygonFormat
+} from './marketstackAPI.js';
 
 // Load environment variables
 dotenv.config();
+
+// Configuration: Set to 'marketstack' to use Marketstack API, 'polygon' for Polygon.io
+const DATA_PROVIDER = 'polygon'; // Change this to switch providers
 
 // Polygon.io interfaces
 interface PolygonBar {
@@ -339,6 +352,86 @@ async function getPolygonGroupedDaily(date: string): Promise<GroupedDailyBar[]> 
 	}
 }
 
+// ================== UNIFIED DATA PROVIDER FUNCTIONS ==================
+// Hybrid approach: Use Polygon.io for bulk operations, Marketstack for real-time prices only
+
+async function getPreviousClose(symbol: string): Promise<PolygonBar | null> {
+	if (DATA_PROVIDER === 'marketstack') {
+		const marketstackData = await getMarketstackPreviousClose(symbol);
+		if (marketstackData) {
+			return convertMarketstackToPolygonFormat(marketstackData);
+		}
+		return null;
+	} else {
+		return getPolygonPreviousClose(symbol);
+	}
+}
+
+async function getTickerDetails(symbol: string): Promise<any> {
+	if (DATA_PROVIDER === 'marketstack') {
+		const marketstackData = await getMarketstackTickerDetails(symbol);
+		if (marketstackData) {
+			// Convert to Polygon format
+			return {
+				ticker: marketstackData.symbol,
+				name: marketstackData.name,
+				market: 'stocks',
+				locale: 'us',
+				primary_exchange: marketstackData.stock_exchange.acronym,
+				type: 'CS', // Common Stock
+				active: marketstackData.has_eod,
+				currency_name: 'usd',
+				market_cap: null // Marketstack doesn't provide market cap in ticker details
+			};
+		}
+		return null;
+	} else {
+		return getPolygonTickerDetails(symbol);
+	}
+}
+
+async function getDailyBars(symbol: string, from: string, to: string): Promise<PolygonBar[]> {
+	if (DATA_PROVIDER === 'marketstack') {
+		const marketstackData = await getMarketstackHistoricalData(symbol, from, to);
+		return marketstackData.map(convertMarketstackToPolygonFormat);
+	} else {
+		return getPolygonDailyBars(symbol, from, to);
+	}
+}
+
+async function getIntradayBars(symbol: string, multiplier: number, timespan: string, from: string, to: string): Promise<PolygonBar[]> {
+	if (DATA_PROVIDER === 'marketstack') {
+		// Convert multiplier and timespan to marketstack interval format
+		let interval = '15min'; // default
+		if (timespan === 'minute' && multiplier === 15) {
+			interval = '15min';
+		} else if (timespan === 'minute' && multiplier === 5) {
+			interval = '5min';
+		} else if (timespan === 'minute' && multiplier === 1) {
+			interval = '1min';
+		} else if (timespan === 'hour' && multiplier === 1) {
+			interval = '1hour';
+		}
+		
+		const marketstackData = await getMarketstackIntradayData(symbol, from, to, interval);
+		return marketstackData.map(convertMarketstackIntradayToPolygonFormat);
+	} else {
+		return getPolygonIntradayBars(symbol, multiplier, timespan, from, to);
+	}
+}
+
+async function getUnifiedLivePrice(symbol: string): Promise<number | null> {
+	// Always use marketstack for live prices (better pricing for real-time data)
+	return getMarketstackRealTimePrice(symbol);
+}
+
+async function getGroupedDaily(date: string): Promise<GroupedDailyBar[]> {
+	// Always use Polygon.io for bulk market scanning (better for bulk operations)
+	return getPolygonGroupedDaily(date);
+}
+
+// ================== END UNIFIED FUNCTIONS ==================
+
 function calculate20DayHigh(bars: PolygonBar[]): number {
 	console.log('Calculating 20-day high, bars count:', bars.length);
 	if (!bars || bars.length === 0) {
@@ -474,7 +567,7 @@ function calculateBreakoutPercentage(currentPrice: number, twentyDayHigh: number
 
 async function testPolygonApiKey(): Promise<boolean> {
 	try {
-		const response = await getPolygonPreviousClose('AAPL');
+		const response = await getPreviousClose('AAPL');
 		return response !== null;
 	} catch (error) {
 		return false;
@@ -518,7 +611,7 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 			}
 			
 			const tradingDate = mostRecentDay.toISOString().split('T')[0];
-			const intradayBars = await getPolygonIntradayBars(symbol, 1, 'minute', tradingDate, tradingDate);
+			const intradayBars = await getIntradayBars(symbol, 1, 'minute', tradingDate, tradingDate);
 			
 			if (intradayBars && intradayBars.length > 0) {
 				// Sort by timestamp to get chronological order
@@ -546,7 +639,7 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 		let marketCap = 0;
 		
 		try {
-			const tickerDetails = await getPolygonTickerDetails(symbol);
+			const tickerDetails = await getTickerDetails(symbol);
 			if (tickerDetails) {
 				companyName = tickerDetails.name || symbol;
 				exchange = tickerDetails.primary_exchange || 'Unknown';
@@ -594,7 +687,7 @@ async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData |
 		const toDate = new Date().toISOString().split('T')[0];
 
 		// Skip company details for speed - only get historical data
-		const historicalBars = await getPolygonDailyBars(symbol, fromDate, toDate);
+		const historicalBars = await getDailyBars(symbol, fromDate, toDate);
 		const dailyBars = historicalBars || [];
 		
 		console.log(`Historical bars count: ${dailyBars.length}`);
@@ -651,7 +744,7 @@ async function getEnhancedStockData(symbol: string): Promise<EnhancedStockData |
 		// Get live price during market hours
 		let livePrice: number | undefined;
 		try {
-			livePrice = await getPolygonLivePrice(symbol) || undefined;
+			livePrice = await getUnifiedLivePrice(symbol) || undefined;
 		} catch (error) {
 			console.warn(`Could not get live price for ${symbol}:`, error);
 		}
@@ -764,7 +857,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 
 		// Get market-wide data for today and yesterday
 		let [todayData, yesterdayData] = await Promise.all([
-			getPolygonGroupedDaily(todayStr),
+			getGroupedDaily(todayStr),
 			getPolygonGroupedDaily(yesterdayStr)
 		]);
 
@@ -890,7 +983,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 							
 							let volatilityAcceptable = true;
 							try {
-								const historicalBars = await getPolygonDailyBars(symbol, fromDate, toDate);
+								const historicalBars = await getDailyBars(symbol, fromDate, toDate);
 								// Get volatility level from request body, default to 'low'
 								const volatilityLevel = req.body?.volatilityLevel || 'low';
 								volatilityAcceptable = isVolatilityAcceptable(historicalBars, stockData.currentPrice, volatilityLevel, symbol);
@@ -1094,7 +1187,7 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 
 		// Get market-wide data for today and yesterday
 		let [todayData, yesterdayData] = await Promise.all([
-			getPolygonGroupedDaily(todayStr),
+			getGroupedDaily(todayStr),
 			getPolygonGroupedDaily(yesterdayStr)
 		]);
 
@@ -1572,7 +1665,7 @@ export const getLivePrice = async (req: Request, res: Response) => {
 
 		console.log(`Getting live price for ${symbol.toUpperCase()}`);
 		
-		const livePrice = await getPolygonLivePrice(symbol.toUpperCase());
+		const livePrice = await getUnifiedLivePrice(symbol.toUpperCase());
 		
 		if (livePrice !== null) {
 			return res.status(200).json({
