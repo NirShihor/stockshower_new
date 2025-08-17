@@ -586,17 +586,17 @@ const GapScannerPage: React.FC = () => {
                 justifyContent: 'space-between'
               }}>
                 <div className="stock-header">
-                  <h3>{stock.stockSymbol}</h3>
-                  {stock.companyName && (
-                    <p className="company-name">{stock.companyName}</p>
-                  )}
-                  <div className="badges">
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                    <h3>{stock.stockSymbol}</h3>
                     {stock.isBlueChip && (
                       <span className="blue-chip-badge">
                         BLUE CHIP
                       </span>
                     )}
                   </div>
+                  {stock.companyName && (
+                    <p className="company-name">{stock.companyName}</p>
+                  )}
                 </div>
                 
                 <div className="stock-details">
