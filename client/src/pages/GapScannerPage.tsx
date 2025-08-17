@@ -591,9 +591,6 @@ const GapScannerPage: React.FC = () => {
                     <p className="company-name">{stock.companyName}</p>
                   )}
                   <div className="badges">
-                    <span className={`suitability-badge ${stock.suitable ? 'suitable' : 'not-suitable'}`}>
-                      {stock.suitable ? 'SUITABLE' : 'NOT SUITABLE'}
-                    </span>
                     {stock.isBlueChip && (
                       <span className="blue-chip-badge">
                         BLUE CHIP
