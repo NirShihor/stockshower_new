@@ -506,8 +506,18 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 		
 		try {
 			// Get the actual trading day's intraday data (not today if it's weekend)
-			// todayBar.t is the timestamp of the most recent trading day
-			const tradingDate = new Date(todayBar.t).toISOString().split('T')[0];
+			// Use the same logic as the main scan to get the most recent trading day
+			const today = new Date();
+			const dayOfWeek = today.getDay();
+			
+			let mostRecentDay = new Date(today);
+			if (dayOfWeek === 0) { // Sunday
+				mostRecentDay.setDate(today.getDate() - 2); // Friday
+			} else if (dayOfWeek === 6) { // Saturday
+				mostRecentDay.setDate(today.getDate() - 1); // Friday
+			}
+			
+			const tradingDate = mostRecentDay.toISOString().split('T')[0];
 			const intradayBars = await getPolygonIntradayBars(symbol, 1, 'minute', tradingDate, tradingDate);
 			
 			if (intradayBars && intradayBars.length > 0) {
