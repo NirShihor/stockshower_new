@@ -243,7 +243,7 @@ export async function getMarketstackBulkEOD(date: string): Promise<MarketstackEO
       console.log(`No data found for ${date}`);
       return [];
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Failed to get bulk EOD data for ${date}:`, error);
     if (error.response && error.response.data) {
       console.error('Marketstack error details:', JSON.stringify(error.response.data, null, 2));
