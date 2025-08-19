@@ -543,7 +543,7 @@ const GapScannerPage: React.FC = () => {
         
         <div style={{display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap'}}>
           <button 
-            className="analysis-button" 
+            className={`analysis-button ${loading ? 'scanning' : ''}`}
             onClick={fetchGapScan} 
             disabled={loading}
             style={{marginLeft: '2rem'}}
