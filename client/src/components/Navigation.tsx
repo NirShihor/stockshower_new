@@ -38,7 +38,10 @@ const Navigation: React.FC = () => {
       </button>
       
       {/* Navigation Links */}
-      <div className={`nav-links ${isMenuOpen ? 'nav-links-open' : ''}`}>
+      <div 
+        className={`nav-links ${isMenuOpen ? 'nav-links-open' : ''}`}
+        onClick={closeMenu}
+      >
         <Link 
           to="/" 
           className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
