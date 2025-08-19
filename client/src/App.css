@@ -540,6 +540,25 @@ h1 {
   cursor: not-allowed;
 }
 
+.analysis-button.scanning {
+  animation: wave-pulse 2s ease-in-out infinite;
+}
+
+@keyframes wave-pulse {
+  0%, 100% {
+    color: #333;
+  }
+  25% {
+    color: #666;
+  }
+  50% {
+    color: #999;
+  }
+  75% {
+    color: #555;
+  }
+}
+
 /* New styles for gap up scanner */
 .scan-container {
   margin-top: 2rem;
@@ -910,10 +929,45 @@ h1 {
   /* Override for tablet/medium screens within this media query */
   @media (min-width: 480px) {
     .scanner-controls button.analysis-button {
-      width: 280px;
-      max-width: 280px;
-      min-width: 280px;
+      width: 240px;
+      max-width: 240px;
+      min-width: 240px;
+      font-size: 1.2rem !important;
+      padding: 0.5rem 0.8rem !important;
     }
+  }
+}
+
+/* Medium screens - smaller range */
+@media (min-width: 770px) and (max-width: 899px) {
+  .scanner-controls button.analysis-button {
+    width: 150px;
+    max-width: 150px;
+    min-width: 150px;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.4rem;
+  }
+}
+
+/* Medium screens - larger range */
+@media (min-width: 900px) and (max-width: 1169px) {
+  .scanner-controls button.analysis-button {
+    width: 200px;
+    max-width: 200px;
+    min-width: 200px;
+    font-size: 1.1rem;
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+/* Large screens */
+@media (min-width: 1170px) {
+  .scanner-controls button.analysis-button {
+    width: 240px;
+    max-width: 240px;
+    min-width: 240px;
+    font-size: 1.2rem;
+    padding: 0.5rem 0.8rem;
   }
   
   /* Risk assessment modal should not be centered on mobile */
