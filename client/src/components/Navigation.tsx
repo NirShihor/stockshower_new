@@ -70,6 +70,13 @@ const Navigation: React.FC = () => {
         >
           Happy Twists
         </Link>
+        <Link 
+          to="/analysis" 
+          className={`nav-link ${location.pathname === '/analysis' ? 'active' : ''}`}
+          onClick={closeMenu}
+        >
+          Analysis
+        </Link>
       </div>
       
       {/* Overlay for mobile */}
