@@ -156,16 +156,17 @@ Format your response EXACTLY as:
     
     console.log('Original raw URL:', rawUrl);
     
-    // Remove common formatting issues
+    // Gentle cleaning - only remove obvious formatting issues
     let cleanedUrl = rawUrl
       .trim()
-      .replace(/^["']|["']$/g, '') // Remove quotes
-      .replace(/\s+\(.*?\)$/g, '') // Remove trailing text in parentheses like "(August 12, 2025)"
-      .replace(/\(.*?\)$/g, '') // Remove any trailing parentheses content
-      .replace(/%20/g, '') // Remove URL encoded spaces entirely
-      .replace(/\s+.*$/, '') // Remove everything after first space
-      .replace(/\s/g, '') // Remove any remaining spaces
-      .split(/[\s(]/)[0]; // Take only the first part before space or parenthesis
+      .replace(/^["']|["']$/g, '') // Remove outer quotes
+      .replace(/\s+\([^)]*\)$/, '') // Remove trailing text in parentheses like " (August 12, 2025)"
+      .replace(/\s+$/, ''); // Remove trailing spaces only
+    
+    // Only split on space if there's clearly extra text after a complete URL
+    if (cleanedUrl.includes(' ') && cleanedUrl.match(/https?:\/\/[^\s]+\s+/)) {
+      cleanedUrl = cleanedUrl.match(/https?:\/\/[^\s]+/)?.[0] || cleanedUrl;
+    }
     
     console.log('After initial cleaning:', cleanedUrl);
     
@@ -173,7 +174,7 @@ Format your response EXACTLY as:
     if (!cleanedUrl.startsWith('http')) {
       if (cleanedUrl.startsWith('www.')) {
         cleanedUrl = 'https://' + cleanedUrl;
-      } else if (cleanedUrl.includes('.')) {
+      } else if (cleanedUrl.includes('.') && !cleanedUrl.includes(' ')) {
         cleanedUrl = 'https://' + cleanedUrl;
       } else {
         console.warn('No valid domain found in URL:', cleanedUrl);

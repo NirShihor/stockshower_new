@@ -46,6 +46,13 @@
   gap: 2rem;
 }
 
+/* Reduce gap between nav links on larger screens */
+@media (min-width: 769px) {
+  .nav-links {
+    gap: 1rem;
+  }
+}
+
 .nav-link {
   color: black;
   text-decoration: none;
@@ -59,6 +66,15 @@
   min-width: 140px;
   text-align: center;
   display: inline-block;
+}
+
+/* Reduce nav link size on large screens */
+@media (min-width: 769px) {
+  .nav-link {
+    font-size: 1.4rem;
+    padding: 0.3rem 0.6rem;
+    min-width: 110px;
+  }
 }
 
 .nav-link:hover {
@@ -225,9 +241,11 @@
   }
   
   .nav-link {
-    width: 200px;
+    width: 160px;
     text-align: center;
     margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+    padding: 0.5rem 0.8rem;
   }
   
   .main-content {
@@ -1031,5 +1049,159 @@ h1 {
     flex-shrink: 0;
     text-align: right !important;
     margin-left: 0.5rem;
+  }
+}
+
+/* Analysis Page Styles */
+.analysis-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.analysis-controls {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.control-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center;
+}
+
+.sector-selection,
+.company-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 300px;
+}
+
+.sector-selection label,
+.company-selection label {
+  font-size: 1.4rem;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.sector-dropdown,
+.company-dropdown {
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  font-size: 1.3rem;
+  background: white;
+  cursor: pointer;
+  font-family: 'SchoolPencil-Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: border-color 0.2s;
+}
+
+.sector-dropdown option,
+.company-dropdown option {
+  font-size: 0.7rem;
+  padding: 0.3rem;
+}
+
+.sector-dropdown:focus,
+.company-dropdown:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.analysis-results {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.analysis-results .analysis-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.analysis-results .analysis-header h2 {
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+  font-size: 2.2rem;
+}
+
+.analysis-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.analysis-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #3498db;
+}
+
+.analysis-card.recommendation {
+  border-left-color: #27ae60;
+  background-color: #f8fff8;
+}
+
+.analysis-card h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.6rem;
+}
+
+.analysis-card p {
+  margin: 0;
+  color: #34495e;
+  line-height: 1.6;
+  font-size: 1.3rem;
+}
+
+.analysis-card.recommendation p {
+  font-size: 1.4rem;
+  color: #27ae60;
+}
+
+/* Mobile responsiveness for Analysis page */
+@media (max-width: 770px) {
+  .analysis-page {
+    padding: 1rem;
+  }
+  
+  .analysis-controls {
+    padding: 1rem;
+  }
+  
+  .sector-selection,
+  .company-selection {
+    min-width: 100%;
+    width: 100%;
+  }
+  
+  .sector-dropdown,
+  .company-dropdown {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .analysis-sections {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .analysis-card {
+    padding: 1rem;
+  }
+  
+  .analysis-results {
+    padding: 1rem;
   }
 }
