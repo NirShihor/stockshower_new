@@ -19,4 +19,5 @@ export const API_ENDPOINTS = {
   riskAssessment: `${API_BASE_URL}/risk-assessment`,
   preMarketAnalysis: `${API_BASE_URL}/pre-market-analysis`,
   happyTwists: `${API_BASE_URL}/happy-twists`,
+  fundamentalAnalysis: `${API_BASE_URL}/fundamental`,
 };

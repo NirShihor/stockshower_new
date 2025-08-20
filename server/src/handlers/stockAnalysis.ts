@@ -1786,41 +1786,80 @@ export const getHappyTwists = async (req: Request, res: Response): Promise<void>
 			messages: [
 				{
 					role: 'user',
-					content: `Search for recent financial news from the last 48 hours about extreme positive catalysts that could cause stocks to jump 10%+ in a single day.
+					content: `Search for recent financial news from the last 5 days about EXTREME POSITIVE catalysts that caused stocks to surge 10%+ in a single day. Focus on TRUE "happy twists" - major positive surprises, not mixed earnings.
 
-Find real news stories about:
-- FDA drug approvals for biotech/pharma companies
-- Major contract wins (billion+ dollar deals)  
-- Acquisition announcements with high premiums
-- Breakthrough technology discoveries
-- Massive earnings beats (50%+ above estimates)
-- Major legal victories or patent wins
-- Game-changing partnerships with large companies
-- New regulatory approvals for expanding into markets
+MANDATORY: Must find and include AT LEAST ONE FDA/biotech story. Search specifically for:
+- "FDA approves [drug name]"
+- "[Company] gets FDA approval" 
+- "Clinical trial success"
+- "[Biotech stock] surges on FDA news"
 
-For each real news story found, provide:
-1. Stock Symbol (if publicly traded)
-2. Company Name
-3. News Headline (exact headline from source)
-4. Source URL (direct link to article)
-5. Why this could cause 10%+ jump
-6. Key risk factors
+REQUIREMENTS:
+- Find AT LEAST 6-8 different stories
+- Must include DIFFERENT types of catalysts
+- Focus on stocks that ALREADY SURGED 10%+ on specific news
+- Exclude negative/mixed earnings stories
 
-Format as:
+Search for these specific catalyst types:
 
-**Real Happy Twists Found:**
+**FDA/BIOTECH (MANDATORY - find 1-2 stories):**
+- FDA drug approvals causing 20%+ stock jumps
+- Clinical trial successes with positive data
+- Biotech breakthrough announcements
+- Regulatory clearances for medical devices
+
+**ACQUISITIONS & DEALS (1-2 stories):**
+- Takeover bids at 30%+ premiums
+- Going private deals announced
+- Strategic acquisitions with immediate stock pops
+
+**MASSIVE EARNINGS BEATS (1-2 stories):**
+- Companies beating by 100%+ with stock surges
+- Surprise profitability announcements
+- Guidance raises causing 15%+ moves
+
+**MAJOR CONTRACTS & PARTNERSHIPS (1-2 stories):**
+- Multi-billion dollar contract wins
+- Partnerships with Apple, Google, Microsoft, etc.
+- Government contract awards
+
+**TECHNOLOGY BREAKTHROUGHS (1-2 stories):**
+- AI breakthrough product launches
+- Patent approvals for game-changing tech
+- Major platform or software announcements
+
+Look SPECIFICALLY for phrases like:
+- "surged 25% after FDA approved"
+- "jumped 30% on takeover bid"
+- "soared 20% following contract win"
+- "spiked 15% on breakthrough announcement"
+
+Format EXACTLY as:
+
+**Top Happy Twists Found:**
 
 **[SYMBOL] - [Company Name]**
-📰 Headline: [Exact news headline]
-🔗 Source: [URL to article]
-🚀 Impact: [Why this could move 10%+]
-⚠️ Risk: [Key concerns]
+📰 Headline: [Exact news headline from source]
+🔗 Source: [Clean URL if available - Reuters, Bloomberg, Yahoo Finance, MarketWatch, etc.]
+🚀 Potential Impact: [Catalyst type] - [Why this moved/could move 10%+]
+⚠️ Risk: [Key risk factor]
 
-Focus on smaller to mid-cap companies that move more on news.`
+**[SYMBOL] - [Company Name]**
+📰 Headline: [Exact news headline from source]
+🔗 Source: [Clean URL if available - Reuters, Bloomberg, Yahoo Finance, MarketWatch, etc.]
+🚀 Potential Impact: [Catalyst type] - [Why this moved/could move 10%+]
+⚠️ Risk: [Key risk factor]
+
+CRITICAL REQUIREMENTS:
+- I need at least 6-8 different companies with different catalyst types
+- Include source URLs when available from major outlets (Reuters, Bloomberg, Yahoo Finance, MarketWatch, etc.)
+- If no specific URL is available, use a general finance news site URL
+- Prioritize finding more diverse stories over perfect URLs
+- Better to have 6+ stories with some missing URLs than only 2 perfect ones`
 				}
 			],
 			temperature: 0.3,
-			max_tokens: 1500,
+			max_tokens: 3500,
 			stream: false
 		}, {
 			headers: {
@@ -1845,6 +1884,163 @@ Focus on smaller to mid-cap companies that move more on news.`
 		}
 		
 		res.status(500).json({ error: 'Failed to get happy twists analysis' });
+	}
+};
+
+export const getFundamentalAnalysis = async (req: Request, res: Response): Promise<void> => {
+	try {
+		const { sector, symbol } = req.body;
+		
+		if (!sector || !symbol) {
+			res.status(400).json({ error: 'Sector and symbol are required' });
+			return;
+		}
+		
+		console.log(`Getting fundamental analysis for ${symbol} in ${sector} sector...`);
+		
+		// Get company details from Polygon/Marketstack
+		let companyDetails;
+		if (DATA_PROVIDER === 'polygon') {
+			const tickerResponse = await makePolygonRequest(`/v3/reference/tickers/${symbol}`);
+			companyDetails = tickerResponse.results;
+		} else {
+			companyDetails = await getMarketstackTickerDetails(symbol);
+		}
+		
+		// Prepare the prompt for Perplexity to gather real-time data
+		const perplexityPrompt = `Provide a comprehensive fundamental analysis for ${symbol} (${companyDetails?.name || symbol}) in the ${sector} sector. Include:
+
+1. Global Analysis: Current macroeconomic factors affecting the stock market, including interest rates, global monetary policy, political developments, and commodity prices.
+
+2. Sector Analysis: Current state of the ${sector} sector, including trends, challenges, opportunities, and peer performance.
+
+3. Company Analysis: Specific analysis of ${symbol} including recent financial performance, key metrics, competitive position, and recent developments.
+
+4. Market Sentiment: Current market sentiment towards ${symbol} and the ${sector} sector.
+
+Please provide current, factual information based on the latest available data.`;
+
+		// Call Perplexity for real-time data gathering
+		const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
+			model: 'sonar',
+			messages: [
+				{
+					role: 'user',
+					content: perplexityPrompt
+				}
+			],
+			temperature: 0.3,
+			max_tokens: 2000,
+			stream: false
+		}, {
+			headers: {
+				'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+				'Content-Type': 'application/json'
+			}
+		});
+		
+		const perplexityData = perplexityResponse.data.choices[0]?.message?.content || '';
+		
+		// Now use ChatGPT to structure and analyze the data according to "The Trading Code" framework
+		const analysisPrompt = `Based on the following real-time market data, provide a structured fundamental analysis following "The Trading Code" framework:
+
+${perplexityData}
+
+Please structure your response with these specific sections:
+
+1. GLOBAL ANALYSIS: Analyze macroeconomic factors and their potential impact on ${symbol}. Focus on what's most relevant for short-term trading.
+
+2. SECTOR ANALYSIS: Analyze the ${sector} sector specifically, including competitive dynamics, trends, and how ${symbol} is positioned within the sector.
+
+3. COMPANY ANALYSIS: Provide specific analysis of ${symbol}, focusing on recent performance, key metrics, and any company-specific news or developments.
+
+4. MARKET SENTIMENT: Assess the current market sentiment (bullish/bearish) and explain why.
+
+5. TRADING RECOMMENDATION: Based on all factors, provide a clear BUY/SELL/HOLD recommendation with specific reasoning. Focus on short-term trading potential (days to weeks).
+
+Keep each section concise but informative, suitable for day traders who need quick, actionable insights.`;
+
+		// Call OpenAI for structured analysis
+		const completion = await openai.chat.completions.create({
+			model: "gpt-4o",
+			messages: [
+				{
+					role: "system",
+					content: "You are an expert financial analyst specializing in fundamental analysis for day trading. Provide clear, concise, and actionable insights based on 'The Trading Code' methodology."
+				},
+				{
+					role: "user",
+					content: analysisPrompt
+				}
+			],
+			temperature: 0.3,
+			max_tokens: 1500
+		});
+		
+		const structuredAnalysis = completion.choices[0]?.message?.content || 'No analysis available';
+		
+		// Parse the structured response into sections
+		const sections = {
+			globalAnalysis: '',
+			sectorAnalysis: '',
+			companyAnalysis: '',
+			sentiment: '',
+			recommendation: ''
+		};
+		
+		// Extract sections from the response
+		const analysisText = structuredAnalysis;
+		
+		// More flexible parsing - look for section headers with various formats
+		const globalMatch = analysisText.match(/(?:1\.\s*)?GLOBAL ANALYSIS:?\s*(.*?)(?=(?:\d\.\s*)?SECTOR ANALYSIS|$)/si);
+		const sectorMatch = analysisText.match(/(?:2\.\s*)?SECTOR ANALYSIS:?\s*(.*?)(?=(?:\d\.\s*)?COMPANY ANALYSIS|$)/si);
+		const companyMatch = analysisText.match(/(?:3\.\s*)?COMPANY ANALYSIS:?\s*(.*?)(?=(?:\d\.\s*)?MARKET SENTIMENT|$)/si);
+		const sentimentMatch = analysisText.match(/(?:4\.\s*)?MARKET SENTIMENT:?\s*(.*?)(?=(?:\d\.\s*)?TRADING RECOMMENDATION|$)/si);
+		const recommendationMatch = analysisText.match(/(?:5\.\s*)?TRADING RECOMMENDATION:?\s*(.*?)$/si);
+		
+		// If structured parsing fails, try to parse as a whole
+		if (!globalMatch && !sectorMatch && !companyMatch) {
+			console.log('Structured parsing failed, using full response');
+			sections.globalAnalysis = 'See full analysis below';
+			sections.sectorAnalysis = 'See full analysis below';
+			sections.companyAnalysis = structuredAnalysis;
+			sections.sentiment = 'See company analysis';
+			sections.recommendation = 'See company analysis';
+		} else {
+			sections.globalAnalysis = globalMatch ? globalMatch[1].trim() : 'Global analysis not available';
+			sections.sectorAnalysis = sectorMatch ? sectorMatch[1].trim() : 'Sector analysis not available';
+			sections.companyAnalysis = companyMatch ? companyMatch[1].trim() : 'Company analysis not available';
+			sections.sentiment = sentimentMatch ? sentimentMatch[1].trim() : 'Sentiment analysis not available';
+			sections.recommendation = recommendationMatch ? recommendationMatch[1].trim() : 'Recommendation not available';
+		}
+		
+		console.log('Parsed sections:', {
+			global: sections.globalAnalysis.substring(0, 50) + '...',
+			sector: sections.sectorAnalysis.substring(0, 50) + '...',
+			company: sections.companyAnalysis.substring(0, 50) + '...'
+		});
+		
+		// Send response
+		res.json({
+			symbol: symbol,
+			sector: sector,
+			companyName: companyDetails?.name || symbol,
+			globalAnalysis: sections.globalAnalysis,
+			sectorAnalysis: sections.sectorAnalysis,
+			companyAnalysis: sections.companyAnalysis,
+			sentiment: sections.sentiment,
+			recommendation: sections.recommendation,
+			timestamp: new Date().toISOString()
+		});
+		
+	} catch (error: any) {
+		console.error('Error getting fundamental analysis:', error);
+		
+		if (error.response && error.response.data) {
+			console.error('API error details:', JSON.stringify(error.response.data, null, 2));
+		}
+		
+		res.status(500).json({ error: 'Failed to get fundamental analysis' });
 	}
 };
 
