@@ -1135,7 +1135,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 						}
 					}
 				} catch (error: any) {
-					console.error(`Error processing ${todayBar.T}:`, error.message || error);
+					console.error(`Error processing ${candidate.todayBar.T}:`, error.message || error);
 				}
 			}
 			
