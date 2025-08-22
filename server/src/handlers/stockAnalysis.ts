@@ -152,6 +152,13 @@ interface ScanResult {
 	status: 'completed' | 'partial' | 'timeout';
 	processedCount: number;
 	totalCount: number;
+	batchInfo?: {
+		preFilteredCount: number;
+		batchesProcessed: number;
+		totalBatches: number;
+		twentyDayHighCalculated: number;
+		optimizationUsed: boolean;
+	};
 }
 
 // Polygon.io helper functions
@@ -773,6 +780,79 @@ export const testPolygon = async (req: Request, res: Response) => {
 	}
 };
 
+// Batch processing configuration
+const BATCH_SIZE = 20; // Process 20 stocks at a time
+const BATCH_DELAY = 100; // 100ms delay between batches
+const MAX_CONCURRENT_REQUESTS = 5; // Limit concurrent API requests
+
+// Helper function to process batches with concurrency control
+async function processBatch<T, R>(
+	items: T[],
+	batchSize: number,
+	processor: (batch: T[]) => Promise<R[]>,
+	delayMs: number = 0
+): Promise<R[]> {
+	const results: R[] = [];
+	
+	for (let i = 0; i < items.length; i += batchSize) {
+		const batch = items.slice(i, i + batchSize);
+		
+		try {
+			const batchResults = await processor(batch);
+			results.push(...batchResults);
+			
+			// Add delay between batches to avoid rate limiting
+			if (delayMs > 0 && i + batchSize < items.length) {
+				await new Promise(resolve => setTimeout(resolve, delayMs));
+			}
+		} catch (error) {
+			console.error(`Batch processing error:`, error);
+			// Continue with next batch instead of failing completely
+		}
+	}
+	
+	return results;
+}
+
+// Helper function to batch API calls
+async function batchApiCalls<T>(
+	symbols: string[],
+	apiCall: (symbol: string) => Promise<T>,
+	maxConcurrent: number = MAX_CONCURRENT_REQUESTS
+): Promise<Map<string, T>> {
+	const results = new Map<string, T>();
+	
+	// Process symbols in batches to control concurrency
+	for (let i = 0; i < symbols.length; i += maxConcurrent) {
+		const batch = symbols.slice(i, i + maxConcurrent);
+		
+		const batchPromises = batch.map(async (symbol) => {
+			try {
+				const result = await apiCall(symbol);
+				return { symbol, result };
+			} catch (error) {
+				console.warn(`API call failed for ${symbol}:`, error);
+				return { symbol, result: null };
+			}
+		});
+		
+		const batchResults = await Promise.all(batchPromises);
+		
+		for (const { symbol, result } of batchResults) {
+			if (result !== null) {
+				results.set(symbol, result);
+			}
+		}
+		
+		// Small delay between concurrent batches
+		if (i + maxConcurrent < symbols.length) {
+			await new Promise(resolve => setTimeout(resolve, 50));
+		}
+	}
+	
+	return results;
+}
+
 export const scanGapUps = async (req: Request, res: Response) => {
 	try {
 		console.log('Starting market-wide Polygon gap up scan...');
@@ -873,32 +953,90 @@ export const scanGapUps = async (req: Request, res: Response) => {
 
 		let gapUpStocks: GapUpStock[] = [];
 		let processedCount = 0;
+		let gapUpCount = 0; // Track how many stocks are gapping up
 
-		// Filter and process stocks in batches
-		for (let i = 0; i < todayData.length; i += 100) {
-			// Check timeout
+		// Get volatility level from request body, default to 'low'
+		const volatilityLevel: 'low' | 'medium' | 'high' = req.body?.volatilityLevel || 'low';
+
+		// Phase 1: Pre-filter stocks based on gap criteria (no API calls)
+		console.log('Phase 1: Pre-filtering stocks based on gap criteria...');
+		const preFilteredCandidates: {todayBar: GroupedDailyBar, yesterdayBar: GroupedDailyBar, gapPercentage: number, isBlueChip: boolean}[] = [];
+
+		for (const todayBar of todayData) {
+			const symbol = todayBar.T;
+			const yesterdayBar = yesterdayMap.get(symbol);
+			
+			if (!yesterdayBar) continue;
+
+			// Calculate gap percentage
+			const gapPercentage = calculateGapPercentage(todayBar.o, yesterdayBar.c);
+			
+			// Track any gap ups for debugging
+			if (gapPercentage > 0) {
+				gapUpCount++;
+				if (gapUpCount <= 5) {
+					console.log(`Gap up found: ${symbol} +${gapPercentage.toFixed(2)}% (Open: $${todayBar.o.toFixed(2)}, Prev Close: $${yesterdayBar.c.toFixed(2)}, Volume: ${todayBar.v.toLocaleString()})`);
+				}
+			}
+			
+			// Check if this is a blue chip stock
+			const isBlueChip = BLUE_CHIP_STOCKS.has(symbol);
+			
+			// Set gap limits based on volatility level and blue chip status
+			const gapLimits = {
+				low: { 
+					min: 2.5, 
+					max: isBlueChip ? 15 : 8  // Blue chips can gap higher on news
+				},
+				medium: { 
+					min: 2.0, 
+					max: isBlueChip ? 25 : 12  // Blue chips get even more tolerance
+				},
+				high: { 
+					min: 1.5, 
+					max: isBlueChip ? 40 : 20  // Blue chips can have major news gaps
+				}
+			};
+			
+			// Pre-filter: Only check stocks with significant gaps and decent volume/price
+			if (gapPercentage >= gapLimits[volatilityLevel].min && // Minimum gap based on volatility level
+				gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level and blue chip status
+				todayBar.v > 100000 && // Minimum volume (increased for quality)
+				todayBar.o >= 5 && // No penny stocks (>= $5)
+				todayBar.o < 1000) { // Reasonable price range
+				
+				preFilteredCandidates.push({ todayBar, yesterdayBar, gapPercentage, isBlueChip });
+			}
+			processedCount++;
+		}
+
+		console.log(`Phase 1 complete: ${preFilteredCandidates.length} candidates from ${processedCount} stocks`);
+		console.log(`Total gap ups in market: ${gapUpCount}`);
+
+		// Track batch processing metrics
+		let batchesProcessed = 0;
+		let twentyDayHighCalculated = 0;
+
+		// Phase 2: Process pre-filtered candidates in batches
+		console.log('Phase 2: Processing gap up candidates in batches...');
+		
+		// Process pre-filtered candidates instead of all stocks
+		for (let i = 0; i < preFilteredCandidates.length; i += BATCH_SIZE) {
+			// Check timeout before processing each batch
 			if (Date.now() - startTime > maxProcessingTime) {
-				console.log(`Stopping scan due to time limit (${maxProcessingTime/1000}s)`);
+				console.log(`Stopping scan due to time limit (${maxProcessingTime/1000}s) - processed ${batchesProcessed} batches`);
 				break;
 			}
 
-			const batch = todayData.slice(i, i + 100);
+			const batch = preFilteredCandidates.slice(i, i + BATCH_SIZE);
 			
-			for (const todayBar of batch) {
+			for (const candidate of batch) {
 				try {
-					const symbol = todayBar.T;
-					const yesterdayBar = yesterdayMap.get(symbol);
-					
-					if (!yesterdayBar) continue;
-
-					// Calculate gap percentage
-					const gapPercentage = calculateGapPercentage(todayBar.o, yesterdayBar.c);
-					
-					// Get volatility level from request body, default to 'low'
-					const volatilityLevel: 'low' | 'medium' | 'high' = req.body?.volatilityLevel || 'low';
-					
-					// Check if this is a blue chip stock
-					const isBlueChip = BLUE_CHIP_STOCKS.has(symbol);
+					const symbol = candidate.todayBar.T;
+					const todayBar = candidate.todayBar;
+					const yesterdayBar = candidate.yesterdayBar;
+					const gapPercentage = candidate.gapPercentage;
+					const isBlueChip = candidate.isBlueChip;
 					
 					// Set gap limits based on volatility level and blue chip status
 					const gapLimits = {
@@ -999,19 +1137,17 @@ export const scanGapUps = async (req: Request, res: Response) => {
 				} catch (error: any) {
 					console.error(`Error processing ${todayBar.T}:`, error.message || error);
 				}
-				processedCount++;
 			}
 			
-			if (i % 500 === 0) {
-				console.log(`Processed ${processedCount}/${todayData.length} stocks, found ${gapUpStocks.length} gap-ups`);
-			}
+			batchesProcessed++;
+			console.log(`Completed batch ${batchesProcessed}/${Math.ceil(preFilteredCandidates.length / BATCH_SIZE)}: ${gapUpStocks.length} suitable gap up stocks found so far`);
 		}
 
 		// Sort by gap percentage (highest first)
 		gapUpStocks.sort((a, b) => parseFloat(b.gapPercentage) - parseFloat(a.gapPercentage));
 
-		// Phase 2: Calculate 20-day highs for ALL gap-up stocks that meet criteria
-		console.log(`Phase 2: Calculating 20-day highs for all ${gapUpStocks.length} qualifying stocks...`);
+		// Phase 3: Calculate 20-day highs for ALL gap-up stocks that meet criteria
+		console.log(`Phase 3: Calculating 20-day highs for all ${gapUpStocks.length} qualifying stocks...`);
 		const topStocks = gapUpStocks; // Calculate for ALL results
 		
 		for (let i = 0; i < topStocks.length; i++) {
@@ -1085,6 +1221,7 @@ export const scanGapUps = async (req: Request, res: Response) => {
 		const duration = (endTime - startTime) / 1000;
 		console.log(`Market-wide scan complete: Found ${gapUpStocks.length} gap-up stocks`);
 		console.log(`Processed ${processedCount}/${todayData.length} stocks in ${duration.toFixed(2)} seconds`);
+		console.log(`Total gap ups in market: ${gapUpCount}`);
 
 		const result: ScanResult = {
 			stocks: gapUpStocks.slice(0, 50), // Limit to top 50 results
@@ -1093,7 +1230,14 @@ export const scanGapUps = async (req: Request, res: Response) => {
 			scanDuration: `${duration.toFixed(2)}s`,
 			status: processedCount === todayData.length ? 'completed' : 'timeout',
 			processedCount,
-			totalCount: todayData.length
+			totalCount: todayData.length,
+			batchInfo: {
+				preFilteredCount: preFilteredCandidates.length,
+				batchesProcessed: batchesProcessed,
+				totalBatches: Math.ceil(preFilteredCandidates.length / BATCH_SIZE),
+				twentyDayHighCalculated: twentyDayHighCalculated,
+				optimizationUsed: true
+			}
 		};
 
 		return res.status(200).json(result);
@@ -1148,11 +1292,44 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 
 		if (!todayData || todayData.length === 0) {
 			console.log(`No market data for ${todayStr}. Falling back to previous day analysis.`);
-			// Similar fallback logic as gap ups...
+			// If today's data isn't available, shift back to the most recent available trading day
+			const fallbackToday = new Date(mostRecentDay);
+			fallbackToday.setDate(fallbackToday.getDate() - 1);
 			
-			return res.status(404).json({ 
-				error: `No market data available for gap down scan.` 
-			});
+			// For fallback yesterday, we need to skip weekends properly
+			const fallbackYesterday = new Date(fallbackToday);
+			const fallbackDayOfWeek = fallbackToday.getDay();
+			
+			if (fallbackDayOfWeek === 1) { // Monday
+				fallbackYesterday.setDate(fallbackToday.getDate() - 3); // Friday
+			} else {
+				fallbackYesterday.setDate(fallbackToday.getDate() - 1); // Previous day
+			}
+			
+			const fallbackTodayStr = fallbackToday.toISOString().split('T')[0];
+			const fallbackYesterdayStr = fallbackYesterday.toISOString().split('T')[0];
+			
+			console.log(`Trying fallback dates: ${fallbackTodayStr} vs ${fallbackYesterdayStr}`);
+			
+			const [fallbackTodayData, fallbackYesterdayData] = await Promise.all([
+				getPolygonGroupedDaily(fallbackTodayStr),
+				getPolygonGroupedDaily(fallbackYesterdayStr)
+			]);
+			
+			if (!fallbackTodayData || fallbackTodayData.length === 0) {
+				return res.status(404).json({ 
+					error: `No market data available for ${todayStr} or ${fallbackTodayStr}. Markets may be closed.` 
+				});
+			}
+			
+			// Use fallback data and update the date strings for logging
+			console.log(`Using fallback data: ${fallbackTodayData.length} stocks for ${fallbackTodayStr}`);
+			todayData = fallbackTodayData;
+			yesterdayData = fallbackYesterdayData;
+			
+			// Update the date strings for subsequent logging
+			todayStr = fallbackTodayStr;
+			yesterdayStr = fallbackYesterdayStr;
 		}
 
 		if (!yesterdayData || yesterdayData.length === 0) {
@@ -1377,7 +1554,14 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 			scanDuration: `${duration.toFixed(2)}s`,
 			status: processedCount === todayData.length ? 'completed' : 'timeout',
 			processedCount,
-			totalCount: todayData.length
+			totalCount: todayData.length,
+			batchInfo: {
+				preFilteredCount: 0, // Will implement in next step
+				batchesProcessed: 0, // Will implement in next step
+				totalBatches: 0, // Will implement in next step
+				twentyDayHighCalculated: qualifiedGapDownStocks.length, // Currently calculated for all
+				optimizationUsed: false // Not yet implemented
+			}
 		};
 
 		return res.status(200).json(result);
