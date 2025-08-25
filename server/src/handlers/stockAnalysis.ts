@@ -1961,88 +1961,86 @@ export const getHappyTwists = async (req: Request, res: Response): Promise<void>
 	try {
 		const { prompt } = req.body;
 		
-		console.log('Getting happy twists analysis using Perplexity AI...');
-		console.log('Perplexity API Key:', process.env.PERPLEXITY_API_KEY ? 'Present' : 'Missing');
 		
 		// Call Perplexity API for real-time news analysis
 		const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
 			model: 'sonar',
 			messages: [
 				{
+					role: 'system',
+					content: 'You are a financial news verification specialist. CRITICAL: You MUST only report REAL news that you can find and verify. DO NOT make up stories, headlines, or URLs. If you cannot find real news with actual URLs, report that limited news is available. Creating fictional news stories is absolutely forbidden.'
+				},
+				{
 					role: 'user',
-					content: `Search for recent financial news from the last 5 days about EXTREME POSITIVE catalysts that caused stocks to surge 10%+ in a single day. Focus on TRUE "happy twists" - major positive surprises, not mixed earnings.
+					content: `Search for recent positive stock catalysts from the last week that could cause significant price movements. Focus on real news events.
 
-MANDATORY: Must find and include AT LEAST ONE FDA/biotech story. Search specifically for:
-- "FDA approves [drug name]"
-- "[Company] gets FDA approval" 
-- "Clinical trial success"
-- "[Biotech stock] surges on FDA news"
+Requirements:
+1. Find real news stories about companies with positive catalysts
+2. Include the source URL for each story
+3. Focus on impactful events: FDA approvals, earnings beats, major contracts, M&A activity
+4. Prioritize smaller to mid-cap stocks that move more on news
 
-REQUIREMENTS:
-- Find AT LEAST 6-8 different stories
-- Must include DIFFERENT types of catalysts
-- Focus on stocks that ALREADY SURGED 10%+ on specific news
-- Exclude negative/mixed earnings stories
+Search for these types of real catalysts (PRIORITIZE VARIETY):
 
-Search for these specific catalyst types:
+**EARNINGS BEATS & GUIDANCE RAISES:**
+- Companies beating Q2/Q3 2025 earnings estimates
+- Raised guidance announcements
+- Revenue surprises from tech, retail, financial companies
 
-**FDA/BIOTECH (MANDATORY - find 1-2 stories):**
-- FDA drug approvals causing 20%+ stock jumps
-- Clinical trial successes with positive data
-- Biotech breakthrough announcements
-- Regulatory clearances for medical devices
+**MAJOR CONTRACTS & DEALS:**
+- Defense contracts, government contracts
+- Major corporate partnerships (tech partnerships, retail deals)
+- Infrastructure or energy project wins
+- Cloud computing deals
 
-**ACQUISITIONS & DEALS (1-2 stories):**
-- Takeover bids at 30%+ premiums
-- Going private deals announced
-- Strategic acquisitions with immediate stock pops
+**ACQUISITIONS & BUYOUTS:**
+- Companies being acquired at premiums
+- Strategic merger announcements
+- Private equity buyouts
 
-**MASSIVE EARNINGS BEATS (1-2 stories):**
-- Companies beating by 100%+ with stock surges
-- Surprise profitability announcements
-- Guidance raises causing 15%+ moves
+**TECHNOLOGY BREAKTHROUGHS:**
+- AI/ML product launches
+- Semiconductor advances
+- Software platform releases
+- EV/Battery technology news
 
-**MAJOR CONTRACTS & PARTNERSHIPS (1-2 stories):**
-- Multi-billion dollar contract wins
-- Partnerships with Apple, Google, Microsoft, etc.
-- Government contract awards
+**ANALYST UPGRADES:**
+- Major bank upgrades with high price targets
+- Multiple analyst upgrades on same day
+- Sector upgrades affecting multiple stocks
 
-**TECHNOLOGY BREAKTHROUGHS (1-2 stories):**
-- AI breakthrough product launches
-- Patent approvals for game-changing tech
-- Major platform or software announcements
+**FDA/BIOTECH APPROVALS:**
+- Drug approvals (include these when found)
+- Clinical trial successes
+- Medical device approvals
 
-Look SPECIFICALLY for phrases like:
-- "surged 25% after FDA approved"
-- "jumped 30% on takeover bid"
-- "soared 20% following contract win"
-- "spiked 15% on breakthrough announcement"
+**LEGAL WINS & SETTLEMENTS:**
+- Patent lawsuit victories
+- Regulatory approvals (not just FDA)
+- Major settlement wins
 
-Format EXACTLY as:
+Format your response EXACTLY as follows:
+
+**Market Scan Summary:**
+[Brief overview of current market conditions for positive catalysts]
 
 **Top Happy Twists Found:**
 
-**[SYMBOL] - [Company Name]**
-📰 Headline: [Exact news headline from source]
-🔗 Source: [Clean URL if available - Reuters, Bloomberg, Yahoo Finance, MarketWatch, etc.]
-🚀 Potential Impact: [Catalyst type] - [Why this moved/could move 10%+]
-⚠️ Risk: [Key risk factor]
+1. **[SYMBOL] - [Company Name]**
+   📰 Headline: [News headline or description]
+   🔗 Source: [URL to the article]
+   🚀 Potential Impact: [Why this could cause significant movement]
+   ⚠️ Risk: [Key risk to consider]
 
-**[SYMBOL] - [Company Name]**
-📰 Headline: [Exact news headline from source]
-🔗 Source: [Clean URL if available - Reuters, Bloomberg, Yahoo Finance, MarketWatch, etc.]
-🚀 Potential Impact: [Catalyst type] - [Why this moved/could move 10%+]
-⚠️ Risk: [Key risk factor]
+[Continue for each catalyst found...]
 
-CRITICAL REQUIREMENTS:
-- I need at least 6-8 different companies with different catalyst types
-- Include source URLs when available from major outlets (Reuters, Bloomberg, Yahoo Finance, MarketWatch, etc.)
-- If no specific URL is available, use a general finance news site URL
-- Prioritize finding more diverse stories over perfect URLs
-- Better to have 6+ stories with some missing URLs than only 2 perfect ones`
+**Trading Strategy:**
+[Brief guidance on these real opportunities]
+
+Note: Base your response on real market news and events. Include source URLs when available.`
 				}
 			],
-			temperature: 0.3,
+			temperature: 0.1,
 			max_tokens: 3500,
 			stream: false
 		}, {
