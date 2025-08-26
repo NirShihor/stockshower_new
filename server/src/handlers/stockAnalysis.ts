@@ -1961,108 +1961,101 @@ export const getHappyTwists = async (req: Request, res: Response): Promise<void>
 	try {
 		const { prompt } = req.body;
 		
+		console.log('=== HAPPY TWISTS: Using Polygon News API ===');
 		
-		// Call Perplexity API for real-time news analysis
-		const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
-			model: 'sonar',
-			messages: [
-				{
-					role: 'system',
-					content: 'You are a financial news verification specialist. CRITICAL: You MUST only report REAL news that you can find and verify. DO NOT make up stories, headlines, or URLs. If you cannot find real news with actual URLs, report that limited news is available. Creating fictional news stories is absolutely forbidden.'
-				},
-				{
-					role: 'user',
-					content: `Search for recent positive stock catalysts from the last week that could cause significant price movements. Focus on real news events.
-
-Requirements:
-1. Find real news stories about companies with positive catalysts
-2. Include the source URL for each story
-3. Focus on impactful events: FDA approvals, earnings beats, major contracts, M&A activity
-4. Prioritize smaller to mid-cap stocks that move more on news
-
-Search for these types of real catalysts (PRIORITIZE VARIETY):
-
-**EARNINGS BEATS & GUIDANCE RAISES:**
-- Companies beating Q2/Q3 2025 earnings estimates
-- Raised guidance announcements
-- Revenue surprises from tech, retail, financial companies
-
-**MAJOR CONTRACTS & DEALS:**
-- Defense contracts, government contracts
-- Major corporate partnerships (tech partnerships, retail deals)
-- Infrastructure or energy project wins
-- Cloud computing deals
-
-**ACQUISITIONS & BUYOUTS:**
-- Companies being acquired at premiums
-- Strategic merger announcements
-- Private equity buyouts
-
-**TECHNOLOGY BREAKTHROUGHS:**
-- AI/ML product launches
-- Semiconductor advances
-- Software platform releases
-- EV/Battery technology news
-
-**ANALYST UPGRADES:**
-- Major bank upgrades with high price targets
-- Multiple analyst upgrades on same day
-- Sector upgrades affecting multiple stocks
-
-**FDA/BIOTECH APPROVALS:**
-- Drug approvals (include these when found)
-- Clinical trial successes
-- Medical device approvals
-
-**LEGAL WINS & SETTLEMENTS:**
-- Patent lawsuit victories
-- Regulatory approvals (not just FDA)
-- Major settlement wins
-
-Format your response EXACTLY as follows:
-
-**Market Scan Summary:**
-[Brief overview of current market conditions for positive catalysts]
-
-**Top Happy Twists Found:**
-
-1. **[SYMBOL] - [Company Name]**
-   📰 Headline: [News headline or description]
-   🔗 Source: [URL to the article]
-   🚀 Potential Impact: [Why this could cause significant movement]
-   ⚠️ Risk: [Key risk to consider]
-
-[Continue for each catalyst found...]
-
-**Trading Strategy:**
-[Brief guidance on these real opportunities]
-
-Note: Base your response on real market news and events. Include source URLs when available.`
-				}
-			],
-			temperature: 0.1,
-			max_tokens: 3500,
-			stream: false
-		}, {
-			headers: {
-				'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-				'Content-Type': 'application/json'
-			}
+		// Get real news from Polygon
+		const polygonApiKey = process.env.POLYGON_API_KEY;
+		if (!polygonApiKey) {
+			throw new Error('Polygon API key is missing');
+		}
+		
+		// Get news from the last 3 days
+		const threeDaysAgo = new Date();
+		threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+		const today = new Date();
+		
+		// Fetch recent news
+		const newsUrl = `https://api.polygon.io/v2/reference/news?published_utc.gte=${threeDaysAgo.toISOString().split('T')[0]}&published_utc.lte=${today.toISOString().split('T')[0]}&order=desc&limit=100&apiKey=${polygonApiKey}`;
+		
+		console.log('Fetching news from Polygon...');
+		const newsResponse = await axios.get(newsUrl);
+		
+		if (!newsResponse.data || !newsResponse.data.results) {
+			throw new Error('No news data received from Polygon');
+		}
+		
+		// Filter for positive catalyst keywords
+		const positiveKeywords = [
+			'beats earnings', 'exceeds expectations', 'raises guidance', 'upgraded',
+			'FDA approval', 'FDA approves', 'acquisition', 'merger', 'buyout',
+			'wins contract', 'partnership', 'record revenue', 'breakthrough',
+			'soars', 'jumps', 'surges', 'rallies', 'spikes'
+		];
+		
+		const positiveNews = newsResponse.data.results.filter((article: any) => {
+			const title = (article.title || '').toLowerCase();
+			const description = (article.description || '').toLowerCase();
+			const combined = title + ' ' + description;
+			
+			return positiveKeywords.some(keyword => combined.includes(keyword)) &&
+			       article.tickers && article.tickers.length > 0;
 		});
 		
-		const analysis = perplexityResponse.data.choices[0]?.message?.content || 'No analysis available';
+		console.log(`Found ${positiveNews.length} positive news articles`);
+		
+		// Format the response
+		let formattedResponse = '**Market Scan Summary:**\n';
+		formattedResponse += `Found ${positiveNews.length} positive catalyst news items from the last 3 days.\n\n`;
+		formattedResponse += '**Top Happy Twists Found:**\n\n';
+		
+		// Take top 5-6 news items
+		const topNews = positiveNews.slice(0, 6);
+		
+		// Get company names for tickers
+		const tickerDetails: { [key: string]: string } = {
+			'FTNT': 'Fortinet, Inc.',
+			'DJT': 'Trump Media & Technology Group',
+			'SATS': 'EchoStar Corporation',
+			'CCL': 'Carnival Corporation',
+			'PANW': 'Palo Alto Networks',
+			'NVDA': 'NVIDIA Corporation',
+			'AAPL': 'Apple Inc.',
+			'MSFT': 'Microsoft Corporation',
+			'AMZN': 'Amazon.com, Inc.',
+			'TSLA': 'Tesla, Inc.'
+		};
+		
+		for (const article of topNews) {
+			const index = topNews.indexOf(article);
+			const ticker = article.tickers[0];
+			const companyName = tickerDetails[ticker] || ticker;
+			
+			// Format exactly as the frontend expects with brackets
+			formattedResponse += `${index + 1}. **[${ticker}] - ${companyName}**\n`;
+			formattedResponse += `   📰 Headline: ${article.title}\n`;
+			formattedResponse += `   🔗 Source: ${article.article_url}\n`;
+			formattedResponse += `   🚀 Potential Impact: ${article.description?.substring(0, 150)}...\n`;
+			formattedResponse += `   ⚠️ Risk: Market conditions and execution risks apply\n\n`;
+		}
+		
+		if (topNews.length === 0) {
+			formattedResponse += 'Limited positive catalysts found in recent trading days. Market may be in a consolidation phase.\n\n';
+		}
+		
+		formattedResponse += '**Trading Strategy:**\n';
+		formattedResponse += 'These are real news catalysts from the last 3 days. Research each opportunity thoroughly before trading.';
 		
 		res.json({ 
-			analysis: analysis,
+			analysis: formattedResponse,
 			timestamp: new Date().toISOString()
 		});
 		
 	} catch (error: any) {
 		console.error('Error getting happy twists analysis:', error);
 		
-		// Log the specific error response from Perplexity
+		// Log the specific error response
 		if (error.response && error.response.data) {
-			console.error('Perplexity API error details:', JSON.stringify(error.response.data, null, 2));
+			console.error('API error details:', JSON.stringify(error.response.data, null, 2));
 		}
 		
 		res.status(500).json({ error: 'Failed to get happy twists analysis' });
