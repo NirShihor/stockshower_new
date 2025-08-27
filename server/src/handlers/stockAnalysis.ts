@@ -2095,26 +2095,37 @@ export const getFundamentalAnalysis = async (req: Request, res: Response): Promi
 
 Please provide current, factual information based on the latest available data.`;
 
-		// Call Perplexity for real-time data gathering
-		const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
-			model: 'sonar',
-			messages: [
-				{
-					role: 'user',
-					content: perplexityPrompt
-				}
-			],
-			temperature: 0.3,
-			max_tokens: 2000,
-			stream: false
-		}, {
-			headers: {
-				'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
-				'Content-Type': 'application/json'
-			}
-		});
+		// Call Perplexity for real-time data gathering with timeout
+		console.log('Calling Perplexity API...');
+		let perplexityData = '';
 		
-		const perplexityData = perplexityResponse.data.choices[0]?.message?.content || '';
+		try {
+			const perplexityResponse = await axios.post('https://api.perplexity.ai/chat/completions', {
+				model: 'sonar',
+				messages: [
+					{
+						role: 'user',
+						content: perplexityPrompt
+					}
+				],
+				temperature: 0.3,
+				max_tokens: 2000,
+				stream: false
+			}, {
+				headers: {
+					'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
+					'Content-Type': 'application/json'
+				},
+				timeout: 15000 // 15 second timeout
+			});
+			
+			perplexityData = perplexityResponse.data.choices[0]?.message?.content || '';
+			console.log('Perplexity response received');
+		} catch (perplexityError: any) {
+			console.error('Perplexity API error:', perplexityError.message);
+			// Continue with empty data if Perplexity fails
+			perplexityData = `Current market data for ${symbol} is temporarily unavailable.`;
+		}
 		
 		// Now use ChatGPT to structure and analyze the data according to "The Trading Code" framework
 		const analysisPrompt = `Based on the following real-time market data, provide a structured fundamental analysis following "The Trading Code" framework:
@@ -2136,8 +2147,9 @@ Please structure your response with these specific sections:
 Keep each section concise but informative, suitable for day traders who need quick, actionable insights.`;
 
 		// Call OpenAI for structured analysis
+		console.log('Calling OpenAI API for analysis...');
 		const completion = await openai.chat.completions.create({
-			model: "gpt-4o",
+			model: "gpt-4o-mini", // Using mini model for faster response
 			messages: [
 				{
 					role: "system",
@@ -2173,20 +2185,31 @@ Keep each section concise but informative, suitable for day traders who need qui
 		const sentimentMatch = analysisText.match(/(?:4\.\s*)?MARKET SENTIMENT:?\s*(.*?)(?=(?:\d\.\s*)?TRADING RECOMMENDATION|$)/si);
 		const recommendationMatch = analysisText.match(/(?:5\.\s*)?TRADING RECOMMENDATION:?\s*(.*?)$/si);
 		
+		// Helper function to remove markdown formatting
+		const removeMarkdown = (text: string): string => {
+			return text
+				.replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold **text**
+				.replace(/\*(.*?)\*/g, '$1')     // Remove italic *text*
+				.replace(/__(.*?)__/g, '$1')     // Remove underline __text__
+				.replace(/`(.*?)`/g, '$1')       // Remove inline code `text`
+				.replace(/#{1,6}\s/g, '')        // Remove headers
+				.trim();
+		};
+		
 		// If structured parsing fails, try to parse as a whole
 		if (!globalMatch && !sectorMatch && !companyMatch) {
 			console.log('Structured parsing failed, using full response');
 			sections.globalAnalysis = 'See full analysis below';
 			sections.sectorAnalysis = 'See full analysis below';
-			sections.companyAnalysis = structuredAnalysis;
+			sections.companyAnalysis = removeMarkdown(structuredAnalysis);
 			sections.sentiment = 'See company analysis';
 			sections.recommendation = 'See company analysis';
 		} else {
-			sections.globalAnalysis = globalMatch ? globalMatch[1].trim() : 'Global analysis not available';
-			sections.sectorAnalysis = sectorMatch ? sectorMatch[1].trim() : 'Sector analysis not available';
-			sections.companyAnalysis = companyMatch ? companyMatch[1].trim() : 'Company analysis not available';
-			sections.sentiment = sentimentMatch ? sentimentMatch[1].trim() : 'Sentiment analysis not available';
-			sections.recommendation = recommendationMatch ? recommendationMatch[1].trim() : 'Recommendation not available';
+			sections.globalAnalysis = globalMatch ? removeMarkdown(globalMatch[1]) : 'Global analysis not available';
+			sections.sectorAnalysis = sectorMatch ? removeMarkdown(sectorMatch[1]) : 'Sector analysis not available';
+			sections.companyAnalysis = companyMatch ? removeMarkdown(companyMatch[1]) : 'Company analysis not available';
+			sections.sentiment = sentimentMatch ? removeMarkdown(sentimentMatch[1]) : 'Sentiment analysis not available';
+			sections.recommendation = recommendationMatch ? removeMarkdown(recommendationMatch[1]) : 'Recommendation not available';
 		}
 		
 		console.log('Parsed sections:', {
