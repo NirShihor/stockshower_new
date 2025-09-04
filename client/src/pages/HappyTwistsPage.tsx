@@ -292,7 +292,6 @@ Format your response EXACTLY as:
               <div>
                 <div className="stock-header">
                   <h3>{twist.symbol}</h3>
-                  <p className="company-name">{twist.companyName}</p>
                 </div>
                 
                 <div className="stock-details">
