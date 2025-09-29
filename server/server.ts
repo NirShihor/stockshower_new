@@ -5,12 +5,18 @@ import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import http from 'http';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 import analysisRoutes from './src/routes/analysis.js';
+import candlestickRoutes from './src/routes/candlestick.js';
+import { setupWebSocketServer, handleCandle, getSignals } from './src/websocket/server.js';
+import { connectPolygon } from './src/handlers/polygonWebSocket.js';
+import { detectEngulfingPatterns } from './src/candlestick/patterns/engulfing.js';
+import { aggregate1MinTo5Min } from './src/candlestick/aggregator.js';
 
   // Load environment variables
   dotenv.config();
@@ -35,6 +41,14 @@ import analysisRoutes from './src/routes/analysis.js';
   app.use(express.urlencoded({ extended: true }));
 
 app.use('/api/analysis', analysisRoutes);
+app.use('/api/candlestick', candlestickRoutes);
+
+// Signals endpoint
+app.get('/api/signals', (req: Request, res: Response) => {
+  const { symbol, limit = '50' } = req.query;
+  const signals = getSignals(symbol as string | undefined, parseInt(limit as string));
+  res.json(signals);
+});
 
 // Serve static React build files ONLY in production
 if (process.env.NODE_ENV === 'production') {
@@ -81,10 +95,31 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+  // Create HTTP server
+  const server = http.createServer(app);
+
+  // Setup WebSocket server
+  setupWebSocketServer(server);
+
+  // Store candle handler for testing routes
+  const candleHandler = (candle: any) => {
+    handleCandle(candle, detectEngulfingPatterns);
+  };
+  app.locals.onCandle = candleHandler;
+
   // Start server
   const startServer = () => {
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      
+      // Don't auto-connect to Polygon - let frontend control via subscribe endpoint
+      if (process.env.POLYGON_API_KEY) {
+        console.log('Polygon API key found - ready for real-time data');
+        console.log('Use /api/candlestick/subscribe to start real-time feed');
+      } else {
+        console.warn('POLYGON_API_KEY not found in environment variables');
+      }
+      console.log('Use /api/candlestick/test/mock/start for testing');
     });
   };
 
@@ -106,6 +141,17 @@ if (process.env.NODE_ENV === 'production') {
     console.log('No MongoDB URI provided, starting server without database');
     startServer();
   }
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down gracefully...');
+  server.close(() => {
+    if (mongoose.connection.readyState === 1) {
+      mongoose.connection.close();
+    }
+    process.exit(0);
+  });
+});
 
 export default app;
 

@@ -77,6 +77,13 @@ const Navigation: React.FC = () => {
         >
           Analysis
         </Link>
+        <Link 
+          to="/stock-scan" 
+          className={`nav-link ${location.pathname === '/stock-scan' ? 'active' : ''}`}
+          onClick={closeMenu}
+        >
+          Stock Scan
+        </Link>
       </div>
       
       {/* Overlay for mobile */}
