@@ -9,6 +9,697 @@
   padding: 2rem;
 }
 
+/* Stock Scan Page Styles */
+.stock-scan-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.stock-scan-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.stock-scan-page .page-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.stock-scan-page .scanner-status {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stock-scan-page .status-indicator {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.stock-scan-page .status-indicator.connected {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.stock-scan-page .status-indicator.disconnected {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.stock-scan-page .scan-controls {
+  margin-bottom: 30px;
+}
+
+.stock-scan-page .symbol-form {
+  display: flex;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.stock-scan-page .symbol-input {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.stock-scan-page .symbol-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+}
+
+.stock-scan-page .primary-button {
+  padding: 10px 24px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.stock-scan-page .primary-button:hover {
+  background-color: #45a049;
+}
+
+.stock-scan-page .content-grid {
+  display: grid;
+  grid-template-columns: 1fr 350px;
+  gap: 24px;
+}
+
+.stock-scan-page .chart-section,
+.stock-scan-page .signals-section {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.stock-scan-page .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.stock-scan-page .section-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.stock-scan-page .signal-count {
+  font-size: 14px;
+  color: #666;
+  background-color: #f0f0f0;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.stock-scan-page .chart-container {
+  height: 500px;
+  width: 100%;
+  position: relative;
+}
+
+.stock-scan-page .chart-placeholder,
+.stock-scan-page .loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+  font-size: 16px;
+}
+
+.stock-scan-page .signals-list {
+  max-height: 450px;
+  overflow-y: auto;
+}
+
+.stock-scan-page .no-signals {
+  text-align: center;
+  color: #999;
+  padding: 40px;
+  font-size: 14px;
+}
+
+.stock-scan-page .signal-item {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+}
+
+.stock-scan-page .signal-item:hover {
+  background-color: #f8f9fa;
+}
+
+.stock-scan-page .signal-item:last-child {
+  border-bottom: none;
+}
+
+.stock-scan-page .signal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.stock-scan-page .signal-type {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.stock-scan-page .signal-item.bullish_engulfing .signal-type {
+  color: #4CAF50;
+}
+
+.stock-scan-page .signal-item.bearish_engulfing .signal-type {
+  color: #f44336;
+}
+
+.stock-scan-page .signal-time {
+  font-size: 12px;
+  color: #666;
+}
+
+.stock-scan-page .signal-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: #666;
+}
+
+@media (max-width: 1024px) {
+  .stock-scan-page .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-scan-page .signals-section {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .stock-scan-page .page-header {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .stock-scan-page .page-title {
+    font-size: 24px;
+  }
+
+  .stock-scan-page .symbol-form {
+    flex-direction: column;
+    max-width: 100%;
+  }
+
+  .stock-scan-page .chart-container {
+    height: 300px;
+  }
+}
+
+/* Scanner specific styles */
+.stock-scan-page .scanning-indicator {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  background-color: #e0e0e0;
+  color: #666;
+}
+
+.stock-scan-page .scanning-indicator.active {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+
+.stock-scan-page .scanner-controls {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stock-scan-page .data-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 24px;
+  padding-top: 24px;
+  margin-bottom: 24px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.stock-scan-page .data-controls h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.stock-scan-page .control-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.stock-scan-page .control-button {
+  padding: 8px 32px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 160px;
+}
+
+.stock-scan-page .control-button.start {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.stock-scan-page .control-button.start:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.stock-scan-page .control-button.stop {
+  background-color: #f44336;
+  color: white;
+}
+
+.stock-scan-page .control-button.stop:hover {
+  background-color: #da190b;
+}
+
+.stock-scan-page .control-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.stock-scan-page .data-status {
+  font-size: 14px;
+  color: #4CAF50;
+  padding: 6px 12px;
+  background-color: #e8f5e9;
+  border-radius: 4px;
+  border: 1px solid #a5d6a7;
+  text-align: center;
+}
+
+.stock-scan-page .connection-warning {
+  font-size: 14px;
+  color: #ff6f00;
+  padding: 6px 12px;
+  background-color: #fff3e0;
+  border-radius: 4px;
+  border: 1px solid #ffcc80;
+  text-align: center;
+}
+
+.stock-scan-page .watchlist-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+}
+
+.stock-scan-page .add-symbol-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  max-width: 300px;
+}
+
+.stock-scan-page .add-button {
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.stock-scan-page .add-button:hover {
+  background-color: #45a049;
+}
+
+.stock-scan-page .watchlist-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.stock-scan-page .symbol-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: #e3f2fd;
+  border: 1px solid #90caf9;
+  border-radius: 16px;
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .stock-scan-page .symbol-chip {
+    padding: 2px 6px;
+    font-size: 12px;
+    gap: 2px;
+  }
+
+  .stock-scan-page .filter-button {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .stock-scan-page .filter-buttons {
+    justify-content: center;
+  }
+}
+
+.stock-scan-page .remove-chip {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 4px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.stock-scan-page .remove-chip:hover {
+  color: #d32f2f;
+}
+
+.stock-scan-page .filter-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.stock-scan-page .filter-section label {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.stock-scan-page .filter-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.stock-scan-page .filter-button {
+  padding: 8px 16px;
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stock-scan-page .filter-button:hover {
+  background-color: #e8e8e8;
+}
+
+.stock-scan-page .filter-button.active {
+  background-color: #2196F3;
+  color: white;
+  border-color: #2196F3;
+}
+
+.stock-scan-page .signals-container {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.stock-scan-page .signals-container h2 {
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.stock-scan-page .signals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.stock-scan-page .signal-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s;
+  background: white;
+}
+
+.stock-scan-page .signal-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.stock-scan-page .signal-card.bullish_engulfing {
+  border-left: 4px solid #4CAF50;
+}
+
+.stock-scan-page .signal-card.bearish_engulfing {
+  border-left: 4px solid #f44336;
+}
+
+.stock-scan-page .signal-card .signal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.stock-scan-page .signal-symbol {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.stock-scan-page .signal-card .signal-type {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.stock-scan-page .signal-card.bullish_engulfing .signal-type {
+  color: #4CAF50;
+}
+
+.stock-scan-page .signal-card.bearish_engulfing .signal-type {
+  color: #f44336;
+}
+
+.stock-scan-page .signal-details {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.stock-scan-page .price-info {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.stock-scan-page .view-chart-button {
+  width: 100%;
+  padding: 8px;
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.stock-scan-page .view-chart-button:hover {
+  background-color: #e8e8e8;
+  border-color: #d0d0d0;
+}
+
+/* Order Suggestion Styles */
+.stock-scan-page .order-suggestion {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 12px 0;
+}
+
+.stock-scan-page .order-header {
+  margin-bottom: 8px;
+}
+
+.stock-scan-page .order-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  text-transform: uppercase;
+}
+
+.stock-scan-page .order-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stock-scan-page .order-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.stock-scan-page .order-label {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.stock-scan-page .order-value {
+  font-weight: 600;
+  color: #212529;
+}
+
+.stock-scan-page .order-type {
+  font-weight: 600;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.stock-scan-page .order-type.buy_stop {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.stock-scan-page .order-type.sell_stop {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.stock-scan-page .order-rr {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.stock-scan-page .order-comment {
+  font-size: 11px;
+  color: #6c757d;
+  font-style: italic;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Test Mode Styles */
+.stock-scan-page .test-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.stock-scan-page .test-section label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.stock-scan-page .test-section input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.stock-scan-page .test-controls {
+  margin-top: 16px;
+  padding: 16px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.stock-scan-page .test-info {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.stock-scan-page .test-buttons {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stock-scan-page .test-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stock-scan-page .test-button.start {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.stock-scan-page .test-button.start:hover {
+  background-color: #45a049;
+}
+
+.stock-scan-page .test-button.stop {
+  background-color: #f44336;
+  color: white;
+}
+
+.stock-scan-page .test-button.stop:hover {
+  background-color: #da190b;
+}
+
+.stock-scan-page .mock-status {
+  font-size: 14px;
+  color: #856404;
+  background-color: #fff3cd;
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid #ffeaa7;
+}
+
 /* Navigation Styles */
 .navigation {
   background: white;
