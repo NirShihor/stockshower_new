@@ -99,6 +99,17 @@ function isPatternAtSupportResistance(pattern: PatternDetails, context: MarketCo
 }
 
 function isTrendAligned(pattern: PatternDetails, context: MarketContext): boolean {
+  // For continuation patterns (Marubozu)
+  if (pattern.name.includes('Marubozu')) {
+    if (pattern.direction === 'bullish') {
+      return context.trend === 'up';
+    } else if (pattern.direction === 'bearish') {
+      return context.trend === 'down';
+    }
+    // neutral patterns don't have trend alignment
+    return false;
+  }
+  
   // Reversal patterns should appear against the trend
   if (pattern.direction === 'bullish') {
     return context.trend === 'down' || context.trend === 'sideways';
@@ -106,15 +117,7 @@ function isTrendAligned(pattern: PatternDetails, context: MarketContext): boolea
     return context.trend === 'up' || context.trend === 'sideways';
   }
   
-  // For continuation patterns (Marubozu)
-  if (pattern.name.includes('Marubozu')) {
-    if (pattern.direction === 'bullish') {
-      return context.trend === 'up';
-    } else {
-      return context.trend === 'down';
-    }
-  }
-  
+  // neutral patterns
   return false;
 }
 
