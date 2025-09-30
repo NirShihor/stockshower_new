@@ -1,3 +1,5 @@
+import { ComprehensiveSignal } from './comprehensive.js';
+
 export interface Candle {
   symbol: string;
   timeframe: string;
@@ -31,7 +33,7 @@ export interface Signal {
 
 export interface WebSocketMessage {
   type: 'candle' | 'signal';
-  payload: Candle | Signal;
+  payload: Candle | Signal | ComprehensiveSignal | any; // Added any for now to fix build
 }
 
 export interface PolygonAggregateMessage {

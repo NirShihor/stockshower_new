@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
 import { subscribeSymbols, unsubscribeSymbols, connectPolygon } from '../handlers/polygonWebSocket.js';
 import { startMockDataFeed, stopMockDataFeed } from '../handlers/mockDataGenerator.js';
@@ -11,12 +11,14 @@ router.get('/history', async (req: Request, res: Response) => {
     const { symbol, from, to, timespan = 'minute', multiplier = '1', limit = '5000' } = req.query;
     
     if (!symbol || !from || !to) {
-      return res.status(400).json({ error: 'symbol, from, and to parameters are required' });
+      res.status(400).json({ error: 'symbol, from, and to parameters are required' });
+      return;
     }
     
     const apiKey = process.env.POLYGON_API_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: 'Polygon API key not configured' });
+      res.status(500).json({ error: 'Polygon API key not configured' });
+      return;
     }
     
     const candles = await fetchHistoricalBars(
@@ -46,7 +48,8 @@ router.post('/subscribe', (req: Request, res: Response) => {
     const { symbols, granularity = 'AM' } = req.body;
     
     if (!Array.isArray(symbols) || symbols.length === 0) {
-      return res.status(400).json({ error: 'symbols array is required' });
+      res.status(400).json({ error: 'symbols array is required' });
+      return;
     }
     
     // Check if we need to connect to Polygon first
@@ -78,7 +81,8 @@ router.post('/unsubscribe', (req: Request, res: Response) => {
     const { symbols, granularity = 'AM' } = req.body;
     
     if (!Array.isArray(symbols) || symbols.length === 0) {
-      return res.status(400).json({ error: 'symbols array is required' });
+      res.status(400).json({ error: 'symbols array is required' });
+      return;
     }
     
     unsubscribeSymbols(symbols, granularity);
@@ -99,7 +103,8 @@ router.post('/test/mock/start', (req: Request, res: Response) => {
   try {
     const { onCandle } = req.app.locals;
     if (!onCandle) {
-      return res.status(500).json({ error: 'Candle handler not available' });
+      res.status(500).json({ error: 'Candle handler not available' });
+      return;
     }
     
     startMockDataFeed(onCandle);
