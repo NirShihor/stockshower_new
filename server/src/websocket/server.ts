@@ -1,11 +1,13 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
-import { Candle, Signal, WebSocketMessage } from '../candlestick/types/index.js';
+import { Candle, WebSocketMessage } from '../candlestick/types/index.js';
+import { ComprehensiveSignal } from '../candlestick/types/comprehensive.js';
 import { logCandleActivity } from '../handlers/debugLogger.js';
 import { aggregate1MinTo5Min } from '../candlestick/aggregator.js';
+import { comprehensiveScanner } from '../candlestick/comprehensiveScanner.js';
 
 const clients = new Set<WebSocket>();
-const signals: Signal[] = []; // In-memory storage for signals
+const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensive signals
 
 export function setupWebSocketServer(server: Server) {
   const wss = new WebSocketServer({ 
@@ -46,7 +48,7 @@ export function broadcast(message: WebSocketMessage) {
 }
 
 // Handle incoming candle and check for patterns
-export function handleCandle(candle: Candle, detectPatterns: (candle: Candle) => Signal | null) {
+export function handleCandle(candle: Candle, _deprecatedDetectPatterns?: any) {
   // Log candle activity for debugging
   logCandleActivity(candle);
   
@@ -56,42 +58,51 @@ export function handleCandle(candle: Candle, detectPatterns: (candle: Candle) =>
       // Log the 5-minute candle
       logCandleActivity(aggregated5MinCandle);
       
-      // Check for patterns on the 5-minute candle
-      console.log(`[PATTERN] Checking patterns for ${aggregated5MinCandle.symbol} 5m candle: O=${aggregated5MinCandle.open} C=${aggregated5MinCandle.close}`);
-      const signal = detectPatterns(aggregated5MinCandle);
-      if (signal) {
-        signals.push(signal);
+      // Use comprehensive scanner to detect patterns
+      console.log(`[COMPREHENSIVE] Scanning ${aggregated5MinCandle.symbol} 5m candle: O=${aggregated5MinCandle.open} C=${aggregated5MinCandle.close}`);
+      
+      const detectedSignals = comprehensiveScanner.scan(aggregated5MinCandle);
+      
+      if (detectedSignals.length > 0) {
+        detectedSignals.forEach(signal => {
+          signals.push(signal);
+          
+          // Broadcast the comprehensive signal
+          broadcast({ type: 'signal', payload: signal });
+          
+          console.log(`🚨 ${signal.pattern.name} detected for ${signal.symbol} (score: ${signal.score}) - ${signal.plan.direction.toUpperCase()}`);
+          console.log(`   Entry: $${signal.plan.entry}, Stop: $${signal.plan.stop}, Targets: $${signal.plan.targets.join(', $')}`);
+        });
+        
         // Keep only last 1000 signals in memory
         if (signals.length > 1000) {
-          signals.shift();
+          signals.splice(0, signals.length - 1000);
         }
-        
-        // Broadcast the signal
-        broadcast({ type: 'signal', payload: signal });
-        console.log(`🚨 Pattern detected: ${signal.type} for ${signal.symbol} (5m)`);
       } else {
-        console.log(`[PATTERN] No pattern found for ${aggregated5MinCandle.symbol}`);
+        console.log(`[COMPREHENSIVE] No actionable patterns found for ${aggregated5MinCandle.symbol}`);
       }
     });
   } else {
-    // For non-1m candles, process as usual
-    const signal = detectPatterns(candle);
-    if (signal) {
-      signals.push(signal);
+    // For non-1m candles, process directly with comprehensive scanner
+    const detectedSignals = comprehensiveScanner.scan(candle);
+    
+    if (detectedSignals.length > 0) {
+      detectedSignals.forEach(signal => {
+        signals.push(signal);
+        broadcast({ type: 'signal', payload: signal });
+        console.log(`🚨 ${signal.pattern.name} detected for ${signal.symbol} (score: ${signal.score})`);
+      });
+      
       // Keep only last 1000 signals in memory
       if (signals.length > 1000) {
-        signals.shift();
+        signals.splice(0, signals.length - 1000);
       }
-      
-      // Broadcast the signal
-      broadcast({ type: 'signal', payload: signal });
-      console.log(`Pattern detected: ${signal.type} for ${signal.symbol}`);
     }
   }
 }
 
 // Get recent signals
-export function getSignals(symbol?: string, limit: number = 50): Signal[] {
+export function getSignals(symbol?: string, limit: number = 50): ComprehensiveSignal[] {
   let filtered = signals;
   if (symbol) {
     filtered = signals.filter(s => s.symbol === symbol);

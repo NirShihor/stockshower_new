@@ -7,32 +7,76 @@ const getBaseUrl = (): string => {
   return '';
 };
 
-interface OrderSuggestion {
-  type: 'BUY_STOP' | 'SELL_STOP' | 'BUY_LIMIT' | 'SELL_LIMIT';
-  price: number;
-  stopLoss: number;
-  takeProfit: number;
+interface TradePlan {
+  direction: 'long' | 'short';
+  entry: number;
+  stop: number;
+  risk: number;
+  targets: number[];
+  positionQty: number;
   riskRewardRatio: string;
-  comment: string;
 }
 
-interface Signal {
+interface PatternDetails {
+  name: string;
+  class: 'single' | 'double' | 'triple';
+  direction: 'bullish' | 'bearish' | 'neutral';
+  barsInvolved: number;
+  patternHigh: number;
+  patternLow: number;
+}
+
+interface MarketContext {
+  trend: 'up' | 'down' | 'sideways';
+  atSupport: boolean;
+  atResistance: boolean;
+  nearestSupport?: number;
+  nearestResistance?: number;
+  atr: number;
+  volumeFactor: number;
+  isHighVolume: boolean;
+  isWideRange: boolean;
+}
+
+interface ConfirmationPlan {
+  triggerSide: 'above_high' | 'below_low';
+  triggerPrice: number;
+  invalidationPrice: number;
+  validForBars: number;
+}
+
+interface ComprehensiveSignal {
   id: string;
-  type: string;
   symbol: string;
   timeframe: string;
-  at: string;
-  meta?: {
-    prevOpen?: number;
-    prevClose?: number;
-    open?: number;
-    close?: number;
-    netMove?: string;
-    currentMove?: string;
-    lowerCloseCount?: number;
-    higherCloseCount?: number;
-  };
-  orderSuggestion?: OrderSuggestion;
+  time: string;
+  pattern: PatternDetails;
+  context: MarketContext;
+  confirmation: ConfirmationPlan;
+  plan: TradePlan;
+  score: number;
+  notes: string[];
+}
+
+// Legacy interface for compatibility
+interface Signal {
+  // Comprehensive signal fields (may not always be present)
+  id: string;
+  symbol: string;
+  timeframe?: string;
+  time?: string;
+  pattern?: PatternDetails;
+  context?: MarketContext;
+  confirmation?: ConfirmationPlan;
+  plan?: TradePlan;
+  score?: number;
+  notes?: string[];
+  
+  // Legacy fields
+  type?: string;
+  at?: string;
+  meta?: any;
+  orderSuggestion?: any;
 }
 
 const DEFAULT_WATCHLIST = [
@@ -181,8 +225,10 @@ const StockScanPage: React.FC = () => {
 
   const filteredSignals = signals.filter(signal => {
     if (filter === 'all') return true;
-    if (filter === 'bullish') return signal.type === 'bullish_engulfing';
-    if (filter === 'bearish') return signal.type === 'bearish_engulfing';
+    // Check both new format and legacy format
+    const direction = signal.pattern?.direction || (signal.type?.includes('bullish') ? 'bullish' : signal.type?.includes('bearish') ? 'bearish' : 'neutral');
+    if (filter === 'bullish') return direction === 'bullish';
+    if (filter === 'bearish') return direction === 'bearish';
     return true;
   });
 
@@ -325,13 +371,19 @@ const StockScanPage: React.FC = () => {
               className={`filter-button ${filter === 'bullish' ? 'active' : ''}`}
               onClick={() => setFilter('bullish')}
             >
-              Bullish ({signals.filter(s => s.type === 'bullish_engulfing').length})
+              Bullish ({signals.filter(s => {
+                const direction = s.pattern?.direction || (s.type?.includes('bullish') ? 'bullish' : 'neutral');
+                return direction === 'bullish';
+              }).length})
             </button>
             <button
               className={`filter-button ${filter === 'bearish' ? 'active' : ''}`}
               onClick={() => setFilter('bearish')}
             >
-              Bearish ({signals.filter(s => s.type === 'bearish_engulfing').length})
+              Bearish ({signals.filter(s => {
+                const direction = s.pattern?.direction || (s.type?.includes('bearish') ? 'bearish' : 'neutral');
+                return direction === 'bearish';
+              }).length})
             </button>
           </div>
         </div>
@@ -382,68 +434,103 @@ const StockScanPage: React.FC = () => {
           </div>
         ) : (
           <div className="signals-grid">
-            {filteredSignals.map(signal => (
-              <div key={signal.id} className={`signal-card ${signal.type}`}>
-                <div className="signal-header">
-                  <span className="signal-symbol">{signal.symbol}</span>
-                  <span className="signal-time">{formatSignalTime(signal.at)}</span>
-                </div>
-                <div className="signal-type">
-                  {signal.type.replace('_', ' ').toUpperCase()}
-                </div>
-                {signal.meta && (
-                  <div className="signal-details">
-                    <div className="price-info">
-                      <span>Open: ${signal.meta.open?.toFixed(2)}</span>
-                      <span>Close: ${signal.meta.close?.toFixed(2)}</span>
-                    </div>
-                    <div className="trend-info">
-                      <span>Change: {signal.meta.currentMove ? (parseFloat(signal.meta.currentMove) >= 0 ? '+' : '') + signal.meta.currentMove : 'N/A'}</span>
-                    </div>
-                  </div>
-                )}
-                {signal.orderSuggestion && (
-                  <div className="order-suggestion">
-                    <div className="order-header">
-                      <span className="order-title">MT5 Order Suggestion</span>
-                    </div>
-                    <div className="order-details">
-                      <div className="order-row">
-                        <span className="order-label">Type:</span>
-                        <span className={`order-type ${signal.orderSuggestion.type.toLowerCase()}`}>
-                          {signal.orderSuggestion.type.replace('_', ' ')}
+            {filteredSignals.map(signal => {
+              const patternName = signal.pattern?.name || (typeof signal.type === 'string' ? signal.type.replace('_', ' ') : 'Unknown Pattern');
+              const patternDirection = signal.pattern?.direction || 'neutral';
+              const timestamp = signal.time || signal.at || new Date().toISOString();
+              const score = signal.score || 0;
+              
+              return (
+                <div key={signal.id} className={`signal-card ${patternDirection}`}>
+                  <div className="signal-header">
+                    <div className="signal-symbol-wrapper">
+                      <span className="signal-symbol">{signal.symbol}</span>
+                      {signal.score && (
+                        <span className={`signal-score ${signal.score >= 70 ? 'high' : signal.score >= 50 ? 'medium' : 'low'}`}>
+                          {signal.score}
                         </span>
+                      )}
+                    </div>
+                    <span className="signal-time">{formatSignalTime(timestamp)}</span>
+                  </div>
+                  
+                  <div className="signal-pattern">
+                    <div className="pattern-name">{patternName}</div>
+                    {signal.pattern && (
+                      <div className="pattern-info">
+                        <span className="pattern-class">{signal.pattern.class}</span>
+                        <span className="pattern-direction">{signal.pattern.direction}</span>
                       </div>
-                      <div className="order-row">
-                        <span className="order-label">Entry:</span>
-                        <span className="order-value">${signal.orderSuggestion.price}</span>
+                    )}
+                  </div>
+
+                  {signal.context && (
+                    <div className="market-context">
+                      <div className="context-row">
+                        <span>Trend: {signal.context.trend}</span>
+                        {signal.context.isHighVolume && <span className="volume-spike">📈 Volume</span>}
                       </div>
-                      <div className="order-row">
-                        <span className="order-label">Stop Loss:</span>
-                        <span className="order-value">${signal.orderSuggestion.stopLoss}</span>
+                      {(signal.context.atSupport || signal.context.atResistance) && (
+                        <div className="context-row">
+                          <span className="sr-level">
+                            {signal.context.atSupport ? '📊 At Support' : '📊 At Resistance'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {signal.plan && (
+                    <div className="trade-plan">
+                      <div className="plan-header">
+                        <span className="plan-title">Trade Plan ({signal.plan.direction.toUpperCase()})</span>
                       </div>
-                      <div className="order-row">
-                        <span className="order-label">Take Profit:</span>
-                        <span className="order-value">${signal.orderSuggestion.takeProfit}</span>
-                      </div>
-                      <div className="order-row">
-                        <span className="order-label">R:R:</span>
-                        <span className="order-rr">{signal.orderSuggestion.riskRewardRatio}</span>
-                      </div>
-                      <div className="order-comment">
-                        {signal.orderSuggestion.comment}
+                      <div className="plan-details">
+                        <div className="plan-row">
+                          <span className="plan-label">Entry:</span>
+                          <span className="plan-value">${signal.plan.entry}</span>
+                        </div>
+                        <div className="plan-row">
+                          <span className="plan-label">Stop:</span>
+                          <span className="plan-value">${signal.plan.stop}</span>
+                        </div>
+                        <div className="plan-row">
+                          <span className="plan-label">Targets:</span>
+                          <span className="plan-value">{signal.plan.targets.map(t => `$${t}`).join(', ')}</span>
+                        </div>
+                        <div className="plan-row">
+                          <span className="plan-label">Risk:</span>
+                          <span className="plan-value">${signal.plan.risk}</span>
+                        </div>
+                        <div className="plan-row">
+                          <span className="plan-label">Qty:</span>
+                          <span className="plan-value">{signal.plan.positionQty} shares</span>
+                        </div>
+                        <div className="plan-row">
+                          <span className="plan-label">R:R:</span>
+                          <span className="plan-rr">{signal.plan.riskRewardRatio}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-                <button 
-                  className="view-chart-button"
-                  onClick={() => window.open(`/charts?symbol=${signal.symbol}`, '_blank')}
-                >
-                  View Chart
-                </button>
-              </div>
-            ))}
+                  )}
+
+                  {signal.notes && signal.notes.length > 0 && (
+                    <div className="signal-notes">
+                      {signal.notes.map((note, index) => (
+                        <div key={index} className="note-item">{note}</div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button 
+                    className="view-chart-button"
+                    onClick={() => window.open(`/charts?symbol=${signal.symbol}`, '_blank')}
+                  >
+                    View Chart
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
