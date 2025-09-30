@@ -7,6 +7,7 @@ import ChartsPage from './pages/ChartsPage';
 import PreMarketPage from './pages/PreMarketPage';
 import HappyTwistsPage from './pages/HappyTwistsPage';
 import AnalysisPage from './pages/AnalysisPage';
+import StockScanPage from './pages/StockScanPage';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/pre-market" element={<PreMarketPage />} />
             <Route path="/happy-twists" element={<HappyTwistsPage />} />
             <Route path="/analysis" element={<AnalysisPage />} />
+            <Route path="/stock-scan" element={<StockScanPage />} />
           </Routes>
         </main>
       </div>
