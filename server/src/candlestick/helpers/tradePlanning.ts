@@ -30,9 +30,10 @@ export function buildTradePlan(
   accountBalance: number = 10000 // Default for position sizing
 ): TradePlan {
   const tickSize = 0.01; // Assume penny stocks, adjust as needed
+  const entryBuffer = Math.max(tickSize * 3, context.atr * 0.1); // Use ATR-based buffer for better entries
   
   if (pattern.direction === 'bullish') {
-    const entry = confirmation.triggerPrice + tickSize;
+    const entry = confirmation.triggerPrice + entryBuffer; // Use buffer instead of just tickSize
     const stop = findOptimalStopLoss(pattern, context, 'long');
     const risk = entry - stop;
     
@@ -59,7 +60,7 @@ export function buildTradePlan(
     };
     
   } else {
-    const entry = confirmation.triggerPrice - tickSize;
+    const entry = confirmation.triggerPrice - entryBuffer; // Use buffer instead of just tickSize
     const stop = findOptimalStopLoss(pattern, context, 'short');
     const risk = stop - entry;
     
@@ -92,7 +93,7 @@ function findOptimalStopLoss(
   context: MarketContext,
   direction: 'long' | 'short'
 ): number {
-  const minDistance = Math.max(context.atr * 0.5, 0.10); // Minimum broker distance
+  const minDistance = Math.max(context.atr * 0.75, 0.15); // Increased minimum distance for better stops
   
   if (direction === 'long') {
     // For long trades, stop below pattern low

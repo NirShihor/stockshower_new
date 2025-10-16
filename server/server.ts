@@ -13,10 +13,13 @@ const __dirname = path.dirname(__filename);
 
 import analysisRoutes from './src/routes/analysis.js';
 import candlestickRoutes from './src/routes/candlestick.js';
-import { setupWebSocketServer, handleCandle, getSignals } from './src/websocket/server.js';
-import { connectPolygon } from './src/handlers/polygonWebSocket.js';
+import { setupWebSocketServer, handleCandle, handleSignal, getSignals } from './src/websocket/server.js';
+import { connectPolygon, shutdownPolygon } from './src/handlers/polygonWebSocket.js';
+import { stopMockDataFeed } from './src/handlers/mockDataGenerator.js';
+import { stopMockSignalFeed } from './src/handlers/mockSignalGenerator.js';
 import { detectEngulfingPatterns } from './src/candlestick/patterns/engulfing.js';
-import { aggregate1MinTo5Min } from './src/candlestick/aggregator.js';
+import { aggregate1MinTo5Min, clearAggregator } from './src/candlestick/aggregator.js';
+import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
 
   // Load environment variables
   dotenv.config();
@@ -106,6 +109,8 @@ if (process.env.NODE_ENV === 'production') {
     handleCandle(candle, detectEngulfingPatterns);
   };
   app.locals.onCandle = candleHandler;
+  app.locals.onSignal = handleSignal;
+  app.locals.getSignals = getSignals;
 
   // Start server
   const startServer = () => {
@@ -120,6 +125,15 @@ if (process.env.NODE_ENV === 'production') {
         console.warn('POLYGON_API_KEY not found in environment variables');
       }
       console.log('Use /api/candlestick/test/mock/start for testing');
+      
+      // Start cleanup schedulers for MT5
+      if (process.env.METAAPI_TOKEN && process.env.METAAPI_ACCOUNT_ID) {
+        console.log('Starting MT5 cleanup schedulers...');
+        metaApiHandler.startEndOfDayScheduler();
+        metaApiHandler.startOrderCleanup();
+      } else {
+        console.log('MetaApi credentials not found - automated cleanup disabled');
+      }
     });
   };
 
@@ -145,6 +159,41 @@ if (process.env.NODE_ENV === 'production') {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('Shutting down gracefully...');
+  
+  // Shutdown all connections
+  shutdownPolygon();
+  stopMockDataFeed();
+  stopMockSignalFeed();
+  clearAggregator(); // Clean up aggregator timers
+  
+  // Force exit after 5 seconds if graceful shutdown fails
+  setTimeout(() => {
+    console.error('Forced exit after timeout');
+    process.exit(1);
+  }, 5000);
+  
+  server.close(() => {
+    if (mongoose.connection.readyState === 1) {
+      mongoose.connection.close();
+    }
+    process.exit(0);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('Received SIGTERM, shutting down gracefully...');
+  
+  // Shutdown all connections
+  shutdownPolygon();
+  stopMockDataFeed();
+  stopMockSignalFeed();
+  
+  // Force exit after 5 seconds if graceful shutdown fails
+  setTimeout(() => {
+    console.error('Forced exit after timeout');
+    process.exit(1);
+  }, 5000);
+  
   server.close(() => {
     if (mongoose.connection.readyState === 1) {
       mongoose.connection.close();

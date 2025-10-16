@@ -1,6 +1,7 @@
 import { Candle } from '../types/index.js';
 import { PatternDetails, MarketContext, TradingParameters } from '../types/comprehensive.js';
 import { calculateATR, calculateSMA } from './preprocessing.js';
+import { detectTraps, calculateTrapPenalty } from './trapDetection.js';
 
 export function scorePattern(
   pattern: PatternDetails,
@@ -11,16 +12,21 @@ export function scorePattern(
   let score = 0;
   const notes: string[] = [];
   
+  console.log(`[SCORING] Scoring pattern: ${pattern.name} (${pattern.class}, ${pattern.direction})`);
+  
   // Base score by pattern type
   if (pattern.class === 'triple') {
     score += 30;
     notes.push('Triple candle pattern (strongest)');
+    console.log(`[SCORING] Base score +30 (triple pattern), total: ${score}`);
   } else if (pattern.class === 'double') {
     score += 22;
     notes.push('Double candle pattern');
+    console.log(`[SCORING] Base score +22 (double pattern), total: ${score}`);
   } else {
     score += 15;
     notes.push('Single candle pattern');
+    console.log(`[SCORING] Base score +15 (single pattern), total: ${score}`);
   }
   
   // Support/Resistance alignment
@@ -84,7 +90,28 @@ export function scorePattern(
   }
   
   // Cap at 100
+  // TRAP DETECTION - Check for potential market traps
+  const trapWarnings = detectTraps(pattern, context, candles, params);
+  const { totalPenalty, warningMessage } = calculateTrapPenalty(trapWarnings);
+  
+  if (totalPenalty > 0) {
+    score -= totalPenalty;
+    notes.push(`Trap penalty: -${totalPenalty}`);
+    if (warningMessage) {
+      notes.push(warningMessage);
+    }
+    console.log(`[SCORING] Trap detection applied -${totalPenalty} penalty: ${warningMessage}`);
+  }
+  
+  // Log individual trap warnings
+  trapWarnings.forEach(warning => {
+    console.log(`[TRAP] ${warning.severity.toUpperCase()}: ${warning.description} (-${warning.penaltyPoints})`);
+  });
+  
   score = Math.min(100, Math.max(0, score));
+  
+  console.log(`[SCORING] Final score for ${pattern.name}: ${score}${totalPenalty > 0 ? ` (after -${totalPenalty} trap penalty)` : ''}`);
+  console.log(`[SCORING] Notes: ${notes.join(', ')}`);
   
   return { score, notes };
 }
@@ -157,11 +184,11 @@ function calculateAvgBodySize(candles: Candle[], period: number): number {
 }
 
 export function getActionableThreshold(): number {
-  return 70;
+  return 55;  // Raised threshold for better quality signals
 }
 
 export function getWatchThreshold(): number {
-  return 50;
+  return 20;  // Very low for debugging to see all patterns
 }
 
 export function classifySignalStrength(score: number): 'actionable' | 'watch' | 'ignore' {

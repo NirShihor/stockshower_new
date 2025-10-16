@@ -68,6 +68,7 @@ export function handleCandle(candle: Candle, _deprecatedDetectPatterns?: any) {
           signals.push(signal);
           
           // Broadcast the comprehensive signal
+          console.log(`[WEBSOCKET] Broadcasting signal for ${signal.symbol} with ID: ${signal.id}`);
           broadcast({ type: 'signal', payload: signal });
           
           console.log(`🚨 ${signal.pattern.name} detected for ${signal.symbol} (score: ${signal.score}) - ${signal.plan.direction.toUpperCase()}`);
@@ -98,6 +99,23 @@ export function handleCandle(candle: Candle, _deprecatedDetectPatterns?: any) {
         signals.splice(0, signals.length - 1000);
       }
     }
+  }
+}
+
+// Handle direct signal (for mock signals)
+export function handleSignal(signal: ComprehensiveSignal) {
+  signals.push(signal);
+  
+  // Broadcast the signal
+  console.log(`[WEBSOCKET] Broadcasting mock signal for ${signal.symbol} with ID: ${signal.id}`);
+  broadcast({ type: 'signal', payload: signal });
+  
+  console.log(`🎭 ${signal.pattern.name} mock signal for ${signal.symbol} (score: ${signal.score}) - ${signal.plan.direction.toUpperCase()}`);
+  console.log(`   Entry: $${signal.plan.entry}, Stop: $${signal.plan.stop}, Targets: $${signal.plan.targets.join(', $')}`);
+  
+  // Keep only last 1000 signals in memory
+  if (signals.length > 1000) {
+    signals.splice(0, signals.length - 1000);
   }
 }
 

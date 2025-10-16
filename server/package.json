@@ -10,14 +10,15 @@
   "dependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
-    "axios": "^1.10.0",
+    "axios": "^1.12.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.18.2",
+    "metaapi.cloud-sdk": "^29.3.1",
     "mongoose": "^8.15.2",
+    "node-fetch": "^3.3.2",
     "openai": "^5.9.1",
-    "ws": "^8.16.0",
-    "node-fetch": "^3.3.2"
+    "ws": "^8.16.0"
   },
   "scripts": {
     "start": "node dist/server.js",

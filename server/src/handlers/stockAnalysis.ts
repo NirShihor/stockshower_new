@@ -19,6 +19,35 @@ dotenv.config();
 // Configuration: Set to 'marketstack' to use Marketstack API, 'polygon' for Polygon.io
 const DATA_PROVIDER = 'polygon'; // Change this to switch providers
 
+// MT5 symbol filtering - same logic as used in metaApiRestHandler
+function isMT5Tradeable(symbol: string): boolean {
+  // Common NASDAQ stocks that are available on MT5
+  const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'ADBE', 'CRM', 'PYPL', 'INTC', 'CSCO', 'CMCSA', 'PEP', 'COST', 'TMUS', 'AVGO', 'TXN', 'QCOM', 'INTU', 'AMAT', 'AMD', 'SBUX', 'GILD', 'BKNG', 'MDLZ', 'ADP', 'ISRG', 'REGN', 'VRTX', 'LRCX', 'ATVI', 'FISV', 'CSX', 'ORLY', 'BIIB', 'KLAC', 'KDP', 'VRSK', 'CTSH', 'CTAS', 'SNPS', 'CDNS', 'MELI', 'ASML', 'TEAM', 'ADSK', 'WDAY', 'SPLK', 'OKTA', 'ZM', 'DOCU', 'PTON', 'ZS'];
+  
+  // Common NYSE stocks that are available on MT5
+  const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'C', 'WFC', 'BRK.B', 'ABBV', 'TMO', 'ACN', 'NKE', 'CRM', 'LLY', 'DHR', 'MDT', 'ABT', 'BMY', 'AMGN', 'PM', 'NEE', 'COST', 'LOW', 'UNP', 'HON', 'IBM', 'SPGI', 'LIN', 'RTX', 'QCOM', 'SBUX', 'GS', 'BLK', 'AXP', 'BKNG', 'GILD', 'MS', 'AMD', 'NOW', 'AMT', 'ELV', 'PLD', 'BA', 'SYK', 'TJX', 'ZTS', 'BDX', 'SO', 'MMC', 'DUK', 'BSX', 'AON', 'APH', 'SHW', 'CMG', 'MU', 'DE', 'ICE', 'USB', 'NOC', 'EMR', 'PSA', 'GD', 'TGT', 'ITW', 'PNC', 'ECL', 'NSC', 'MCO', 'FCX', 'SPG', 'EOG', 'FIS', 'GM', 'COF', 'PSX', 'VLO', 'CL', 'SLB', 'OXY', 'MPC', 'KMI', 'WM', 'HAL', 'D', 'AEP', 'EXC', 'XEL'];
+  
+  // Check if symbol is in our known tradeable lists
+  return nasdaqStocks.includes(symbol) || nyseStocks.includes(symbol);
+}
+
+function convertToMT5Symbol(symbol: string): string {
+  // Common NASDAQ stocks that need .O suffix
+  const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX'];
+  
+  // Common NYSE stocks that need .N suffix  
+  const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F'];
+  
+  if (nasdaqStocks.includes(symbol)) {
+    return `${symbol}.O`;
+  } else if (nyseStocks.includes(symbol)) {
+    return `${symbol}.N`;
+  }
+  
+  // For other symbols, return as-is
+  return symbol;
+}
+
 // Polygon.io interfaces
 interface PolygonBar {
   o: number; // open
@@ -1003,14 +1032,15 @@ export const scanGapUps = async (req: Request, res: Response) => {
 				gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level and blue chip status
 				todayBar.v > 100000 && // Minimum volume (increased for quality)
 				todayBar.o >= 5 && // No penny stocks (>= $5)
-				todayBar.o < 1000) { // Reasonable price range
+				todayBar.o < 1000 && // Reasonable price range
+				isMT5Tradeable(symbol)) { // Only include stocks tradeable on MT5
 				
 				preFilteredCandidates.push({ todayBar, yesterdayBar, gapPercentage, isBlueChip });
 			}
 			processedCount++;
 		}
 
-		console.log(`Phase 1 complete: ${preFilteredCandidates.length} candidates from ${processedCount} stocks`);
+		console.log(`Phase 1 complete: ${preFilteredCandidates.length} candidates from ${processedCount} stocks (filtered to MT5 tradeable only)`);
 		console.log(`Total gap ups in market: ${gapUpCount}`);
 
 		// Track batch processing metrics
@@ -1059,7 +1089,8 @@ export const scanGapUps = async (req: Request, res: Response) => {
 						gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level and blue chip status
 						todayBar.v > 100000 && // Minimum volume (increased for quality)
 						todayBar.o >= 5 && // No penny stocks (>= $5)
-						todayBar.o < 1000) { // Reasonable price range
+						todayBar.o < 1000 && // Reasonable price range
+						isMT5Tradeable(symbol)) { // Only include stocks tradeable on MT5
 						
 						// Skip 20-day high calculation during initial scan for speed
 						// We'll calculate it for the top results later and apply the proper filter there
@@ -1343,7 +1374,7 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 		const yesterdayMap = new Map<string, GroupedDailyBar>();
 		yesterdayData.forEach(bar => yesterdayMap.set(bar.T, bar));
 
-		console.log(`Processing ${todayData.length} stocks from market-wide gap down scan...`);
+		console.log(`Processing ${todayData.length} stocks from market-wide gap down scan (filtered to MT5 tradeable only)...`);
 
 		let gapDownStocks: GapUpStock[] = [];
 		let processedCount = 0;
@@ -1395,7 +1426,8 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 						gapPercentage >= gapLimits[volatilityLevel].min && // But not too extreme
 						todayBar.v > 100000 && // Minimum volume (increased for quality)
 						todayBar.o >= 5 && // No penny stocks (>= $5)
-						todayBar.o < 1000) { // Reasonable price range
+						todayBar.o < 1000 && // Reasonable price range
+						isMT5Tradeable(symbol)) { // Only include stocks tradeable on MT5
 						
 						// Skip 20-day low calculation during initial scan for speed
 						// We'll calculate it for the top results later and apply the proper filter there
