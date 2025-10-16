@@ -346,11 +346,23 @@
   font-size: 18px;
 }
 
+.stock-scan-page .controls-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
 .stock-scan-page .add-symbol-form {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
+  flex: 1;
   max-width: 300px;
+}
+
+.stock-scan-page .connection-controls {
+  display: flex;
+  gap: 8px;
 }
 
 .stock-scan-page .add-button {
@@ -366,6 +378,42 @@
 
 .stock-scan-page .add-button:hover {
   background-color: #45a049;
+}
+
+.stock-scan-page .control-button-compact {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 90px;
+  height: 42px;
+}
+
+.stock-scan-page .control-button-compact.start {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.stock-scan-page .control-button-compact.start:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.stock-scan-page .control-button-compact.stop {
+  background-color: #f44336;
+  color: white;
+}
+
+.stock-scan-page .control-button-compact.stop:hover {
+  background-color: #da190b;
+}
+
+.stock-scan-page .control-button-compact:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .stock-scan-page .watchlist-chips {
@@ -478,6 +526,10 @@
   padding: 16px;
   transition: all 0.2s;
   background: white;
+  height: 400px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .stock-scan-page .signal-card:hover {
@@ -498,12 +550,48 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.stock-scan-page .signal-card-content {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.stock-scan-page .signal-symbol-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .stock-scan-page .signal-symbol {
   font-size: 18px;
   font-weight: 600;
   color: #1a1a1a;
+}
+
+.stock-scan-page .signal-score {
+  font-size: 14px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: #f0f0f0;
+}
+
+.stock-scan-page .signal-score.high {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.stock-scan-page .signal-score.medium {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.stock-scan-page .signal-score.low {
+  background-color: #fce4ec;
+  color: #c2185b;
 }
 
 .stock-scan-page .signal-card .signal-type {
@@ -532,10 +620,17 @@
   margin-bottom: 8px;
 }
 
-.stock-scan-page .view-chart-button {
-  width: 100%;
+.stock-scan-page .signal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.stock-scan-page .view-chart-button,
+.stock-scan-page .place-order-button {
+  flex: 1;
   padding: 8px;
-  background-color: #f5f5f5;
   border: 1px solid #e0e0e0;
   border-radius: 6px;
   cursor: pointer;
@@ -543,9 +638,32 @@
   transition: all 0.2s;
 }
 
+.stock-scan-page .view-chart-button {
+  background-color: #f5f5f5;
+}
+
 .stock-scan-page .view-chart-button:hover {
   background-color: #e8e8e8;
   border-color: #d0d0d0;
+}
+
+.stock-scan-page .place-order-button {
+  background-color: #2e7d32;
+  color: white;
+  border-color: #2e7d32;
+  font-weight: 500;
+}
+
+.stock-scan-page .place-order-button:hover:not(:disabled) {
+  background-color: #1b5e20;
+  border-color: #1b5e20;
+}
+
+.stock-scan-page .place-order-button:disabled {
+  background-color: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* Order Suggestion Styles */
@@ -658,6 +776,12 @@
 }
 
 .stock-scan-page .test-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stock-scan-page .test-button-group {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -836,6 +960,244 @@
   font-size: 2.5rem;
   color: #666;
   margin: 0;
+}
+
+/* Compact Sound Controls in Header */
+.sound-controls-compact {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+}
+
+.sound-icon {
+  cursor: pointer;
+  font-size: 16px;
+  user-select: none;
+  transition: transform 0.1s;
+}
+
+.sound-icon:hover {
+  transform: scale(1.1);
+}
+
+.volume-slider-compact {
+  width: 60px;
+  height: 4px;
+  background: #ddd;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.volume-slider-compact::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #4CAF50;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.volume-slider-compact::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #4CAF50;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.volume-label {
+  font-size: 13px;
+  color: #666;
+  min-width: 35px;
+  text-align: right;
+}
+
+/* Old Sound Controls - keeping for reference */
+.sound-controls {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.sound-controls h3 {
+  margin: 0 0 10px 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.sound-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.sound-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 24px;
+  font-size: 13px;
+}
+
+.volume-control label {
+  min-width: 80px;
+  color: #666;
+}
+
+.volume-slider {
+  flex: 1;
+  max-width: 120px;
+  height: 4px;
+  background: #ddd;
+  border-radius: 2px;
+  outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #4CAF50;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #4CAF50;
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+.test-sound-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.test-sound-btn:hover {
+  background: #0056b3;
+}
+
+/* Signal Header Right Side */
+.signal-header-right {
+  display: flex;
+  align-items: flex-end;
+}
+
+.time-and-risk {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.time-and-risk .signal-time {
+  display: block;
+  text-align: right;
+}
+
+.time-and-risk .trap-risk-compact {
+  display: block;
+  text-align: right;
+  margin-left: auto;
+  align-self: flex-end;
+  margin-right: -8px;
+}
+
+/* Compact Trap Risk Labels */
+.trap-risk-compact {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  text-align: center;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.trap-risk-compact.trap-high {
+  background-color: #ffebee;
+  color: #c62828;
+  border-color: #ef5350;
+}
+
+.trap-risk-compact.trap-medium {
+  background-color: #fff8e1;
+  color: #ef6c00;
+  border-color: #ff9800;
+}
+
+.trap-risk-compact.trap-low {
+  background-color: #fffde7;
+  color: #f57c00;
+  border-color: #ffc107;
+}
+
+/* Old Trap Warning Styles - keeping for any legacy usage */
+.trap-warning {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+  text-align: center;
+  border: 1px solid;
+}
+
+.trap-high {
+  background-color: #ffe6e6;
+  color: #d63031;
+  border-color: #fab1a0;
+  animation: pulse-red 2s infinite;
+}
+
+.trap-medium {
+  background-color: #fff4e6;
+  color: #e17055;
+  border-color: #fdcb6e;
+}
+
+.trap-low {
+  background-color: #e6f3ff;
+  color: #0984e3;
+  border-color: #74b9ff;
+}
+
+@keyframes pulse-red {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* Scanner Controls */

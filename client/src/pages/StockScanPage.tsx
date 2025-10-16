@@ -56,6 +56,7 @@ interface ComprehensiveSignal {
   plan: TradePlan;
   score: number;
   notes: string[];
+  currentPrice?: number;
 }
 
 // Legacy interface for compatibility
@@ -71,6 +72,8 @@ interface Signal {
   plan?: TradePlan;
   score?: number;
   notes?: string[];
+  currentPrice?: number;
+  trapRisk?: 'none' | 'low' | 'medium' | 'high';
   
   // Legacy fields
   type?: string;
@@ -87,48 +90,76 @@ const DEFAULT_WATCHLIST = [
   'MRK', 'BA', 'MMM'
 ];
 
+// Helper function to determine MT5 order type
+const getMT5OrderType = (direction: 'long' | 'short', currentPrice: number, entryPrice: number): string => {
+  if (direction === 'long') {
+    // For long positions
+    if (entryPrice > currentPrice) {
+      return 'Buy Stop'; // Entry above current price
+    } else {
+      return 'Buy Limit'; // Entry below current price
+    }
+  } else {
+    // For short positions
+    if (entryPrice < currentPrice) {
+      return 'Sell Stop'; // Entry below current price
+    } else {
+      return 'Sell Limit'; // Entry above current price
+    }
+  }
+};
+
 const StockScanPage: React.FC = () => {
   const [watchlist, setWatchlist] = useState<string[]>(DEFAULT_WATCHLIST);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [connected, setConnected] = useState(false);
+  const [polygonConnected, setPolygonConnected] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [customSymbol, setCustomSymbol] = useState('');
   const [filter, setFilter] = useState<'all' | 'bullish' | 'bearish'>('all');
   const [testMode, setTestMode] = useState(false);
   const [mockRunning, setMockRunning] = useState(false);
+  const [mockSignalsRunning, setMockSignalsRunning] = useState(false);
   const [realDataEnabled, setRealDataEnabled] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState<string | null>(null); // Track which signal is being processed
+  const [mt5Status, setMt5Status] = useState<{ connected: boolean; mt5Connected?: boolean } | null>(null);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundVolume, setSoundVolume] = useState(0.3);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Sound alert when new signal detected  
   const playAlert = () => {
-    // Temporarily disabled - testing if sound changes work
-    console.log('🎵 New pattern detected (sound temporarily disabled)');
+    if (!soundEnabled) {
+      console.log('🔇 Sound disabled - skipping alert');
+      return;
+    }
     
-    // Uncomment when ready to test new sound:
-    // const audio = new Audio('data:audio/wav;base64,UklGRh4CAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YfoAAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhCTGH0fPTgjMGHm7A7+OZURE');
-    // audio.volume = 0.2;
-    // audio.play().catch(e => console.log('Audio play failed:', e));
+    console.log('🎵 New pattern detected - playing alert sound');
+    
+    // Use a softer, more pleasant notification sound
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhCTGH0fPTgjMGHm7A7+OZTREMUKXi77RhGgc8ltf0y3wuBSN6yO/eizEIHm3A7+WXUhEKTKPr7K1bEw');
+    audio.volume = soundVolume;
+    audio.play().catch(e => console.log('Audio play failed:', e));
   };
 
-  // WebSocket connection
-  useEffect(() => {
-    const connectWebSocket = () => {
-      const wsUrl = getBaseUrl().replace('http', 'ws') + '/ws';
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
+  // WebSocket connection - DO NOT auto-connect
+  const connectWebSocket = () => {
+    const wsUrl = getBaseUrl().replace('http', 'ws') + '/ws';
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
-      ws.onopen = async () => {
-        setConnected(true);
-        // Only subscribe if real data is enabled
-        if (realDataEnabled && watchlist.length > 0) {
-          await fetch(`${getBaseUrl()}/api/candlestick/subscribe`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ symbols: watchlist, granularity: 'AM' })
-          });
-          setScanning(true);
-        }
-      };
+    ws.onopen = async () => {
+      setConnected(true);
+      // Only subscribe if real data is enabled
+      if (realDataEnabled && watchlist.length > 0) {
+        await fetch(`${getBaseUrl()}/api/candlestick/subscribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbols: watchlist, granularity: 'AM' })
+        });
+        setScanning(true);
+      }
+    };
 
       ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
@@ -156,8 +187,8 @@ const StockScanPage: React.FC = () => {
         setConnected(false);
         setScanning(false);
         wsRef.current = null;
-        // Reconnect after 2 seconds
-        setTimeout(connectWebSocket, 2000);
+        // NO AUTO-RECONNECT - user must manually reconnect
+        console.log('WebSocket closed - manual reconnection required');
       };
 
       ws.onerror = (error) => {
@@ -165,7 +196,13 @@ const StockScanPage: React.FC = () => {
       };
     };
 
-    connectWebSocket();
+  // WebSocket useEffect
+  useEffect(() => {
+    // DO NOT auto-connect on mount - wait for user action
+    // connectWebSocket(); // REMOVED - manual connection only
+    
+    // Check Polygon connection status on mount
+    checkPolygonStatus();
 
     return () => {
       if (wsRef.current) {
@@ -234,6 +271,14 @@ const StockScanPage: React.FC = () => {
 
   const startMockData = async () => {
     try {
+      // Connect WebSocket first if not connected
+      if (!connected) {
+        console.log('Connecting WebSocket for mock data...');
+        connectWebSocket();
+        // Wait longer for connection to establish
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
       const response = await fetch(`${getBaseUrl()}/api/candlestick/test/mock/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
@@ -243,6 +288,8 @@ const StockScanPage: React.FC = () => {
         setMockRunning(true);
         setScanning(true);
         console.log('Mock data feed started');
+      } else {
+        console.error('Failed to start mock data:', await response.text());
       }
     } catch (error) {
       console.error('Failed to start mock data:', error);
@@ -268,8 +315,120 @@ const StockScanPage: React.FC = () => {
     }
   };
 
+  const startMockSignals = async () => {
+    try {
+      // Connect WebSocket first if not connected
+      if (!connected) {
+        console.log('Connecting WebSocket for mock signals...');
+        connectWebSocket();
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/test/mock-signals/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        setMockSignalsRunning(true);
+        setScanning(true);
+        console.log('Mock signals feed started');
+      } else {
+        console.error('Failed to start mock signals:', await response.text());
+      }
+    } catch (error) {
+      console.error('Failed to start mock signals:', error);
+    }
+  };
+
+  const stopMockSignals = async () => {
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/test/mock-signals/stop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        setMockSignalsRunning(false);
+        if (!realDataEnabled && !mockRunning) {
+          setScanning(false);
+        }
+        console.log('Mock signals feed stopped');
+      }
+    } catch (error) {
+      console.error('Failed to stop mock signals:', error);
+    }
+  };
+
+  const checkPolygonStatus = async () => {
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/status`);
+      if (response.ok) {
+        const data = await response.json();
+        setPolygonConnected(data.polygonConnected);
+      }
+    } catch (error) {
+      console.error('Failed to check Polygon status:', error);
+    }
+  };
+
+  const connectToPolygon = async () => {
+    try {
+      // First ensure WebSocket is connected
+      if (!connected && !wsRef.current) {
+        connectWebSocket();
+        // Wait a bit for WebSocket to connect
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/connect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        setPolygonConnected(true);
+        console.log('Connected to Polygon');
+      } else {
+        console.error('Failed to connect to Polygon:', await response.text());
+      }
+    } catch (error) {
+      console.error('Failed to connect to Polygon:', error);
+    }
+  };
+
+  const disconnectFromPolygon = async () => {
+    try {
+      // First stop real data if it's running
+      if (realDataEnabled) {
+        await stopRealData();
+      }
+      
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        setPolygonConnected(false);
+        console.log('Disconnected from Polygon');
+      } else {
+        console.error('Failed to disconnect from Polygon:', await response.text());
+      }
+    } catch (error) {
+      console.error('Failed to disconnect from Polygon:', error);
+    }
+  };
+
   const startRealData = async () => {
-    if (connected && watchlist.length > 0) {
+    // Connect WebSocket first if not connected
+    if (!connected && !wsRef.current) {
+      connectWebSocket();
+      // Wait a bit for connection
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    if (watchlist.length > 0) {
       await fetch(`${getBaseUrl()}/api/candlestick/subscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -282,15 +441,169 @@ const StockScanPage: React.FC = () => {
 
   const stopRealData = async () => {
     if (connected) {
+      // First unsubscribe from symbols
       await fetch(`${getBaseUrl()}/api/candlestick/unsubscribe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbols: watchlist, granularity: 'AM' })
       });
+      
+      // Then fully disconnect from Polygon WebSocket
+      await fetch(`${getBaseUrl()}/api/candlestick/disconnect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
       setRealDataEnabled(false);
       if (!mockRunning) {
         setScanning(false);
       }
+    }
+  };
+
+  const checkMT5Status = async () => {
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/mt5/status`);
+      if (response.ok) {
+        const status = await response.json();
+        console.log('MT5 Status received:', status);
+        setMt5Status(status);
+        return status;
+      }
+    } catch (error) {
+      console.error('Failed to check MT5 status:', error);
+      const errorStatus = { connected: false };
+      setMt5Status(errorStatus);
+      return errorStatus;
+    }
+  };
+
+  const handlePlaceOrder = async (signal: Signal) => {
+    if (!signal.plan) {
+      alert('This signal does not have a trading plan');
+      return;
+    }
+
+    // Check MT5 status first
+    const currentStatus = await checkMT5Status();
+    
+    console.log('Current status from API:', currentStatus);
+    console.log('currentStatus?.connected:', currentStatus?.connected);
+    
+    if (!currentStatus?.connected) {
+      const confirmStart = window.confirm(
+        'MetaApi is not connected. This could mean:\n\n' +
+        '1. Your MT5 account is not yet connected in MetaApi\n' +
+        '2. The MetaApi credentials in .env are incorrect\n' +
+        '3. Your MT5 account needs to be deployed\n\n' +
+        'Please check your MetaApi dashboard and ensure your FXPro account is connected.\n\n' +
+        'Click OK to retry the connection.'
+      );
+      
+      if (!confirmStart) return;
+      
+      // Check status again
+      const retryStatus = await checkMT5Status();
+      if (!retryStatus?.connected) {
+        alert('MetaApi is still not connected. Please check your MetaApi dashboard.');
+        return;
+      }
+    }
+
+    // MetaApi handles the MT5 connection, so if MetaApi is connected, we're good to go
+    // No need for separate mt5Connected check with MetaApi
+
+    // Preview order to check for price adjustments
+    setPlacingOrder(signal.id);
+    
+    try {
+      const previewResponse = await fetch(`${getBaseUrl()}/api/candlestick/mt5/preview-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signal)
+      });
+      
+      const preview = await previewResponse.json();
+      
+      if (!preview.success) {
+        alert(`Failed to preview order: ${preview.error}`);
+        setPlacingOrder(null);
+        return;
+      }
+      
+      // Check if prices were adjusted
+      const hasAdjustments = preview.data.adjustmentReason || 
+        preview.data.original.entry !== preview.data.adjusted.entry ||
+        preview.data.original.stop !== preview.data.adjusted.stop ||
+        preview.data.original.takeProfit !== preview.data.adjusted.takeProfit;
+      
+      let confirmMessage = `Place ${signal.plan.direction.toUpperCase()} order for ${signal.symbol}?\n\n` +
+        `Pattern: ${signal.pattern?.name || 'Unknown'}\n` +
+        `Score: ${signal.score || 'N/A'}\n` +
+        `Current Market Price: $${preview.data.currentMarketPrice || 'N/A'}\n\n`;
+      
+      if (hasAdjustments) {
+        confirmMessage += `⚠️ PRICE ADJUSTMENTS REQUIRED ⚠️\n\n`;
+        if (preview.data.adjustmentReason) {
+          confirmMessage += `Reason: ${preview.data.adjustmentReason}\n\n`;
+        }
+        confirmMessage += `ORIGINAL PRICES:\n` +
+          `Entry: $${preview.data.original.entry.toFixed(2)}\n` +
+          `Stop Loss: $${preview.data.original.stop.toFixed(2)}\n` +
+          `Take Profit: $${preview.data.original.takeProfit.toFixed(2)}\n\n` +
+          `ADJUSTED PRICES:\n` +
+          `Entry: $${preview.data.adjusted.entry.toFixed(2)} (${preview.data.original.entry !== preview.data.adjusted.entry ? '⚠️ Changed' : '✓'})\n` +
+          `Stop Loss: $${preview.data.adjusted.stop.toFixed(2)} (${preview.data.original.stop !== preview.data.adjusted.stop ? '⚠️ Changed' : '✓'})\n` +
+          `Take Profit: $${preview.data.adjusted.takeProfit.toFixed(2)} (${preview.data.original.takeProfit !== preview.data.adjusted.takeProfit ? '⚠️ Changed' : '✓'})\n` +
+          `Order Type: ${preview.data.adjusted.orderType}\n\n` +
+          `Do you want to proceed with the ADJUSTED prices?`;
+      } else {
+        confirmMessage += `Entry: $${preview.data.original.entry.toFixed(2)}\n` +
+          `Stop Loss: $${preview.data.original.stop.toFixed(2)}\n` +
+          `Take Profit: $${preview.data.original.takeProfit.toFixed(2)}\n` +
+          `Order Type: ${preview.data.adjusted.orderType}\n` +
+          `Volume: ${signal.plan.positionQty}\n` +
+          `Risk/Reward: ${signal.plan.riskRewardRatio}`;
+      }
+      
+      const confirmOrder = window.confirm(confirmMessage);
+      
+      if (!confirmOrder) {
+        setPlacingOrder(null);
+        return;
+      }
+    } catch (error) {
+      console.error('Error previewing order:', error);
+      setPlacingOrder(null);
+      alert('Failed to preview order. Please try again.');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/mt5/place-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(signal)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(
+          `✅ Order placed successfully!\n\n` +
+          `Symbol: ${result.symbol || signal.symbol}\n` +
+          `Order ID: ${result.orderId || result.ticket || 'N/A'}\n` +
+          `Volume: ${result.volume || signal.plan.positionQty}\n` +
+          `Price: $${result.price || signal.plan.entry}`
+        );
+      } else {
+        alert(`❌ Failed to place order:\n\n${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      alert('Failed to communicate with MT5 bridge. Please check the connection.');
+    } finally {
+      setPlacingOrder(null);
     }
   };
 
@@ -300,26 +613,68 @@ const StockScanPage: React.FC = () => {
         <h1 className="page-title">Real-Time Pattern Scanner (5m)</h1>
         <div className="scanner-status">
           <span className={`status-indicator ${connected ? 'connected' : 'disconnected'}`}>
-            {connected ? 'Connected' : 'Disconnected'}
+            WebSocket: {connected ? 'Connected' : 'Disconnected'}
+          </span>
+          <span className={`status-indicator ${polygonConnected ? 'connected' : 'disconnected'}`}>
+            Polygon: {polygonConnected ? 'Connected' : 'Disconnected'}
           </span>
           <span className={`scanning-indicator ${scanning ? 'active' : ''}`}>
             {scanning ? `Scanning ${watchlist.length} stocks (5m candles)` : 'Not scanning'}
           </span>
+          
+          {/* Compact Sound Controls */}
+          <div className="sound-controls-compact">
+            <span className="sound-icon" onClick={() => setSoundEnabled(!soundEnabled)}>
+              {soundEnabled ? '🔊' : '🔇'}
+            </span>
+            {soundEnabled && (
+              <>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="1"
+                  step="0.1"
+                  value={soundVolume}
+                  onChange={(e) => setSoundVolume(parseFloat(e.target.value))}
+                  className="volume-slider-compact"
+                  title={`Volume: ${Math.round(soundVolume * 100)}%`}
+                />
+                <span className="volume-label">{Math.round(soundVolume * 100)}%</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="scanner-controls">
         <div className="watchlist-section">
           <h3>Watchlist ({watchlist.length} stocks)</h3>
-          <form onSubmit={handleAddSymbol} className="add-symbol-form">
-            <input
-              value={customSymbol}
-              onChange={(e) => setCustomSymbol(e.target.value)}
-              placeholder="Add symbol..."
-              className="symbol-input"
-            />
-            <button type="submit" className="add-button">Add</button>
-          </form>
+          <div className="controls-row">
+            <form onSubmit={handleAddSymbol} className="add-symbol-form">
+              <input
+                value={customSymbol}
+                onChange={(e) => setCustomSymbol(e.target.value)}
+                placeholder="Add symbol..."
+                className="symbol-input"
+              />
+              <button type="submit" className="add-button">Add</button>
+            </form>
+            <div className="connection-controls">
+              <button
+                className={`control-button-compact ${polygonConnected ? 'stop' : 'start'}`}
+                onClick={polygonConnected ? disconnectFromPolygon : connectToPolygon}
+              >
+                {polygonConnected ? 'Disconnect' : 'Connect'}
+              </button>
+              <button
+                className={`control-button-compact ${realDataEnabled ? 'stop' : 'start'}`}
+                onClick={realDataEnabled ? stopRealData : startRealData}
+                disabled={!connected || !polygonConnected}
+              >
+                {realDataEnabled ? 'Stop Data' : 'Get Data'}
+              </button>
+            </div>
+          </div>
           <div className="watchlist-chips">
             {watchlist.map(symbol => (
               <span key={symbol} className="symbol-chip">
@@ -334,18 +689,6 @@ const StockScanPage: React.FC = () => {
               </span>
             ))}
           </div>
-        </div>
-
-        <div className="data-controls">
-          <div className="control-buttons">
-            <button
-              className={`control-button ${realDataEnabled ? 'stop' : 'start'}`}
-              onClick={realDataEnabled ? stopRealData : startRealData}
-              disabled={!connected}
-            >
-              {realDataEnabled ? 'Stop Real Data' : 'Start Real Data'}
-            </button>
-          </div>
           {realDataEnabled && (
             <div className="data-status">
               Receiving live data
@@ -353,7 +696,12 @@ const StockScanPage: React.FC = () => {
           )}
           {!connected && (
             <div className="connection-warning">
-              Waiting for connection...
+              Waiting for WebSocket connection...
+            </div>
+          )}
+          {connected && !polygonConnected && (
+            <div className="connection-warning">
+              Please connect to Polygon to start receiving real-time data
             </div>
           )}
         </div>
@@ -396,30 +744,46 @@ const StockScanPage: React.FC = () => {
               onChange={(e) => {
                 setTestMode(e.target.checked);
                 // If unchecking test mode while mock is running, stop it
-                if (!e.target.checked && mockRunning) {
-                  stopMockData();
+                if (!e.target.checked) {
+                  if (mockRunning) stopMockData();
+                  if (mockSignalsRunning) stopMockSignals();
                 }
               }}
             />
-            Test Mode (Mock Data)
+            Test Mode
           </label>
           {testMode && (
             <div className="test-controls">
               <p className="test-info">
-                Use mock data to test pattern detection. Mock data generates 1-minute candles that are aggregated into 5-minute candles.
+                Use mock data or mock signals to test the application. Mock data generates candles that go through pattern detection, while mock signals create pre-scored patterns directly.
               </p>
               <div className="test-buttons">
-                <button
-                  className={`test-button ${mockRunning ? 'stop' : 'start'}`}
-                  onClick={mockRunning ? stopMockData : startMockData}
-                >
-                  {mockRunning ? 'Stop Mock Data' : 'Start Mock Data'}
-                </button>
-                {mockRunning && (
-                  <span className="mock-status">
-                    Mock feed running - patterns should appear when 5-minute candles complete
-                  </span>
-                )}
+                <div className="test-button-group">
+                  <button
+                    className={`test-button ${mockRunning ? 'stop' : 'start'}`}
+                    onClick={mockRunning ? stopMockData : startMockData}
+                  >
+                    {mockRunning ? 'Stop Mock Data' : 'Start Mock Data'}
+                  </button>
+                  {mockRunning && (
+                    <span className="mock-status">
+                      Mock feed running - patterns should appear when 5-minute candles complete
+                    </span>
+                  )}
+                </div>
+                <div className="test-button-group">
+                  <button
+                    className={`test-button ${mockSignalsRunning ? 'stop' : 'start'}`}
+                    onClick={mockSignalsRunning ? stopMockSignals : startMockSignals}
+                  >
+                    {mockSignalsRunning ? 'Stop Mock Signals' : 'Start Mock Signals'}
+                  </button>
+                  {mockSignalsRunning && (
+                    <span className="mock-status">
+                      Mock signals running - high-scoring patterns appear immediately
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -451,10 +815,23 @@ const StockScanPage: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <span className="signal-time">{formatSignalTime(timestamp)}</span>
+                    <div className="signal-header-right">
+                      <div className="time-and-risk">
+                        <span className="signal-time">{formatSignalTime(timestamp)}</span>
+                        {/* Compact Trap Risk Warning */}
+                        {signal.trapRisk && signal.trapRisk !== 'none' && (
+                          <span className={`trap-risk-compact trap-${signal.trapRisk}`}>
+                            {signal.trapRisk === 'high' && 'HIGH TRAP RISK'}
+                            {signal.trapRisk === 'medium' && 'MED TRAP RISK'}
+                            {signal.trapRisk === 'low' && 'LOW TRAP RISK'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="signal-pattern">
+                  <div className="signal-card-content">
+                    <div className="signal-pattern">
                     <div className="pattern-name">{patternName}</div>
                     {signal.pattern && (
                       <div className="pattern-info">
@@ -481,33 +858,48 @@ const StockScanPage: React.FC = () => {
                   )}
 
                   {signal.plan && (
-                    <div className="trade-plan">
+                    <div className="trade-plan mt5-format">
                       <div className="plan-header">
-                        <span className="plan-title">Trade Plan ({signal.plan.direction.toUpperCase()})</span>
+                        <span className="plan-title">MT5 Order Setup</span>
                       </div>
                       <div className="plan-details">
                         <div className="plan-row">
-                          <span className="plan-label">Entry:</span>
-                          <span className="plan-value">${signal.plan.entry}</span>
+                          <span className="plan-label">Type:</span>
+                          <span className="plan-value">Pending Order</span>
                         </div>
                         <div className="plan-row">
-                          <span className="plan-label">Stop:</span>
-                          <span className="plan-value">${signal.plan.stop}</span>
+                          <span className="plan-label">Order Type:</span>
+                          <span className="plan-value order-type">
+                            {signal.currentPrice ? 
+                              getMT5OrderType(signal.plan.direction, signal.currentPrice, signal.plan.entry) : 
+                              `${signal.plan.direction === 'long' ? 'Buy' : 'Sell'} Stop/Limit`
+                            }
+                          </span>
                         </div>
                         <div className="plan-row">
-                          <span className="plan-label">Targets:</span>
-                          <span className="plan-value">{signal.plan.targets.map(t => `$${t}`).join(', ')}</span>
+                          <span className="plan-label">Price:</span>
+                          <span className="plan-value">${signal.plan.entry.toFixed(2)}</span>
                         </div>
                         <div className="plan-row">
-                          <span className="plan-label">Risk:</span>
-                          <span className="plan-value">${signal.plan.risk}</span>
+                          <span className="plan-label">Stop Loss:</span>
+                          <span className="plan-value">${signal.plan.stop.toFixed(2)}</span>
                         </div>
                         <div className="plan-row">
-                          <span className="plan-label">Qty:</span>
-                          <span className="plan-value">{signal.plan.positionQty} shares</span>
+                          <span className="plan-label">Take Profit:</span>
+                          <span className="plan-value">${signal.plan.targets[0].toFixed(2)}</span>
+                        </div>
+                        {signal.currentPrice && (
+                          <div className="plan-row current-price">
+                            <span className="plan-label">Current Price:</span>
+                            <span className="plan-value">${signal.currentPrice.toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="plan-row">
+                          <span className="plan-label">Volume:</span>
+                          <span className="plan-value">{signal.plan.positionQty}</span>
                         </div>
                         <div className="plan-row">
-                          <span className="plan-label">R:R:</span>
+                          <span className="plan-label">Risk/Reward:</span>
                           <span className="plan-rr">{signal.plan.riskRewardRatio}</span>
                         </div>
                       </div>
@@ -521,13 +913,23 @@ const StockScanPage: React.FC = () => {
                       ))}
                     </div>
                   )}
+                  </div>
 
-                  <button 
-                    className="view-chart-button"
-                    onClick={() => window.open(`/charts?symbol=${signal.symbol}`, '_blank')}
-                  >
-                    View Chart
-                  </button>
+                  <div className="signal-actions">
+                    <button 
+                      className="view-chart-button"
+                      onClick={() => window.open(`/charts?symbol=${signal.symbol}`, '_blank')}
+                    >
+                      View Chart
+                    </button>
+                    <button 
+                      className="place-order-button"
+                      onClick={() => handlePlaceOrder(signal)}
+                      disabled={!signal.plan || placingOrder === signal.id}
+                    >
+                      {placingOrder === signal.id ? 'Placing Order...' : 'Place MT5 Order'}
+                    </button>
+                  </div>
                 </div>
               );
             })}

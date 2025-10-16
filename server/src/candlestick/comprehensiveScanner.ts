@@ -10,6 +10,7 @@ import {
 import { buildMarketContext } from './helpers/marketStructure.js';
 import { scorePattern, classifySignalStrength } from './helpers/scoring.js';
 import { buildConfirmationPlan, buildTradePlan, validateTradePlan } from './helpers/tradePlanning.js';
+import { detectTraps } from './helpers/trapDetection.js';
 
 // Pattern detectors
 import { detectSingleCandlePatterns } from './patterns/singleCandle.js';
@@ -35,15 +36,19 @@ export class ComprehensiveScanner {
   public scan(candle: Candle): ComprehensiveSignal[] {
     const { symbol } = candle;
     
+    console.log(`[COMPREHENSIVE] Scanning ${symbol} candle: ${candle.start} - O:${candle.open} H:${candle.high} L:${candle.low} C:${candle.close}`);
+    
     // Initialize or update history
     if (!historyBySymbol.has(symbol)) {
       historyBySymbol.set(symbol, { symbol, candles: [] });
+      console.log(`[COMPREHENSIVE] Initialized new history for ${symbol}`);
     }
     
     const history = historyBySymbol.get(symbol)!;
     
     // Avoid processing the same candle twice
     if (history.lastProcessedTime === candle.start) {
+      console.log(`[COMPREHENSIVE] Skipping duplicate candle for ${symbol}: ${candle.start}`);
       return [];
     }
     
@@ -56,8 +61,12 @@ export class ComprehensiveScanner {
       history.candles = history.candles.slice(-maxHistory);
     }
     
-    // Need at least minimum candles for analysis
-    if (history.candles.length < Math.max(this.params.atrLen, 20)) {
+    console.log(`[COMPREHENSIVE] ${symbol} now has ${history.candles.length} candles in history`);
+    
+    // Need at least minimum candles for analysis - optimal for real trading
+    const minRequired = 5; // Good balance: enough for context, fast enough for real trading
+    if (history.candles.length < minRequired) {
+      console.log(`[COMPREHENSIVE] ${symbol} needs ${minRequired} candles, only has ${history.candles.length} - skipping analysis`);
       return [];
     }
     
@@ -69,6 +78,8 @@ export class ComprehensiveScanner {
     const current = candles[candles.length - 1];
     const symbol = current.symbol;
     
+    console.log(`[SCANNER] Detecting patterns for ${symbol} with ${candles.length} candles history`);
+    
     // Build market context
     const context = buildMarketContext(candles, this.params);
     const atr = calculateATR(candles, this.params.atrLen);
@@ -79,14 +90,18 @@ export class ComprehensiveScanner {
     // Single candle patterns
     if (candles.length >= 1) {
       const prev = candles.length > 1 ? candles[candles.length - 2] : null;
+      console.log(`[SCANNER] Checking single candle patterns for ${symbol}`);
       const singlePatterns = detectSingleCandlePatterns(current, prev, this.params, context.trend);
+      console.log(`[SCANNER] Found ${singlePatterns.length} single candle patterns: ${singlePatterns.map(p => p.name).join(', ')}`);
       allPatterns.push(...singlePatterns);
     }
     
     // Double candle patterns
     if (candles.length >= 2) {
       const prev = candles[candles.length - 2];
+      console.log(`[SCANNER] Checking double candle patterns for ${symbol}`);
       const doublePatterns = detectDoubleCandlePatterns(prev, current, this.params, atr);
+      console.log(`[SCANNER] Found ${doublePatterns.length} double candle patterns: ${doublePatterns.map(p => p.name).join(', ')}`);
       allPatterns.push(...doublePatterns);
     }
     
@@ -95,9 +110,13 @@ export class ComprehensiveScanner {
       const candle1 = candles[candles.length - 3];
       const candle2 = candles[candles.length - 2];
       const candle3 = candles[candles.length - 1];
+      console.log(`[SCANNER] Checking triple candle patterns for ${symbol}`);
       const triplePatterns = detectTripleCandlePatterns(candle1, candle2, candle3, this.params, atr);
+      console.log(`[SCANNER] Found ${triplePatterns.length} triple candle patterns: ${triplePatterns.map(p => p.name).join(', ')}`);
       allPatterns.push(...triplePatterns);
     }
+    
+    console.log(`[SCANNER] Total raw patterns found for ${symbol}: ${allPatterns.length} - ${allPatterns.map(p => p.name).join(', ')}`);
     
     // Process each pattern
     for (const pattern of allPatterns) {
@@ -131,7 +150,10 @@ export class ComprehensiveScanner {
     // Filter out low-quality signals
     const strength = classifySignalStrength(score);
     if (strength === 'ignore') {
+      console.log(`[SCANNER] Pattern ${pattern.name} scored ${score} - ignoring (below threshold)`);
       return null;
+    } else {
+      console.log(`[SCANNER] Pattern ${pattern.name} scored ${score} - ${strength} signal`);
     }
     
     // Build confirmation plan
@@ -146,6 +168,23 @@ export class ComprehensiveScanner {
       return null;
     }
     
+    // Assess trap risk
+    const trapWarnings = detectTraps(pattern, context, candles, this.params);
+    let trapRisk: 'none' | 'low' | 'medium' | 'high' = 'none';
+    
+    if (trapWarnings.length > 0) {
+      const highSeverity = trapWarnings.some(w => w.severity === 'high');
+      const mediumSeverity = trapWarnings.some(w => w.severity === 'medium');
+      
+      if (highSeverity) {
+        trapRisk = 'high';
+      } else if (mediumSeverity) {
+        trapRisk = 'medium';
+      } else {
+        trapRisk = 'low';
+      }
+    }
+    
     // Create comprehensive signal
     const signal: ComprehensiveSignal = {
       id: `${symbol}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -157,7 +196,9 @@ export class ComprehensiveScanner {
       confirmation,
       plan,
       score,
-      notes
+      notes,
+      currentPrice: current.close,
+      trapRisk
     };
     
     return signal;

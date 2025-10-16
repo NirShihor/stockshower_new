@@ -3,7 +3,8 @@ import { MarketContext, SupportResistanceLevel, TradingParameters } from '../typ
 import { calculateATR, calculateVolumeMA, isHighVolumeBar, isWideRangeBar } from './preprocessing.js';
 
 export function detectTrend(candles: Candle[], fastMA: number, slowMA: number): 'up' | 'down' | 'sideways' {
-  if (candles.length < Math.max(fastMA, slowMA)) return 'sideways';
+  // Use what we have, minimum 3 candles
+  if (candles.length < 3) return 'sideways';
   
   const fastMAValue = calculateMA(candles.map(c => c.close), fastMA);
   const slowMAValue = calculateMA(candles.map(c => c.close), slowMA);
@@ -46,7 +47,8 @@ export function detectSupportResistance(
   candles: Candle[], 
   params: TradingParameters
 ): SupportResistanceLevel[] {
-  if (candles.length < params.srLookback) return [];
+  // Use minimum 10 candles instead of full lookback
+  if (candles.length < 10) return [];
   
   const recentCandles = candles.slice(-params.srLookback);
   const { highs, lows } = findSwingPoints(recentCandles);
@@ -129,7 +131,7 @@ export function buildMarketContext(
 ): MarketContext {
   const current = candles[candles.length - 1];
   const atr = calculateATR(candles, params.atrLen);
-  const volumeMA = calculateVolumeMA(candles, 20);
+  const volumeMA = calculateVolumeMA(candles, Math.min(20, candles.length));
   const volumeFactor = current.volume ? current.volume / volumeMA : 0;
   
   const trend = detectTrend(candles, params.maFast, params.maSlow);
@@ -155,7 +157,8 @@ export function buildMarketContext(
 }
 
 function calculateMA(values: number[], period: number): number {
-  if (values.length < period) return 0;
-  const slice = values.slice(-period);
-  return slice.reduce((sum, val) => sum + val, 0) / period;
+  if (values.length === 0) return 0;
+  // Use available data if less than full period
+  const slice = values.slice(-Math.min(period, values.length));
+  return slice.reduce((sum, val) => sum + val, 0) / slice.length;
 }

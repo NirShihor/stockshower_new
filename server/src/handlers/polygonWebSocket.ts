@@ -5,12 +5,21 @@ let wsClient: WebSocket | null = null;
 let isConnected = false;
 const desiredSubscriptions = new Set<string>();
 let onCandleCallback: ((candle: Candle) => void) | null = null;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 5;
+let reconnectTimeout: NodeJS.Timeout | null = null;
+let isShuttingDown = false;
 
 const STOCKS_WS_URL = 'wss://socket.polygon.io/stocks';
 
 export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => void) {
   if (!apiKey) {
     throw new Error('Polygon API key is required');
+  }
+  
+  if (isShuttingDown) {
+    console.log('Ignoring connection attempt - server is shutting down');
+    return;
   }
   
   onCandleCallback = onCandle;
@@ -25,6 +34,7 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
   wsClient.on('open', () => {
     console.log('Connected to Polygon WebSocket');
     isConnected = true;
+    reconnectAttempts = 0; // Reset on successful connection
     
     // Authenticate
     wsClient!.send(JSON.stringify({
@@ -35,6 +45,7 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     // Re-subscribe to any existing subscriptions
     if (desiredSubscriptions.size > 0) {
       const topics = Array.from(desiredSubscriptions);
+      console.log(`Subscribing to ${topics.length} topics:`, topics);
       wsClient!.send(JSON.stringify({
         action: 'subscribe',
         params: topics.join(',')
@@ -44,11 +55,28 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
   
   wsClient.on('message', (data: WebSocket.Data) => {
     try {
-      const messages = JSON.parse(data.toString()) as PolygonAggregateMessage[];
+      const messages = JSON.parse(data.toString());
       
-      for (const msg of messages) {
+      // Log all messages to see what Polygon is sending
+      console.log('Polygon message:', JSON.stringify(messages, null, 2));
+      
+      // Handle array of messages
+      const msgArray = Array.isArray(messages) ? messages : [messages];
+      
+      for (const msg of msgArray) {
+        // Handle authentication response
+        if (msg.ev === 'status') {
+          console.log('Polygon status:', msg.status, msg.message);
+          if (msg.status === 'auth_success') {
+            console.log('✅ Polygon authentication successful');
+          } else if (msg.status === 'auth_failed') {
+            console.error('❌ Polygon authentication failed');
+          }
+          continue;
+        }
+        
         // Handle aggregate minute bars (AM) and aggregate second bars (A)
-        if ((msg.ev === 'AM' || msg.ev === 'A') && onCandleCallback) {
+        if ((msg.ev === 'AM' || msg.ev === 'A') && msg.sym && onCandleCallback) {
           const candle: Candle = {
             symbol: msg.sym,
             timeframe: msg.ev === 'AM' ? '1m' : '1s',
@@ -61,6 +89,7 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
             end: new Date(msg.e || msg.s).toISOString()
           };
           
+          console.log(`📈 Received candle: ${msg.sym} ${msg.c}`);
           onCandleCallback(candle);
         }
       }
@@ -69,11 +98,34 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     }
   });
   
-  wsClient.on('close', () => {
-    console.log('Polygon WebSocket disconnected');
+  wsClient.on('close', (code, reason) => {
+    console.log(`Polygon WebSocket disconnected - Code: ${code}, Reason: ${reason}`);
     isConnected = false;
-    // Reconnect after 1 second
-    setTimeout(() => connectPolygon(apiKey, onCandleCallback!), 1000);
+    
+    // Clear any existing reconnect timeout
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout);
+      reconnectTimeout = null;
+    }
+    
+    // Only reconnect if we haven't exceeded max attempts and not shutting down
+    if (reconnectAttempts < maxReconnectAttempts && onCandleCallback && !isShuttingDown) {
+      reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000); // Exponential backoff, max 30 seconds
+      console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+      
+      reconnectTimeout = setTimeout(() => {
+        if (onCandleCallback && !isShuttingDown) {
+          connectPolygon(apiKey, onCandleCallback);
+        }
+      }, delay);
+    } else {
+      if (isShuttingDown) {
+        console.log('Stopping reconnection - server is shutting down');
+      } else {
+        console.log('Max reconnection attempts reached or no callback available. Stopping reconnection.');
+      }
+    }
   });
   
   wsClient.on('error', (error) => {
@@ -87,12 +139,16 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
 export function subscribeSymbols(symbols: string[], granularity: 'AM' | 'A' = 'AM') {
   const topics = symbols.map(s => `${granularity}.${s.toUpperCase()}`);
   
-  topics.forEach(t => desiredSubscriptions.add(t));
+  // Limit to first 10 symbols to avoid policy violations
+  const limitedTopics = topics.slice(0, 10);
+  console.log(`Limiting subscription to ${limitedTopics.length} symbols (from ${topics.length} requested)`);
+  
+  limitedTopics.forEach(t => desiredSubscriptions.add(t));
   
   if (isConnected && wsClient) {
     wsClient.send(JSON.stringify({
       action: 'subscribe',
-      params: topics.join(',')
+      params: limitedTopics.join(',')
     }));
   }
 }
@@ -111,10 +167,33 @@ export function unsubscribeSymbols(symbols: string[], granularity: 'AM' | 'A' = 
 }
 
 export function disconnectPolygon() {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+  
   if (wsClient) {
     wsClient.close();
     wsClient = null;
   }
   isConnected = false;
+  reconnectAttempts = 0;
   desiredSubscriptions.clear();
+}
+
+export function shutdownPolygon() {
+  console.log('Shutting down Polygon WebSocket...');
+  isShuttingDown = true;
+  disconnectPolygon();
+}
+
+export function resetPolygonConnection(apiKey: string, onCandle: (candle: Candle) => void) {
+  console.log('Resetting Polygon connection...');
+  disconnectPolygon();
+  reconnectAttempts = 0;
+  connectPolygon(apiKey, onCandle);
+}
+
+export function isPolygonConnected(): boolean {
+  return isConnected;
 }

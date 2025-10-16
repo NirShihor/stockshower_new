@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_ENDPOINTS } from '../config/api';
 
+const getBaseUrl = (): string => {
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5001';
+  }
+  return '';
+};
+
 interface GapUpStock {
   stockSymbol: string;
   currentPrice: string;
@@ -22,6 +29,17 @@ interface GapUpStock {
   first15MinHigh?: string;
   first15MinLow?: string;
   first15MinClose?: string;
+}
+
+interface GapTradePlan {
+  direction: 'long' | 'short';
+  entry: number;
+  stop: number;
+  targets: number[];
+  positionQty: number;
+  riskRewardRatio: string;
+  orderType: string;
+  strategy: string;
 }
 
 interface GapUpScanData {
@@ -51,6 +69,7 @@ const GapScannerPage: React.FC = () => {
   const [currentRiskAssessment, setCurrentRiskAssessment] = useState<{symbol: string, assessment: string, timestamp: number} | null>(null);
   const [hasRealTimeAccess, setHasRealTimeAccess] = useState<boolean>(true); // Assume true initially
   const [showScanningMessage, setShowScanningMessage] = useState<boolean>(false);
+  const [placingOrder, setPlacingOrder] = useState<string | null>(null);
 
   // Load persisted scan data on component mount
   useEffect(() => {
@@ -233,10 +252,10 @@ const GapScannerPage: React.FC = () => {
       return newMap;
     });
 
-    // Set next update time to 45 seconds from now
+    // Set next update time to 60 seconds from now
     setNextUpdateTimes(prev => {
       const newMap = new Map(prev);
-      const nextTime = now + 45000;
+      const nextTime = now + 60000;
       newMap.set(symbol, nextTime);
       console.log(`Setting next update time for ${symbol}: ${new Date(nextTime).toLocaleTimeString()}`);
       return newMap;
@@ -266,7 +285,7 @@ const GapScannerPage: React.FC = () => {
       // Set next update time
       setNextUpdateTimes(prev => {
         const newMap = new Map(prev);
-        const nextTime = updateTime + 45000;
+        const nextTime = updateTime + 60000;
         newMap.set(symbol, nextTime);
         console.log(`Updating next update time for ${symbol}: ${new Date(nextTime).toLocaleTimeString()}`);
         return newMap;
@@ -298,7 +317,7 @@ const GapScannerPage: React.FC = () => {
         
         return newMap;
       });
-    }, 45000); // 45 seconds
+    }, 60000); // 60 seconds
 
     setPriceIntervals(prev => {
       const newMap = new Map(prev);
@@ -442,6 +461,215 @@ const GapScannerPage: React.FC = () => {
 
   const goToChart = (symbol: string) => {
     navigate(`/charts?symbol=${symbol}`);
+  };
+
+  // Helper function to determine MT5 order type for gap trades
+  const getMT5OrderType = (direction: 'long' | 'short', currentPrice: number, entryPrice: number): string => {
+    if (direction === 'long') {
+      if (entryPrice > currentPrice) {
+        return 'Buy Stop';
+      } else {
+        return 'Buy Limit';
+      }
+    } else {
+      if (entryPrice < currentPrice) {
+        return 'Sell Stop';
+      } else {
+        return 'Sell Limit';
+      }
+    }
+  };
+
+  // Generate trading plan for gap stocks
+  const generateGapTradePlan = (stock: GapUpStock): GapTradePlan => {
+    // Helper function to safely parse price strings
+    const parsePrice = (priceStr: string | undefined): number => {
+      if (!priceStr) return 0;
+      const cleaned = priceStr.replace(/[$,]/g, '');
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const currentPrice = parsePrice(stock.livePrice || stock.currentPrice);
+    const openPrice = parsePrice(stock.openPrice);
+    const twentyDayLevel = parsePrice(stock.twentyDayHigh);
+    const first15MinHigh = parsePrice(stock.first15MinHigh);
+    const first15MinLow = parsePrice(stock.first15MinLow);
+    const first15MinClose = parsePrice(stock.first15MinClose);
+    const previousClose = parsePrice(stock.previousClose);
+
+    // Validate required data
+    if (!stock.first15MinHigh || !stock.first15MinLow || first15MinHigh === 0 || first15MinLow === 0) {
+      throw new Error('Missing required first 15-minute data for trading plan');
+    }
+
+    // Validate parsed prices
+    if (currentPrice === 0 || twentyDayLevel === 0) {
+      console.warn('Invalid price data for trading plan:', {
+        currentPrice,
+        twentyDayLevel,
+        stock
+      });
+      throw new Error('Invalid price data for trading plan');
+    }
+    
+    if (activeTab === 'up') {
+      // Gap Up Strategy
+      const entry = Math.max(first15MinHigh, twentyDayLevel) + 0.05; // Entry above breakout level
+      const stop = Math.min(first15MinLow, previousClose) - 0.05; // Stop below support
+      const risk = entry - stop;
+      const target1 = entry + (risk * 1.5); // 1.5:1 target
+      const target2 = entry + (risk * 2.5); // 2.5:1 target
+      
+      return {
+        direction: 'long',
+        entry: Number(entry.toFixed(2)),
+        stop: Number(stop.toFixed(2)),
+        targets: [Number(target1.toFixed(2)), Number(target2.toFixed(2))],
+        positionQty: 1, // Will be adjusted by position sizing
+        riskRewardRatio: '1:1.5',
+        orderType: getMT5OrderType('long', currentPrice, entry),
+        strategy: 'Gap Up Breakout'
+      };
+    } else {
+      // Gap Down Strategy  
+      const entry = Math.min(first15MinLow, twentyDayLevel) - 0.05; // Entry below breakdown level
+      const stop = Math.max(first15MinHigh, previousClose) + 0.05; // Stop above resistance
+      const risk = stop - entry;
+      const target1 = entry - (risk * 1.5); // 1.5:1 target
+      const target2 = entry - (risk * 2.5); // 2.5:1 target
+      
+      return {
+        direction: 'short',
+        entry: Number(entry.toFixed(2)),
+        stop: Number(stop.toFixed(2)),
+        targets: [Number(target1.toFixed(2)), Number(target2.toFixed(2))],
+        positionQty: 1, // Will be adjusted by position sizing
+        riskRewardRatio: '1:1.5',
+        orderType: getMT5OrderType('short', currentPrice, entry),
+        strategy: 'Gap Down Breakdown'
+      };
+    }
+  };
+
+  // Handle placing MT5 orders for gap trades
+  const handlePlaceGapOrder = async (stock: GapUpStock) => {
+    if (placingOrder) return;
+    
+    // Validate we have the required data
+    if (!stock.first15MinHigh || !stock.first15MinLow) {
+      alert('❌ Cannot place order: Missing required first 15-minute trading data for this stock.');
+      return;
+    }
+    
+    setPlacingOrder(stock.stockSymbol);
+    
+    try {
+      const tradePlan = generateGapTradePlan(stock);
+      
+      // Helper function to safely parse price strings
+      const parsePrice = (priceStr: string | undefined): number => {
+        if (!priceStr) return 0;
+        const cleaned = priceStr.replace(/[$,]/g, '');
+        const parsed = parseFloat(cleaned);
+        return isNaN(parsed) ? 0 : parsed;
+      };
+      
+      const currentPrice = parsePrice(stock.livePrice || stock.currentPrice);
+      
+      // Create a comprehensive signal structure that matches what MT5 handler expects
+      const gapSignal = {
+        id: `gap-${stock.stockSymbol}-${Date.now()}`,
+        symbol: stock.stockSymbol,
+        timeframe: '5m',
+        time: new Date().toISOString(),
+        pattern: {
+          name: tradePlan.strategy,
+          class: 'single' as const,
+          direction: tradePlan.direction === 'long' ? 'bullish' : 'bearish' as const,
+          barsInvolved: 1,
+          patternHigh: parseFloat(stock.first15MinHigh?.replace('$', '') || '0'),
+          patternLow: parseFloat(stock.first15MinLow?.replace('$', '') || '0')
+        },
+        context: {
+          trend: activeTab === 'up' ? 'up' : 'down' as const,
+          atSupport: activeTab === 'down',
+          atResistance: activeTab === 'up',
+          nearestSupport: activeTab === 'down' ? parseFloat(stock.twentyDayHigh?.replace('$', '') || '0') : undefined,
+          nearestResistance: activeTab === 'up' ? parseFloat(stock.twentyDayHigh?.replace('$', '') || '0') : undefined,
+          atr: Math.abs(tradePlan.entry - tradePlan.stop) / 2, // Rough ATR estimate
+          volumeFactor: 1.5, // Default
+          isHighVolume: (stock.volume || 0) > 500000,
+          isWideRange: true
+        },
+        confirmation: {
+          triggerSide: tradePlan.direction === 'long' ? 'above_high' : 'below_low' as const,
+          triggerPrice: tradePlan.direction === 'long' ? 
+            parseFloat(stock.first15MinHigh?.replace('$', '') || '0') : 
+            parseFloat(stock.first15MinLow?.replace('$', '') || '0'),
+          invalidationPrice: tradePlan.stop,
+          validForBars: 5
+        },
+        plan: tradePlan,
+        score: 65, // Default score for gap trades
+        notes: [`Gap ${activeTab} trade based on ${stock.gapPercentage} gap`],
+        currentPrice: currentPrice,
+        trapRisk: 'low' as const
+      };
+
+      // First call preview to check for price adjustments
+      const previewResponse = await fetch(`${getBaseUrl()}/api/candlestick/mt5/preview-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gapSignal)
+      });
+
+      if (!previewResponse.ok) {
+        throw new Error('Failed to preview order');
+      }
+
+      const previewResult = await previewResponse.json();
+      
+      if (previewResult.priceAdjusted) {
+        const confirmMessage = `⚠️ PRICE ADJUSTMENT REQUIRED ⚠️
+
+Original Entry: $${tradePlan.entry}
+Adjusted Entry: $${previewResult.adjustedEntry}
+Current Market: $${currentPrice}
+
+Reason: ${previewResult.adjustmentReason}
+
+Do you want to proceed with the adjusted price?`;
+
+        if (!window.confirm(confirmMessage)) {
+          return;
+        }
+      }
+
+      // Place the actual order
+      const response = await fetch(`${getBaseUrl()}/api/candlestick/mt5/place-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(gapSignal)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to place order');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Order placed successfully!\n\nOrder ID: ${result.orderId}\nSymbol: ${stock.stockSymbol}\nType: ${tradePlan.orderType}\nEntry: $${result.entryPrice || tradePlan.entry}\nStop: $${tradePlan.stop}\nTarget: $${tradePlan.targets[0]}`);
+      } else {
+        alert(`❌ Failed to place order:\n\n${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error placing gap order:', error);
+      alert('Failed to communicate with MT5 bridge. Please check the connection.');
+    } finally {
+      setPlacingOrder(null);
+    }
   };
 
   return (
@@ -670,13 +898,13 @@ const GapScannerPage: React.FC = () => {
                   )}
                   {stock.first15MinLow && (
                     <div className="detail-row">
-                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s First 15min Low` : 'First 15min Low'} (<strong>stop loss</strong>):</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s First 15min Low:` : 'First 15min Low:'}</span>
                       <span className="value" style={{color: '#e74c3c', fontWeight: 'bold'}}>{stock.first15MinLow}</span>
                     </div>
                   )}
                   {stock.first15MinClose && (
                     <div className="detail-row">
-                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s First 15min Close` : 'First 15min Close'} (<strong>buy limit order</strong>):</span>
+                      <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s First 15min Close:` : 'First 15min Close:'}</span>
                       <span className="value" style={{color: '#FF8C00', fontWeight: 'bold'}}>{stock.first15MinClose}</span>
                     </div>
                   )}
@@ -722,6 +950,72 @@ const GapScannerPage: React.FC = () => {
                   <p>{stock.analysis}</p>
                 </div>
 
+                {/* Trading Plan Preview */}
+                {stock.suitable && stock.first15MinHigh && stock.first15MinLow && (() => {
+                  const tradePlan = generateGapTradePlan(stock);
+                  
+                  // Helper function to safely parse price strings
+                  const parsePrice = (priceStr: string | undefined): number => {
+                    if (!priceStr) return 0;
+                    const cleaned = priceStr.replace(/[$,]/g, '');
+                    const parsed = parseFloat(cleaned);
+                    return isNaN(parsed) ? 0 : parsed;
+                  };
+                  
+                  // Use live tracked price if available, otherwise fall back to stock data
+                  const trackedPrice = trackingStocks.has(stock.stockSymbol) && livePrices.has(stock.stockSymbol) 
+                    ? livePrices.get(stock.stockSymbol)?.price 
+                    : null;
+                  const currentPrice = parsePrice(trackedPrice || stock.livePrice || stock.currentPrice);
+                  const isMarketClosed = currentPrice === 0 || isNaN(currentPrice);
+                  
+                  return (
+                    <div className="gap-trade-plan" style={{
+                      background: '#f8f9fa',
+                      border: '1px solid #e9ecef',
+                      borderRadius: '6px',
+                      padding: '12px',
+                      margin: '12px 0'
+                    }}>
+                      <div className="plan-header" style={{marginBottom: '8px'}}>
+                        <span style={{fontSize: '12px', fontWeight: '600', color: '#495057', textTransform: 'uppercase'}}>
+                          {tradePlan.strategy} Setup
+                        </span>
+                      </div>
+                      <div className="plan-details" style={{display: 'flex', flexDirection: 'column', gap: '6px'}}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '16px'}}>
+                          <span style={{color: '#343a40', fontWeight: '700'}}>Order Type:</span>
+                          <span style={{fontWeight: '600', fontSize: '15px', padding: '4px 10px', borderRadius: '4px', backgroundColor: tradePlan.direction === 'long' ? '#d4edda' : '#f8d7da', color: tradePlan.direction === 'long' ? '#155724' : '#721c24'}}>
+                            {tradePlan.orderType}
+                          </span>
+                        </div>
+                        <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '16px', backgroundColor: '#fff3cd', padding: '8px', borderRadius: '4px', border: '1px solid #ffeaa7'}}>
+                          <span style={{color: '#343a40', fontWeight: '700'}}>📊 Current Price:</span>
+                          <span style={{fontWeight: '600', color: isMarketClosed ? '#dc3545' : '#212529'}}>
+                            {isMarketClosed ? 'Market Closed' : `$${currentPrice.toFixed(2)}`}
+                          </span>
+                        </div>
+                        <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '16px', backgroundColor: '#d1ecf1', padding: '8px', borderRadius: '4px', border: '1px solid #bee5eb'}}>
+                          <span style={{color: '#343a40', fontWeight: '700'}}>🎯 Entry Price:</span>
+                          <span style={{fontWeight: '600', color: '#0c5460'}}>${tradePlan.entry}</span>
+                        </div>
+                        <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '16px', backgroundColor: '#f8d7da', padding: '8px', borderRadius: '4px', border: '1px solid #f5c6cb'}}>
+                          <span style={{color: '#343a40', fontWeight: '700'}}>🛑 Stop Loss:</span>
+                          <span style={{fontWeight: '600', color: '#721c24'}}>${tradePlan.stop}</span>
+                        </div>
+                        <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '16px', backgroundColor: '#d4edda', padding: '8px', borderRadius: '4px', border: '1px solid #c3e6cb'}}>
+                          <span style={{color: '#343a40', fontWeight: '700'}}>💰 Take Profit:</span>
+                          <span style={{fontWeight: '600', color: '#155724'}}>${tradePlan.targets[0]}</span>
+                        </div>
+                        <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '16px'}}>
+                          <span style={{color: '#343a40', fontWeight: '700'}}>Risk/Reward:</span>
+                          <span style={{fontWeight: '600', color: '#007bff'}}>{tradePlan.riskRewardRatio}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
 
                 <div className="live-tracking-controls" style={{
                   position: 'relative',
@@ -747,7 +1041,7 @@ const GapScannerPage: React.FC = () => {
                             fontFamily: 'SchoolPencil-Regular, sans-serif'
                           }}
                         >
-                          🔍 Start Price Tracking (45s intervals)
+                          🔍 Start Price Tracking (60s intervals)
                         </button>
                         <small style={{color: '#666', fontSize: '0.75rem', fontStyle: 'italic', fontFamily: 'SchoolPencil-Regular, sans-serif', textAlign: 'center'}}>
                           Note: Using most recent close price (real-time data requires subscription upgrade)
@@ -773,8 +1067,8 @@ const GapScannerPage: React.FC = () => {
                             const secondsLeft = Math.max(0, Math.floor((nextUpdate - currentTime) / 1000));
                             console.log(`Countdown for ${stock.stockSymbol}: nextUpdate=${nextUpdate}, currentTime=${currentTime}, secondsLeft=${secondsLeft}`);
                             return hasRealTimeAccess 
-                              ? `Tracking live prices every 45 seconds • Next update in ~${secondsLeft}s`
-                              : `Checking for price updates every 45 seconds • Next check in ~${secondsLeft}s`;
+                              ? `Tracking live prices every 60 seconds • Next update in ~${secondsLeft}s`
+                              : `Checking for price updates every 60 seconds • Next check in ~${secondsLeft}s`;
                           })()}
                         </small>
                       </div>
@@ -813,6 +1107,23 @@ const GapScannerPage: React.FC = () => {
                         }}
                       >
                         📈 View Chart
+                      </button>
+                    )}
+
+                    {stock.suitable && stock.first15MinHigh && stock.first15MinLow && (
+                      <button 
+                        className="analysis-button"
+                        onClick={() => handlePlaceGapOrder(stock)}
+                        disabled={placingOrder === stock.stockSymbol}
+                        style={{
+                          backgroundColor: placingOrder === stock.stockSymbol ? '#6c757d' : '#2e7d32',
+                          color: 'white',
+                          fontSize: '1.4rem',
+                          padding: '0.5rem 1rem',
+                          opacity: placingOrder === stock.stockSymbol ? 0.6 : 1
+                        }}
+                      >
+                        {placingOrder === stock.stockSymbol ? '⏳ Placing Order...' : `🎯 Place ${activeTab === 'up' ? 'Gap Up' : 'Gap Down'} Order`}
                       </button>
                     )}
                   </div>
