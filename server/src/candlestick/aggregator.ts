@@ -188,11 +188,11 @@ function checkForCompletedPeriods(
   // Force check all periods, not just for this symbol
   const now = Date.now();
   for (const [key, aggregate] of aggregatesBySymbol.entries()) {
-    const periodEnd = aggregate.periodStart + (5 * 60 * 1000);
+    const periodEndMs = aggregate.periodStart + (5 * 60 * 1000);
     
     // Check if period should be complete (either by time or by new period starting)
-    if (aggregate.periodStart < currentPeriodTime || now > periodEnd + 5000) {
-      console.log(`[AGGREGATOR] Found completed period for ${aggregate.symbol}: ${aggregate.start} (overdue by ${Math.round((now - periodEnd)/1000)}s)`);
+    if (aggregate.periodStart < currentPeriodTime || now > periodEndMs + 5000) {
+      console.log(`[AGGREGATOR] Found completed period for ${aggregate.symbol}: ${aggregate.start} (overdue by ${Math.round((now - periodEndMs)/1000)}s)`);
       // This period is complete
       const periodEnd = new Date(aggregate.periodStart + 5 * 60 * 1000); // 5 minutes later
       

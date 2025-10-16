@@ -89,7 +89,7 @@ class MetaApiRestHandler {
               broker: infoResponse.data.broker
             }
           };
-        } catch (infoError) {
+        } catch (infoError: any) {
           // Account is connected but can't get detailed info - that's OK for trading
           console.log('[MetaApi] Account connected but unable to fetch detailed info:', infoError.response?.status);
           return {
@@ -199,9 +199,21 @@ class MetaApiRestHandler {
   }
 
   async placeOrder(signal: ComprehensiveSignal): Promise<MetaApiOrderResult> {
+    // Declare variables that will be used in catch blocks
+    let actionType: string = '';
+    let orderRequest: any = {};
+    
     try {
       const { symbol, plan, currentPrice } = signal;
       const isLong = plan.direction === 'long';
+      
+      // Validate currentPrice is provided
+      if (currentPrice === undefined) {
+        return {
+          success: false,
+          error: 'Current price is required but not provided in the signal'
+        };
+      }
       
       // Log the incoming signal data to debug price mismatch
       console.log(`[MetaApi] Incoming signal data:`, {
@@ -238,9 +250,6 @@ class MetaApiRestHandler {
         console.log(`[MetaApi] Waiting 1 second for cancellations to complete...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
-      // This will be set after we get the current market price
-      let actionType: string;
 
       // Position sizing to target £5 MARGIN (not notional value)
       const targetMarginGBP = 5; // £5 margin per trade
@@ -289,7 +298,7 @@ class MetaApiRestHandler {
           actualMarginGBP: `£${actualMarginGBP.toFixed(2)}`
         });
         
-      } catch (error) {
+      } catch (error: any) {
         console.log('[MetaApi] Error calculating margin-based position size, using default:', error.message);
         volume = 0.01;
       }
@@ -424,7 +433,7 @@ class MetaApiRestHandler {
         TP Distance: ${Math.abs(roundedTakeProfit - roundedEntry)}
       `);
       
-      const orderRequest: any = {
+      orderRequest = {
         symbol: mt5Symbol,
         actionType: actionType,
         volume: volume,
@@ -506,8 +515,7 @@ class MetaApiRestHandler {
           data: {
             orderId: response.data.orderId || response.data.ticket || response.data.id || 'N/A',
             positionId: response.data.positionId || 'N/A',
-            message: `${actionType} order placed successfully`,
-            rawResponse: response.data
+            message: `${actionType} order placed successfully`
           }
         };
       } else {
@@ -526,7 +534,7 @@ class MetaApiRestHandler {
       });
       
       // If 404, try alternative trading endpoint
-      if (error.response?.status === 404) {
+      if (error.response?.status === 404 && orderRequest && actionType) {
         console.log('[MetaApi] REST trade endpoint not found, trying RPC endpoint...');
         try {
           // Try the RPC endpoint for trading with London region
@@ -588,6 +596,14 @@ class MetaApiRestHandler {
     try {
       const { symbol, plan, currentPrice } = signal;
       const isLong = plan.direction === 'long';
+      
+      // Validate currentPrice is provided
+      if (currentPrice === undefined) {
+        return {
+          success: false,
+          error: 'Current price is required but not provided in the signal'
+        };
+      }
       
       // Convert symbol to MT5 format
       const mt5Symbol = this.convertToMT5Symbol(symbol);
