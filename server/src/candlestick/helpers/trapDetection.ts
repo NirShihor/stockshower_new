@@ -178,13 +178,13 @@ function checkVolumeDivergence(
   if (candles.length < 10) return null;
   
   const recent = candles.slice(-5);
-  const avgVolume = recent.reduce((sum, c) => sum + c.volume, 0) / recent.length;
+  const avgVolume = recent.reduce((sum, c) => sum + (c.volume ?? 0), 0) / recent.length;
   const current = candles[candles.length - 1];
   
   // High volume on opposite direction candles
   if (pattern.direction === 'bullish') {
     const redCandlesWithHighVolume = recent.filter(c => 
-      c.close < c.open && c.volume > avgVolume * 1.5
+      c.close < c.open && (c.volume ?? 0) > avgVolume * 1.5
     ).length;
     
     if (redCandlesWithHighVolume >= 2) {
@@ -197,7 +197,7 @@ function checkVolumeDivergence(
     }
   } else if (pattern.direction === 'bearish') {
     const greenCandlesWithHighVolume = recent.filter(c => 
-      c.close > c.open && c.volume > avgVolume * 1.5
+      c.close > c.open && (c.volume ?? 0) > avgVolume * 1.5
     ).length;
     
     if (greenCandlesWithHighVolume >= 2) {
@@ -211,7 +211,7 @@ function checkVolumeDivergence(
   }
   
   // Pattern formed on unusually low volume
-  if (current.volume < avgVolume * 0.5) {
+  if ((current.volume ?? 0) < avgVolume * 0.5) {
     return {
       type: 'volume_divergence',
       severity: 'medium',
