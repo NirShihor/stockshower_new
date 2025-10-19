@@ -139,12 +139,18 @@ This document describes how the StockShower trading algorithms work, including p
 }
 ```
 
-## Signal Classification
+## Signal Classification & Auto-Execution
 
-### Actionable Signals (60+ points)
+### Auto-Executed Signals (65+ points)
+- **Premium quality patterns** with exceptional confirmation
+- **Automatically placed as trades** without manual approval
+- Meet all quality requirements with high confidence
+- **Immediate execution** via MetaAPI integration
+
+### Actionable Signals (60-64 points)
 - High-quality patterns with strong confirmation
-- Automatically trigger trade orders
-- Meet all quality requirements
+- Displayed for manual review and approval
+- Meet quality requirements but below auto-execution threshold
 
 ### Watch Signals (20-59 points)
 - Moderate quality patterns
@@ -156,6 +162,38 @@ This document describes how the StockShower trading algorithms work, including p
 - Filtered out completely
 - Usually have multiple negative factors
 
+## Auto-Execution System
+
+### High-Score Auto-Execution (65+)
+- **Threshold**: 65+ points
+- **Action**: Immediate order placement
+- **Logic**: Pattern quality is high enough for automated trading
+- **Risk**: Standard position sizing (0.5% account risk)
+
+### Trap Fade Auto-Execution
+- **Trigger**: High trap risk patterns with specific criteria
+- **Action**: Creates and executes **opposite direction** trade
+- **Strategy**: Fade failed breakouts and stop hunts
+- **Target Patterns**:
+  - Tweezer Tops/Bottoms with high volume
+  - Patterns at round numbers
+  - Long wick patterns (stop hunts)
+  - Volume spikes without follow-through
+
+### Trap Fade Criteria
+- **Trap Risk**: Must be "high"
+- **Pattern Types**: Tweezer, Shooting Star, Hammer, Fade patterns
+- **Volume**: 2.0x+ average (suggests manipulation)
+- **Price Levels**: Near round numbers
+- **Wick Analysis**: Long wicks indicating stop hunts
+
+### Fade Signal Generation
+- **Direction**: Opposite to original pattern
+- **Entry**: Slightly counter to trap direction
+- **Stop Loss**: Beyond trap level with ATR buffer
+- **Targets**: 1.5R and 2.5R based on ATR
+- **Score**: Assigned 75 points (auto-execution level)
+
 ## Recent Algorithm Improvements
 
 ### October 2024 Updates
@@ -164,13 +202,17 @@ This document describes how the StockShower trading algorithms work, including p
 3. **Duplicate Prevention**: 20-minute blocking for same pattern/symbol
 4. **Raised Score Threshold**: Increased from 55 to 60 for actionable signals
 5. **Market Context Weighting**: Reduced sideways bonuses, added counter-trend penalties
+6. **Auto-Execution System**: Added automatic trading for 65+ score patterns
+7. **Trap Fade Strategy**: Automatic opposite trades for high-risk trap patterns
 
 These improvements target the 100% cancellation rate issue by:
-- Reducing slippage with tighter entries
-- Filtering weak volume patterns
-- Preventing signal spam
-- Raising quality standards
-- Better trend awareness
+- **Reducing slippage** with tighter entries
+- **Filtering weak volume** patterns
+- **Preventing signal spam** with duplicate blocking
+- **Raising quality standards** with higher thresholds
+- **Better trend awareness** with context weighting
+- **Automated execution** for highest quality setups
+- **Trap fade profits** from failed breakout attempts
 
 ## File Locations
 
