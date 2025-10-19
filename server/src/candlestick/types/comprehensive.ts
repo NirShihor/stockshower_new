@@ -5,6 +5,7 @@ export interface TradingParameters {
   srLookback: number;
   srToleranceATR: number;
   volSpikeFactor: number;
+  minVolumeMultiplier: number;
   minBodyPct: number;
   dojiBodyPctMax: number;
   longWickPctMin: number;
@@ -24,6 +25,7 @@ export const DEFAULT_PARAMS: TradingParameters = {
   srLookback: 200,
   srToleranceATR: 0.25,
   volSpikeFactor: 1.5,
+  minVolumeMultiplier: 1.2,
   minBodyPct: 0.15,         // Further reduced for debugging
   dojiBodyPctMax: 0.25,     // Even more liberal for debugging
   longWickPctMin: 0.35,     // Further reduced for debugging
