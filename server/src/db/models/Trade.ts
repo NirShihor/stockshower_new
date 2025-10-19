@@ -2,16 +2,17 @@ import { Schema, model, Types } from 'mongoose';
 
 // Define the document interface with all required and optional fields
 export interface ITrade {
+  _id?: any; // MongoDB document ID
   // Basic trade info
   symbol: string;
   mt5Symbol: string;
   patternName: string;
   patternScore: number;
-  patternClass?: 'single' | 'double' | 'triple';
+  patternClass?: 'single' | 'double' | 'triple' | null;
   
   // Price levels
   entryPrice: number;          // Planned entry from signal
-  actualEntryPrice?: number;   // Actual filled price
+  actualEntryPrice?: number | null;   // Actual filled price
   stopLoss: number;
   takeProfit: number;
   
@@ -22,22 +23,22 @@ export interface ITrade {
   
   // Timing
   signalTime: Date;
-  orderPlacedTime?: Date;
-  filledTime?: Date;
-  closedTime?: Date;
+  orderPlacedTime?: Date | null;
+  filledTime?: Date | null;
+  closedTime?: Date | null;
   
   // Exit details
-  exitPrice?: number;
+  exitPrice?: number | null;
   exitReason?: 'stop_loss' | 'take_profit' | 'manual' | 'system' | 'timeout';
   
   // Cancellation details
   cancelReason?: 'price_never_reached' | 'manual_cancel' | 'end_of_day' | 'timeout' | 'system';
-  cancelTime?: Date;
+  cancelTime?: Date | null;
   
   // P&L
-  pnlAmount?: number;
-  pnlPercentage?: number;
-  commission?: number;
+  pnlAmount?: number | null;
+  pnlPercentage?: number | null;
+  commission?: number | null;
   
   // Market conditions
   marketConditions?: {

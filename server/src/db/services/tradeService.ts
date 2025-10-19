@@ -60,7 +60,7 @@ export class TradeService {
         status: 'pending'
       });
       
-      return await trade.save();
+      return await trade.save() as ITrade;
     } catch (error) {
       console.error('Error creating trade:', error);
       throw error;
@@ -154,7 +154,7 @@ export class TradeService {
         await trade.save();
       }
       
-      return trade;
+      return trade as ITrade | null;
     } catch (error) {
       console.error('Error closing trade:', error);
       throw error;
