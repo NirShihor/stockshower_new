@@ -9,7 +9,7 @@ class MT5Config:
     SERVER = os.getenv('MT5_SERVER', '')
 
 class ScannerConfig:
-    BASE_URL = os.getenv('SCANNER_BASE_URL', 'http://localhost:5001')
+    BASE_URL = os.getenv('SCANNER_BASE_URL', 'http://localhost:5002')
     MIN_SIGNAL_SCORE = float(os.getenv('MINIMUM_SIGNAL_SCORE', '70'))
     MAX_TRADES_PER_DAY = int(os.getenv('MAX_TRADES_PER_DAY', '10'))
     RISK_PERCENTAGE = float(os.getenv('RISK_PERCENTAGE', '2.0'))

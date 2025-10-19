@@ -5,7 +5,7 @@ async function testBothScans() {
   try {
     console.log('Testing gap UP scanning...');
     
-    const gapUpResponse = await axios.post('http://localhost:5001/api/analysis/scan-gap-ups', {
+    const gapUpResponse = await axios.post('http://localhost:5002/api/analysis/scan-gap-ups', {
       volatilityLevel: 'high'
     });
     
@@ -21,7 +21,7 @@ async function testBothScans() {
     
     console.log('Testing gap DOWN scanning...');
     
-    const gapDownResponse = await axios.post('http://localhost:5001/api/analysis/scan-gap-downs', {
+    const gapDownResponse = await axios.post('http://localhost:5002/api/analysis/scan-gap-downs', {
       volatilityLevel: 'high'
     });
     

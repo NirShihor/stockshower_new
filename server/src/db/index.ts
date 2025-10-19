@@ -1,0 +1,3 @@
+export { connectDatabase } from './connection.js';
+export { Trade, ITrade } from './models/Trade.js';
+export { TradeService } from './services/tradeService.js';

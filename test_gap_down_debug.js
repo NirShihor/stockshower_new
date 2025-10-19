@@ -5,7 +5,7 @@ async function testGapDownDebug() {
   try {
     console.log('Testing gap DOWN scanning with debug...');
     
-    const response = await axios.post('http://localhost:5001/api/analysis/scan-gap-downs', {
+    const response = await axios.post('http://localhost:5002/api/analysis/scan-gap-downs', {
       volatilityLevel: 'high'
     });
     

@@ -6,6 +6,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import http from 'http';
+import { connectDatabase } from './src/db/connection.js';
+import { positionMonitor } from './src/services/positionMonitor.js';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +15,7 @@ const __dirname = path.dirname(__filename);
 
 import analysisRoutes from './src/routes/analysis.js';
 import candlestickRoutes from './src/routes/candlestick.js';
+import tradesRoutes from './src/routes/trades.js';
 import { setupWebSocketServer, handleCandle, handleSignal, getSignals } from './src/websocket/server.js';
 import { connectPolygon, shutdownPolygon } from './src/handlers/polygonWebSocket.js';
 import { stopMockDataFeed } from './src/handlers/mockDataGenerator.js';
@@ -26,7 +29,7 @@ import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
 
   // Initialize Express app
   const app = express();
-  const PORT = process.env.PORT || 5001;
+  const PORT = process.env.PORT || 5002;
 
   // Middleware
   app.use(cors({
@@ -45,6 +48,7 @@ import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
 
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/candlestick', candlestickRoutes);
+app.use('/api/trades', tradesRoutes);
 
 // Signals endpoint
 app.get('/api/signals', (req: Request, res: Response) => {
@@ -131,6 +135,10 @@ if (process.env.NODE_ENV === 'production') {
         console.log('Starting MT5 cleanup schedulers...');
         metaApiHandler.startEndOfDayScheduler();
         metaApiHandler.startOrderCleanup();
+        
+        // Start position monitoring for trade tracking
+        console.log('Starting position monitoring service...');
+        positionMonitor.start();
       } else {
         console.log('MetaApi credentials not found - automated cleanup disabled');
       }
@@ -138,23 +146,16 @@ if (process.env.NODE_ENV === 'production') {
   };
 
   // Connect to MongoDB
-  if (process.env.MONGODB_URI) {
-    console.log('Attempting to connect to MongoDB...');
-    mongoose
-      .connect(process.env.MONGODB_URI)
-      .then(() => {
-        console.log('Connected to MongoDB');
-        startServer();
-      })
-      .catch((error) => {
-        console.error('MongoDB connection error:', error);
-        console.log('Starting server without MongoDB connection');
-        startServer();
-      });
-  } else {
-    console.log('No MongoDB URI provided, starting server without database');
-    startServer();
-  }
+  console.log('Attempting to connect to MongoDB...');
+  connectDatabase()
+    .then(() => {
+      startServer();
+    })
+    .catch((error) => {
+      console.error('MongoDB connection error:', error);
+      console.log('Starting server without MongoDB connection');
+      startServer();
+    });
 
 // Graceful shutdown
 process.on('SIGINT', () => {
@@ -165,6 +166,7 @@ process.on('SIGINT', () => {
   stopMockDataFeed();
   stopMockSignalFeed();
   clearAggregator(); // Clean up aggregator timers
+  positionMonitor.stop(); // Stop position monitoring
   
   // Force exit after 5 seconds if graceful shutdown fails
   setTimeout(() => {

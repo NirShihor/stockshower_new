@@ -5,7 +5,7 @@ async function testGapUp() {
   try {
     console.log('Testing gap UP scanning with HIGH volatility...');
     
-    const response = await axios.post('http://localhost:5001/api/analysis/scan-gap-ups', {
+    const response = await axios.post('http://localhost:5002/api/analysis/scan-gap-ups', {
       volatilityLevel: 'high'
     });
     

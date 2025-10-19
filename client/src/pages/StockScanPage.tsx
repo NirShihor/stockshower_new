@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 const getBaseUrl = (): string => {
   if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:5001';
+    return 'http://localhost:5002';
   }
   return '';
 };
@@ -478,6 +478,58 @@ const StockScanPage: React.FC = () => {
     }
   };
 
+  const handleFadePattern = async (signal: Signal) => {
+    if (!signal.plan) {
+      alert('This signal does not have a trading plan');
+      return;
+    }
+
+    const confirmFade = window.confirm(
+      `⚠️ FADE PATTERN TRADE ⚠️\n\n` +
+      `You're about to trade OPPOSITE to the ${signal.pattern?.name || 'pattern'}.\n\n` +
+      `Original: ${signal.plan.direction.toUpperCase()}\n` +
+      `Fade Trade: ${signal.plan.direction === 'long' ? 'SHORT' : 'LONG'}\n\n` +
+      `This is a contrarian trade betting the pattern will FAIL.\n\n` +
+      `Continue with fade trade?`
+    );
+
+    if (!confirmFade) return;
+
+    // Create a reversed signal for the fade trade
+    const fadeSignal: Signal = {
+      ...signal,
+      id: signal.id + '-fade',
+      pattern: {
+        ...signal.pattern,
+        name: `Fade ${signal.pattern?.name || 'Pattern'}`,
+        direction: signal.pattern?.direction === 'bullish' ? 'bearish' : 'bullish',
+        class: signal.pattern?.class || 'single',
+        barsInvolved: signal.pattern?.barsInvolved || 1,
+        patternHigh: signal.pattern?.patternHigh || 0,
+        patternLow: signal.pattern?.patternLow || 0
+      },
+      plan: {
+        ...signal.plan,
+        direction: signal.plan.direction === 'long' ? 'short' : 'long',
+        // For fade trades, entry is typically at current price (pattern failure point)
+        entry: signal.currentPrice || signal.plan.entry,
+        // Proper fade trade risk management
+        stop: signal.plan.direction === 'long' 
+          ? (signal.currentPrice || signal.plan.entry) + ((signal.currentPrice || signal.plan.entry) * 0.02) // 2% above for short
+          : (signal.currentPrice || signal.plan.entry) - ((signal.currentPrice || signal.plan.entry) * 0.02), // 2% below for long
+        targets: signal.plan.direction === 'long'
+          ? [(signal.currentPrice || signal.plan.entry) - ((signal.currentPrice || signal.plan.entry) * 0.05)] // 5% down target for short
+          : [(signal.currentPrice || signal.plan.entry) + ((signal.currentPrice || signal.plan.entry) * 0.05)]  // 5% up target for long
+      },
+      notes: [
+        ...(signal.notes || []),
+        `🎯 FADE TRADE: Betting against ${signal.pattern?.name || 'pattern'} due to high trap risk`
+      ]
+    };
+
+    return handlePlaceOrder(fadeSignal);
+  };
+
   const handlePlaceOrder = async (signal: Signal) => {
     if (!signal.plan) {
       alert('This signal does not have a trading plan');
@@ -929,6 +981,23 @@ const StockScanPage: React.FC = () => {
                     >
                       {placingOrder === signal.id ? 'Placing Order...' : 'Place MT5 Order'}
                     </button>
+                    {/* Fade Pattern button - only show for high trap risk */}
+                    {signal.trapRisk === 'high' && (
+                      <button 
+                        className="fade-pattern-button"
+                        onClick={() => handleFadePattern(signal)}
+                        disabled={!signal.plan || placingOrder === signal.id + '-fade'}
+                        style={{
+                          backgroundColor: '#FF6B6B',
+                          color: 'white',
+                          border: '1px solid #E74C3C',
+                          fontSize: '0.9rem',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {placingOrder === signal.id + '-fade' ? 'Placing Fade...' : '🎯 Fade Pattern'}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
