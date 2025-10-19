@@ -9,7 +9,7 @@ async function testAllLevels() {
     try {
       console.log(`Testing ${level.toUpperCase()} volatility...`);
       
-      const response = await axios.post('http://localhost:5001/api/analysis/scan-gap-ups', {
+      const response = await axios.post('http://localhost:5002/api/analysis/scan-gap-ups', {
         volatilityLevel: level
       });
       
@@ -29,7 +29,7 @@ async function testAllLevels() {
     try {
       console.log(`Testing ${level.toUpperCase()} volatility...`);
       
-      const response = await axios.post('http://localhost:5001/api/analysis/scan-gap-downs', {
+      const response = await axios.post('http://localhost:5002/api/analysis/scan-gap-downs', {
         volatilityLevel: level
       });
       

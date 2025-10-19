@@ -4,7 +4,7 @@ import { API_ENDPOINTS } from '../config/api';
 
 const getBaseUrl = (): string => {
   if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:5001';
+    return 'http://localhost:5002';
   }
   return '';
 };

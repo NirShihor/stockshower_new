@@ -37,7 +37,7 @@ MT5_PASSWORD=your_password
 MT5_SERVER=your_broker_server
 
 # Scanner Configuration  
-SCANNER_BASE_URL=http://localhost:5001
+SCANNER_BASE_URL=http://localhost:5002
 MINIMUM_SIGNAL_SCORE=70
 MAX_TRADES_PER_DAY=10
 RISK_PERCENTAGE=2.0

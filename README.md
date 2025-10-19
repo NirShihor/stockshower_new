@@ -19,7 +19,7 @@ yarn dev
 # Run frontend only (React app on port 3000)
 yarn dev:client
 
-# Run backend only (Express server on port 5001)
+# Run backend only (Express server on port 5002)
 yarn dev:server
 ```
 
@@ -60,7 +60,7 @@ yarn build    # TypeScript compilation
 
 2. **Set up environment variables** in `server/.env`:
    ```
-   PORT=5001
+   PORT=5002
    OPENAI_API_KEY=your_openai_api_key
    ANTHROPIC_API_KEY=your_anthropic_api_key
    ALPHAVANTAGE_API_KEY=your_alphavantage_api_key

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import https from 'https';
 import { ComprehensiveSignal } from '../candlestick/types/comprehensive.js';
+import { TradeService } from '../db/services/tradeService.js';
 
 export interface MetaApiOrderResult {
   success: boolean;
@@ -40,7 +41,7 @@ class MetaApiRestHandler {
 
   private convertToMT5Symbol(symbol: string): string {
     // Common NASDAQ stocks that need .O suffix
-    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'DLTR'];
+    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'DLTR', 'CSX'];
     
     // Common NYSE stocks that need .N suffix  
     const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM'];
@@ -441,6 +442,26 @@ class MetaApiRestHandler {
         takeProfit: roundedTakeProfit,
         comment: `Signal: ${signal.pattern.name}`
       };
+      
+      // Create trade record before placing order
+      let tradeId: string | undefined;
+      try {
+        const scannerType = signal.pattern.name.includes('Gap') ? 'gap' : 'pattern';
+        // Convert MT5 order type to database format (remove ORDER_TYPE_ prefix)
+        const dbOrderType = actionType.replace('ORDER_TYPE_', '');
+        const trade = await TradeService.createTradeFromSignal(
+          signal,
+          mt5Symbol,
+          dbOrderType,
+          volume,
+          scannerType
+        );
+        tradeId = trade._id.toString();
+        console.log(`[MetaApi] Created trade record: ${tradeId}`);
+      } catch (tradeError) {
+        console.error('[MetaApi] Error creating trade record:', tradeError);
+        // Continue with order placement even if trade saving fails
+      }
 
       // Only add openPrice if we have a valid entry price (not null for market orders)
       if (roundedEntry !== null && !isNaN(roundedEntry)) {
@@ -510,7 +531,7 @@ class MetaApiRestHandler {
       
       // Only return success if we have a proper trade execution
       if (response.data.orderId || response.data.ticket || response.data.positionId) {
-        return {
+        const result: MetaApiOrderResult = {
           success: true,
           data: {
             orderId: response.data.orderId || response.data.ticket || response.data.id || 'N/A',
@@ -518,11 +539,39 @@ class MetaApiRestHandler {
             message: `${actionType} order placed successfully`
           }
         };
+        
+        // Update trade record with order result
+        if (tradeId) {
+          try {
+            await TradeService.updateTradeWithOrderResult(
+              tradeId,
+              result,
+              roundedEntry // Use the adjusted entry price
+            );
+            console.log(`[MetaApi] Updated trade record ${tradeId} with order result`);
+          } catch (updateError) {
+            console.error('[MetaApi] Error updating trade record:', updateError);
+          }
+        }
+        
+        return result;
       } else {
-        return {
+        const result: MetaApiOrderResult = {
           success: false,
           error: response.data.message || 'Order was not executed'
         };
+        
+        // Update trade record as rejected
+        if (tradeId) {
+          try {
+            await TradeService.updateTradeWithOrderResult(tradeId, result);
+            console.log(`[MetaApi] Updated trade record ${tradeId} as rejected`);
+          } catch (updateError) {
+            console.error('[MetaApi] Error updating trade record:', updateError);
+          }
+        }
+        
+        return result;
       }
     } catch (error: any) {
       console.error('Error placing MetaApi order:', {
@@ -1170,6 +1219,73 @@ class MetaApiRestHandler {
     };
 
     scheduleCleanup();
+  }
+
+  // Position monitoring methods for trade tracking
+  async getPositions(): Promise<any[]> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      const response = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
+        { headers: this.getHeaders() }
+      );
+      return response.data || [];
+    } catch (error: any) {
+      console.error('[MetaApi] Error getting positions:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  async getOrders(): Promise<any[]> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      const response = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
+        { headers: this.getHeaders() }
+      );
+      return response.data || [];
+    } catch (error: any) {
+      console.error('[MetaApi] Error getting orders:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  async getClosedPosition(positionId: string): Promise<any | null> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      // Try to get historical data for closed position
+      const response = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/history-deals`,
+        { 
+          headers: this.getHeaders(),
+          params: {
+            positionId: positionId,
+            limit: 10
+          }
+        }
+      );
+      
+      const deals = response.data || [];
+      // Find the closing deal (type should be OUT)
+      const closingDeal = deals.find((deal: any) => 
+        deal.positionId === positionId && 
+        (deal.entryType === 'DEAL_ENTRY_OUT' || deal.type === 'DEAL_TYPE_SELL')
+      );
+      
+      if (closingDeal) {
+        return {
+          closePrice: closingDeal.price,
+          closeTime: closingDeal.time,
+          commission: closingDeal.commission || 0,
+          profit: closingDeal.profit || 0
+        };
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.error('[MetaApi] Error getting closed position:', error.response?.data || error.message);
+      return null;
+    }
   }
 }
 

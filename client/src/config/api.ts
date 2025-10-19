@@ -2,7 +2,7 @@
 const getApiBaseUrl = (): string => {
   // In development, use local server
   if (process.env.NODE_ENV === 'development') {
-    return 'http://localhost:5001/api/analysis';
+    return 'http://localhost:5002/api/analysis';
   }
   // In production (Heroku), use relative URL to same domain
   return '/api/analysis';

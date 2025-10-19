@@ -4,7 +4,7 @@ async function testHappyTwists() {
   try {
     console.log('Testing Happy Twists endpoint...\n');
     
-    const response = await axios.post('http://localhost:5001/api/analysis/happy-twists', {
+    const response = await axios.post('http://localhost:5002/api/analysis/happy-twists', {
       prompt: 'Find recent positive catalysts'
     });
     
