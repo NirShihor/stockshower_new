@@ -37,8 +37,8 @@ export class TradingCircuitBreaker {
           reason: `Circuit breaker active: ${riskState.circuitBreakerReason}`,
           circuitBreakerStatus: {
             isActive: true,
-            reason: riskState.circuitBreakerReason,
-            triggeredAt: riskState.circuitBreakerTriggeredAt,
+            reason: riskState.circuitBreakerReason || undefined,
+            triggeredAt: riskState.circuitBreakerTriggeredAt || undefined,
             willResetAt: riskState.circuitBreakerTriggeredAt ? this.getResetTime(riskState.circuitBreakerTriggeredAt) : undefined
           }
         };
@@ -188,8 +188,8 @@ export class TradingCircuitBreaker {
 
     return {
       isActive: true,
-      reason: riskState.circuitBreakerReason,
-      triggeredAt: riskState.circuitBreakerTriggeredAt,
+      reason: riskState.circuitBreakerReason || undefined,
+      triggeredAt: riskState.circuitBreakerTriggeredAt || undefined,
       willResetAt: riskState.circuitBreakerTriggeredAt ? this.getResetTime(riskState.circuitBreakerTriggeredAt) : undefined
     };
   }

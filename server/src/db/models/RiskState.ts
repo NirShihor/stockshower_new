@@ -15,13 +15,7 @@ export interface IRiskState {
   circuitBreakerReason?: string;
   circuitBreakerTriggeredAt?: Date;
   symbolMetrics: any;
-  triggers: Array<{
-    type: string;
-    value: number;
-    threshold: number;
-    triggeredAt: Date;
-    message: string;
-  }>;
+  triggers: any[];
   accountBalance: number;
   lastUpdateTime: Date;
 }
@@ -48,13 +42,7 @@ const RiskStateSchema = new Schema({
     type: Object,
     default: {}
   },
-  triggers: [{
-    type: String,
-    value: Number,
-    threshold: Number,
-    triggeredAt: Date,
-    message: String
-  }],
+  triggers: [Object],
   accountBalance: { type: Number, required: true },
   lastUpdateTime: { type: Date, default: Date.now }
 }, { timestamps: true });
@@ -63,4 +51,4 @@ const RiskStateSchema = new Schema({
 RiskStateSchema.index({ date: -1 });
 RiskStateSchema.index({ circuitBreakerActive: 1 });
 
-export const RiskState = model<IRiskState>('RiskState', RiskStateSchema);
+export const RiskState = model('RiskState', RiskStateSchema);
