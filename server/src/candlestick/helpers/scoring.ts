@@ -41,10 +41,34 @@ export function scorePattern(
     notes.push(`Volume spike ${context.volumeFactor.toFixed(1)}x average`);
   }
   
+  // Volume requirement penalty
+  if (context.volumeFactor < params.minVolumeMultiplier) {
+    const penalty = 20;
+    score -= penalty;
+    notes.push(`⚠️ CAUTION: Pattern formed on weak volume - lacks conviction`);
+    console.log(`[SCORING] Low volume penalty -${penalty} (${context.volumeFactor.toFixed(1)}x < ${params.minVolumeMultiplier}x required)`);
+  }
+  
   // Trend alignment (for reversal patterns)
   if (isTrendAligned(pattern, context)) {
-    score += 15;
-    notes.push('Trend context supports pattern');
+    let trendBonus = 15;
+    
+    // Reduce bonus for sideways trends
+    if (context.trend === 'sideways') {
+      trendBonus = 8;
+      notes.push('Trend context supports pattern (sideways market)');
+    } else {
+      notes.push('Trend context supports pattern');
+    }
+    
+    score += trendBonus;
+  }
+  
+  // Penalize counter-trend patterns in strong trends
+  if (isCounterTrend(pattern, context)) {
+    const penalty = 15;
+    score -= penalty;
+    notes.push(`⚠️ Counter-trend pattern in ${context.trend} market - higher risk`);
   }
   
   // Wide range / significant candle
@@ -148,6 +172,25 @@ function isTrendAligned(pattern: PatternDetails, context: MarketContext): boolea
   return false;
 }
 
+function isCounterTrend(pattern: PatternDetails, context: MarketContext): boolean {
+  // Don't penalize in sideways markets
+  if (context.trend === 'sideways') {
+    return false;
+  }
+  
+  // Penalize bullish patterns in strong down trends
+  if (pattern.direction === 'bullish' && context.trend === 'down') {
+    return true;
+  }
+  
+  // Penalize bearish patterns in strong up trends  
+  if (pattern.direction === 'bearish' && context.trend === 'up') {
+    return true;
+  }
+  
+  return false;
+}
+
 function hasCleanInvalidation(pattern: PatternDetails, context: MarketContext): boolean {
   // Check if there's a clear level to place stops
   const range = pattern.patternHigh - pattern.patternLow;
@@ -184,7 +227,7 @@ function calculateAvgBodySize(candles: Candle[], period: number): number {
 }
 
 export function getActionableThreshold(): number {
-  return 55;  // Raised threshold for better quality signals
+  return 60;  // Raised to 60+ for higher quality signals
 }
 
 export function getWatchThreshold(): number {

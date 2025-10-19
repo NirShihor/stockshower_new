@@ -30,7 +30,7 @@ export function buildTradePlan(
   accountBalance: number = 10000 // Default for position sizing
 ): TradePlan {
   const tickSize = 0.01; // Assume penny stocks, adjust as needed
-  const entryBuffer = Math.max(tickSize * 3, context.atr * 0.1); // Use ATR-based buffer for better entries
+  const entryBuffer = tickSize * 2; // Use 2 ticks for tighter entries
   
   if (pattern.direction === 'bullish') {
     const entry = confirmation.triggerPrice + entryBuffer; // Use buffer instead of just tickSize

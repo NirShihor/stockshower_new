@@ -24,13 +24,49 @@ interface CandleHistory {
   lastProcessedTime?: string;
 }
 
+interface RecentSignal {
+  symbol: string;
+  patternName: string;
+  timestamp: number;
+}
+
 const historyBySymbol = new Map<string, CandleHistory>();
+const recentSignals: RecentSignal[] = [];
 
 export class ComprehensiveScanner {
   private params: TradingParameters;
+  private duplicateBlockMinutes: number = 20; // Block duplicates for 20 minutes
   
   constructor(params: TradingParameters = DEFAULT_PARAMS) {
     this.params = params;
+  }
+  
+  private isDuplicateSignal(symbol: string, patternName: string): boolean {
+    const now = Date.now();
+    const blockDurationMs = this.duplicateBlockMinutes * 60 * 1000;
+    
+    // Clean old signals
+    const cutoff = now - blockDurationMs;
+    for (let i = recentSignals.length - 1; i >= 0; i--) {
+      if (recentSignals[i].timestamp < cutoff) {
+        recentSignals.splice(i, 1);
+      }
+    }
+    
+    // Check for duplicate
+    return recentSignals.some(signal => 
+      signal.symbol === symbol && 
+      signal.patternName === patternName &&
+      signal.timestamp > cutoff
+    );
+  }
+  
+  private addToRecentSignals(symbol: string, patternName: string): void {
+    recentSignals.push({
+      symbol,
+      patternName,
+      timestamp: Date.now()
+    });
   }
   
   public scan(candle: Candle): ComprehensiveSignal[] {
@@ -156,6 +192,12 @@ export class ComprehensiveScanner {
       console.log(`[SCANNER] Pattern ${pattern.name} scored ${score} - ${strength} signal`);
     }
     
+    // Check for duplicate signals
+    if (this.isDuplicateSignal(symbol, pattern.name)) {
+      console.log(`[SCANNER] Blocking duplicate signal: ${pattern.name} for ${symbol} (already generated within ${this.duplicateBlockMinutes} minutes)`);
+      return null;
+    }
+    
     // Build confirmation plan
     const confirmation = buildConfirmationPlan(pattern, this.params);
     
@@ -200,6 +242,10 @@ export class ComprehensiveScanner {
       currentPrice: current.close,
       trapRisk
     };
+    
+    // Add to recent signals to prevent duplicates
+    this.addToRecentSignals(symbol, pattern.name);
+    console.log(`[SCANNER] Added ${pattern.name} for ${symbol} to duplicate prevention cache`);
     
     return signal;
   }
