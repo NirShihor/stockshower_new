@@ -48,7 +48,7 @@ export interface ITrade {
   signalData?: any;
 }
 
-const TradeSchema = new Schema({
+const schemaDefinition = {
   symbol: { type: String, required: true, index: true },
   mt5Symbol: { type: String, required: true },
   patternName: { type: String, required: true, index: true },
@@ -87,13 +87,14 @@ const TradeSchema = new Schema({
   
   status: { type: String, required: true, default: 'pending', index: true },
   
-  // Additional data
   timeframe: { type: String, default: '5m' },
   scannerType: String,
   notes: String,
   signalData: Schema.Types.Mixed
-}, {
-  timestamps: true, // Adds createdAt and updatedAt automatically
+};
+
+const TradeSchema = new Schema(schemaDefinition, {
+  timestamps: true
 });
 
 // Indexes for common queries
