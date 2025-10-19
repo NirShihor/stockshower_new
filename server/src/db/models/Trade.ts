@@ -48,54 +48,7 @@ export interface ITrade {
   signalData?: any;
 }
 
-const schemaDefinition = {
-  symbol: { type: String, required: true, index: true },
-  mt5Symbol: { type: String, required: true },
-  patternName: { type: String, required: true, index: true },
-  patternScore: { type: Number, required: true },
-  patternClass: String,
-  
-  entryPrice: { type: Number, required: true },
-  actualEntryPrice: Number,
-  stopLoss: { type: Number, required: true },
-  takeProfit: { type: Number, required: true },
-  
-  direction: { type: String, required: true },
-  orderType: { type: String, required: true },
-  volume: { type: Number, required: true },
-  
-  signalTime: { type: Date, required: true, index: true },
-  orderPlacedTime: Date,
-  filledTime: Date,
-  closedTime: Date,
-  
-  exitPrice: Number,
-  exitReason: String,
-  
-  cancelReason: String,
-  cancelTime: Date,
-  
-  pnlAmount: Number,
-  pnlPercentage: Number,
-  commission: Number,
-  
-  marketConditions: Schema.Types.Mixed,
-  
-  mt5OrderId: String,
-  mt5PositionId: String,
-  mt5Error: String,
-  
-  status: { type: String, required: true, default: 'pending', index: true },
-  
-  timeframe: { type: String, default: '5m' },
-  scannerType: String,
-  notes: String,
-  signalData: Schema.Types.Mixed
-};
-
-const TradeSchema: any = new Schema(schemaDefinition, {
-  timestamps: true
-});
+const TradeSchema: any = new Schema({}, { timestamps: true, strict: false });
 
 // Indexes for common queries
 TradeSchema.index({ status: 1, signalTime: -1 });
