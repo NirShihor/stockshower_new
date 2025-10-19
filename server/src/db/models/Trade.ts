@@ -2,72 +2,53 @@ import { Schema, model, Types } from 'mongoose';
 
 // Define the document interface with all required and optional fields
 export interface ITrade {
-  _id?: any; // MongoDB document ID
-  // Basic trade info
+  _id?: any;
   symbol: string;
   mt5Symbol: string;
   patternName: string;
   patternScore: number;
-  patternClass?: 'single' | 'double' | 'triple' | null;
+  patternClass?: string;
   
-  // Price levels
-  entryPrice: number;          // Planned entry from signal
-  actualEntryPrice?: number | null;   // Actual filled price
+  entryPrice: number;
+  actualEntryPrice?: number;
   stopLoss: number;
   takeProfit: number;
   
-  // Trade details
-  direction: 'long' | 'short';
-  orderType: 'BUY_STOP' | 'BUY_LIMIT' | 'SELL_STOP' | 'SELL_LIMIT' | 'BUY' | 'SELL';
+  direction: string;
+  orderType: string;
   volume: number;
   
-  // Timing
   signalTime: Date;
-  orderPlacedTime?: Date | null;
-  filledTime?: Date | null;
-  closedTime?: Date | null;
+  orderPlacedTime?: Date;
+  filledTime?: Date;
+  closedTime?: Date;
   
-  // Exit details
-  exitPrice?: number | null;
-  exitReason?: 'stop_loss' | 'take_profit' | 'manual' | 'system' | 'timeout';
+  exitPrice?: number;
+  exitReason?: string;
   
-  // Cancellation details
-  cancelReason?: 'price_never_reached' | 'manual_cancel' | 'end_of_day' | 'timeout' | 'system';
-  cancelTime?: Date | null;
+  cancelReason?: string;
+  cancelTime?: Date;
   
-  // P&L
-  pnlAmount?: number | null;
-  pnlPercentage?: number | null;
-  commission?: number | null;
+  pnlAmount?: number;
+  pnlPercentage?: number;
+  commission?: number;
   
-  // Market conditions
-  marketConditions?: {
-    trend: 'up' | 'down' | 'sideways';
-    volatility: 'low' | 'medium' | 'high';
-    volume: number;
-    atr: number;
-    nearSupport: boolean;
-    nearResistance: boolean;
-  };
+  marketConditions?: any;
   
-  // MT5 details
   mt5OrderId?: string;
   mt5PositionId?: string;
   mt5Error?: string;
   
-  // Status
-  status: 'pending' | 'placed' | 'filled' | 'partial' | 'closed' | 'cancelled' | 'rejected';
+  status: string;
   
-  // Additional data
   timeframe: string;
-  scannerType?: 'pattern' | 'gap' | 'premarket' | 'manual';
+  scannerType?: string;
   notes?: string;
   
-  // Full signal data for analysis
-  signalData?: any; // Store full ComprehensiveSignal
+  signalData?: any;
 }
 
-const TradeSchema = new Schema<any>({
+const TradeSchema = new Schema({
   // Basic trade info
   symbol: { type: String, required: true, index: true },
   mt5Symbol: { type: String, required: true },
