@@ -13,6 +13,7 @@
     "start:server": "yarn workspace server start",
     "build": "yarn workspace client build && yarn workspace server build",
     "build:server": "yarn workspace server build",
+    "heroku-prebuild": "yarn cache clean",
     "heroku-postbuild": "yarn install && yarn build",
     "start": "cd server && yarn start"
   },
