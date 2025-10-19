@@ -1,7 +1,7 @@
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Types } from 'mongoose';
 
 // Define the document interface with all required and optional fields
-export interface ITrade extends Document {
+export interface ITrade {
   // Basic trade info
   symbol: string;
   mt5Symbol: string;
@@ -168,4 +168,4 @@ TradeSchema.pre('save', function(next) {
   next();
 });
 
-export const Trade = model<ITrade>('Trade', TradeSchema);
+export const Trade = model('Trade', TradeSchema);
