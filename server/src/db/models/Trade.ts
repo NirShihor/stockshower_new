@@ -49,83 +49,47 @@ export interface ITrade {
 }
 
 const TradeSchema = new Schema({
-  // Basic trade info
   symbol: { type: String, required: true, index: true },
   mt5Symbol: { type: String, required: true },
   patternName: { type: String, required: true, index: true },
   patternScore: { type: Number, required: true },
-  patternClass: { type: String, enum: ['single', 'double', 'triple'] },
+  patternClass: String,
   
-  // Price levels
   entryPrice: { type: Number, required: true },
   actualEntryPrice: Number,
   stopLoss: { type: Number, required: true },
   takeProfit: { type: Number, required: true },
   
-  // Trade details
-  direction: { type: String, required: true, enum: ['long', 'short'] },
-  orderType: { 
-    type: String, 
-    required: true, 
-    enum: ['BUY_STOP', 'BUY_LIMIT', 'SELL_STOP', 'SELL_LIMIT', 'BUY', 'SELL'] 
-  },
+  direction: { type: String, required: true },
+  orderType: { type: String, required: true },
   volume: { type: Number, required: true },
   
-  // Timing
   signalTime: { type: Date, required: true, index: true },
-  orderPlacedTime: { type: Date, index: true },
+  orderPlacedTime: Date,
   filledTime: Date,
   closedTime: Date,
   
-  // Exit details
   exitPrice: Number,
-  exitReason: { 
-    type: String, 
-    enum: ['stop_loss', 'take_profit', 'manual', 'system', 'timeout'] 
-  },
+  exitReason: String,
   
-  // Cancellation details
-  cancelReason: {
-    type: String,
-    enum: ['price_never_reached', 'manual_cancel', 'end_of_day', 'timeout', 'system']
-  },
+  cancelReason: String,
   cancelTime: Date,
   
-  // P&L
   pnlAmount: Number,
   pnlPercentage: Number,
   commission: Number,
   
-  // Market conditions
-  marketConditions: {
-    trend: { type: String, enum: ['up', 'down', 'sideways'] },
-    volatility: { type: String, enum: ['low', 'medium', 'high'] },
-    volume: Number,
-    atr: Number,
-    nearSupport: Boolean,
-    nearResistance: Boolean
-  },
+  marketConditions: Schema.Types.Mixed,
   
-  // MT5 details
   mt5OrderId: String,
   mt5PositionId: String,
   mt5Error: String,
   
-  // Status
-  status: { 
-    type: String, 
-    required: true,
-    default: 'pending',
-    enum: ['pending', 'placed', 'filled', 'partial', 'closed', 'cancelled', 'rejected'],
-    index: true
-  },
+  status: { type: String, required: true, default: 'pending', index: true },
   
   // Additional data
   timeframe: { type: String, default: '5m' },
-  scannerType: { 
-    type: String, 
-    enum: ['pattern', 'gap', 'premarket', 'manual'] 
-  },
+  scannerType: String,
   notes: String,
   signalData: Schema.Types.Mixed
 }, {
