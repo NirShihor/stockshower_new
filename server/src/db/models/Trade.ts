@@ -67,7 +67,7 @@ export interface ITrade {
   signalData?: any; // Store full ComprehensiveSignal
 }
 
-const TradeSchema = new Schema({
+const TradeSchema = new Schema<any>({
   // Basic trade info
   symbol: { type: String, required: true, index: true },
   mt5Symbol: { type: String, required: true },
