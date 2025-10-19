@@ -14,14 +14,7 @@ export interface IRiskState {
   circuitBreakerActive: boolean;
   circuitBreakerReason?: string;
   circuitBreakerTriggeredAt?: Date;
-  symbolMetrics: Map<string, {
-    trades: number;
-    wins: number;
-    losses: number;
-    pnl: number;
-    consecutiveLosses: number;
-    isBlacklisted: boolean;
-  }>;
+  symbolMetrics: any;
   triggers: Array<{
     type: string;
     value: number;
@@ -52,16 +45,8 @@ const RiskStateSchema = new Schema({
   circuitBreakerReason: { type: String },
   circuitBreakerTriggeredAt: { type: Date },
   symbolMetrics: {
-    type: Map,
-    of: {
-      trades: { type: Number, default: 0 },
-      wins: { type: Number, default: 0 },
-      losses: { type: Number, default: 0 },
-      pnl: { type: Number, default: 0 },
-      consecutiveLosses: { type: Number, default: 0 },
-      isBlacklisted: { type: Boolean, default: false }
-    },
-    default: new Map()
+    type: Object,
+    default: {}
   },
   triggers: [{
     type: String,

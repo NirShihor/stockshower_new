@@ -45,7 +45,7 @@ interface DashboardData {
 
 const CircuitBreakerDashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [circuitBreakerStatus, setCircuitBreakerStatus] = useState<CircuitBreakerStatus | null>(null);
+  const [, setCircuitBreakerStatus] = useState<CircuitBreakerStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshInterval, setRefreshInterval] = useState(5000); // 5 seconds default
