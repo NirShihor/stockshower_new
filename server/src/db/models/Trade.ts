@@ -93,7 +93,7 @@ const schemaDefinition = {
   signalData: Schema.Types.Mixed
 };
 
-const TradeSchema = new Schema(schemaDefinition, {
+const TradeSchema: any = new Schema(schemaDefinition, {
   timestamps: true
 });
 
@@ -105,7 +105,7 @@ TradeSchema.index({ mt5OrderId: 1 });
 TradeSchema.index({ mt5PositionId: 1 });
 
 // Calculate P&L before saving if we have exit price
-TradeSchema.pre('save', function(next) {
+(TradeSchema as any).pre('save', function(this: any, next: any) {
   if (this.exitPrice && this.actualEntryPrice) {
     const multiplier = this.direction === 'long' ? 1 : -1;
     const priceDiff = (this.exitPrice - this.actualEntryPrice) * multiplier;
