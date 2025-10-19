@@ -78,6 +78,7 @@ router.post('/simulate-loss', async (req: Request, res: Response) => {
       pnlAmount: lossAmount,
       pnlPercentage: lossAmount / 100,
       status: 'closed' as const,
+      timeframe: '1m',
       signalTime: new Date(),
       closedTime: new Date()
     };

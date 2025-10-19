@@ -142,7 +142,11 @@ export class TradingCircuitBreaker {
     }
 
     // Update symbol metrics
-    const symbolMetrics = riskState.symbolMetrics.get(trade.symbol) || {
+    if (!riskState.symbolMetrics) {
+      riskState.symbolMetrics = {};
+    }
+    
+    const symbolMetrics = riskState.symbolMetrics[trade.symbol] || {
       trades: 0,
       wins: 0,
       losses: 0,
@@ -168,7 +172,7 @@ export class TradingCircuitBreaker {
       }
     }
 
-    riskState.symbolMetrics.set(trade.symbol, symbolMetrics);
+    riskState.symbolMetrics[trade.symbol] = symbolMetrics;
     riskState.lastUpdateTime = new Date();
     
     await riskState.save();
@@ -261,7 +265,7 @@ export class TradingCircuitBreaker {
       maxDrawdown: 0,
       totalExposure: 0,
       circuitBreakerActive: false,
-      symbolMetrics: new Map(),
+      symbolMetrics: {},
       triggers: []
     });
     
@@ -357,7 +361,7 @@ export class TradingCircuitBreaker {
   }
 
   private async checkSymbolLimits(symbol: string, riskState: any): Promise<CircuitBreakerTrigger | null> {
-    const symbolMetrics = riskState.symbolMetrics.get(symbol);
+    const symbolMetrics = riskState.symbolMetrics?.[symbol];
     
     if (symbolMetrics?.isBlacklisted) {
       return {
