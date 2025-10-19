@@ -32,7 +32,7 @@ export interface Signal {
 }
 
 export interface WebSocketMessage {
-  type: 'candle' | 'signal';
+  type: 'candle' | 'signal' | 'auto-execution';
   payload: Candle | Signal | ComprehensiveSignal | any; // Added any for now to fix build
 }
 
