@@ -1,10 +1,16 @@
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
 import { TradeService } from '../db/services/tradeService.js';
 import { Trade } from '../db/models/Trade.js';
+import { TradingCircuitBreaker } from '../helpers/circuitBreaker.js';
 
 class PositionMonitorService {
   private intervalId: NodeJS.Timeout | null = null;
   private checkIntervalMs = 30000; // Check every 30 seconds
+  private circuitBreaker: TradingCircuitBreaker;
+  
+  constructor() {
+    this.circuitBreaker = new TradingCircuitBreaker();
+  }
   
   async start() {
     console.log('📊 Starting MT5 position monitoring service...');
@@ -136,6 +142,12 @@ class PositionMonitorService {
                   exitReason,
                   historicalData.commission || 0
                 );
+                
+                // Update circuit breaker with closed trade result
+                const closedTrade = await Trade.findOne({ mt5PositionId: trade.mt5PositionId });
+                if (closedTrade) {
+                  await this.circuitBreaker.updateTradeResult(closedTrade);
+                }
               } else {
                 // Fallback - mark as closed without details
                 console.log(`⚠️ Trade ${trade._id} closed but no details available`);

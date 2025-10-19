@@ -1,0 +1,371 @@
+.circuit-breaker-dashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: var(--font-primary, Arial, sans-serif);
+  background: #f5f5f5;
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  color: #333;
+}
+
+.refresh-controls {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.refresh-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.refresh-controls select {
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: 1px solid #ddd;
+}
+
+.refresh-controls button {
+  padding: 8px 16px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.refresh-controls button:hover {
+  background: #45a049;
+}
+
+/* Status Banner */
+.status-banner {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.status-banner.inactive {
+  background: linear-gradient(135deg, #4CAF50, #66BB6A);
+  color: white;
+}
+
+.status-banner.active {
+  background: linear-gradient(135deg, #f44336, #ef5350);
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+  50% { box-shadow: 0 2px 20px rgba(244, 67, 54, 0.4); }
+  100% { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
+}
+
+.status-icon {
+  font-size: 3rem;
+  margin-right: 20px;
+}
+
+.status-text {
+  flex: 1;
+}
+
+.status-text h2 {
+  margin: 0 0 5px 0;
+  font-size: 1.5rem;
+}
+
+.status-text p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.status-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.status-actions button {
+  padding: 10px 20px;
+  border: 2px solid white;
+  background: transparent;
+  color: white;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.status-actions button:hover {
+  background: white;
+  color: #333;
+}
+
+.emergency-stop {
+  background: #ff1744 !important;
+  border-color: #ff1744 !important;
+}
+
+.emergency-stop:hover {
+  background: white !important;
+  color: #ff1744 !important;
+}
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.metric-card {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.metric-card h3 {
+  margin: 0 0 15px 0;
+  color: #666;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.metric-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+}
+
+.metric-value.positive {
+  color: #4CAF50;
+}
+
+.metric-value.negative {
+  color: #f44336;
+}
+
+.metric-value.warning {
+  color: #ff9800;
+}
+
+.metric-percent, .metric-limit, .metric-detail {
+  font-size: 0.9rem;
+  font-weight: normal;
+  color: #666;
+}
+
+/* Triggers Section */
+.triggers-section {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.triggers-section h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+}
+
+.triggers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trigger-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: #ffebee;
+  border-left: 4px solid #f44336;
+  border-radius: 5px;
+}
+
+.trigger-type {
+  font-weight: bold;
+  color: #c62828;
+  margin-right: 15px;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.trigger-message {
+  flex: 1;
+  color: #333;
+}
+
+.trigger-time {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Trades Section */
+.trades-section {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.trades-section h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+}
+
+.trades-table {
+  width: 100%;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr 1fr 1fr 1fr;
+  gap: 15px;
+  padding: 10px;
+  background: #f5f5f5;
+  font-weight: bold;
+  color: #666;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr 1fr 1fr 1fr;
+  gap: 15px;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+}
+
+.table-row:hover {
+  background: #f9f9f9;
+}
+
+.status-placed {
+  color: #2196F3;
+}
+
+.status-filled {
+  color: #FF9800;
+}
+
+.status-closed {
+  color: #9E9E9E;
+}
+
+.status-cancelled {
+  color: #F44336;
+}
+
+/* Test Controls */
+.test-controls {
+  background: white;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.test-controls h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+}
+
+.test-controls button {
+  padding: 10px 20px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-right: 10px;
+}
+
+.test-controls button:hover {
+  background: #1976D2;
+}
+
+/* Loading and Error States */
+.circuit-breaker-dashboard.loading,
+.circuit-breaker-dashboard.error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.circuit-breaker-dashboard.error {
+  color: #f44336;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-header,
+  .table-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .table-header span:nth-child(n+4),
+  .table-row span:nth-child(n+4) {
+    display: none;
+  }
+
+  .status-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .status-icon {
+    margin: 0 0 15px 0;
+  }
+
+  .status-actions {
+    margin-top: 15px;
+  }
+}
