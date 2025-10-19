@@ -92,18 +92,18 @@ router.get('/analytics/overall', async (req: Request, res: Response) => {
     
     // Calculate statistics
     const totalTrades = closedTrades.length;
-    const winningTrades = closedTrades.filter(t => t.pnlAmount !== undefined && t.pnlAmount > 0).length;
-    const losingTrades = closedTrades.filter(t => t.pnlAmount !== undefined && t.pnlAmount < 0).length;
+    const winningTrades = closedTrades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount > 0).length;
+    const losingTrades = closedTrades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount < 0).length;
     
     const totalPnL = closedTrades.reduce((sum, t) => sum + (t.pnlAmount || 0), 0);
     const avgPnL = totalTrades > 0 ? totalPnL / totalTrades : 0;
     
     const avgWin = closedTrades
-      .filter(t => t.pnlAmount !== undefined && t.pnlAmount > 0)
+      .filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount > 0)
       .reduce((sum, t) => sum + (t.pnlAmount || 0), 0) / (winningTrades || 1);
       
     const avgLoss = closedTrades
-      .filter(t => t.pnlAmount !== undefined && t.pnlAmount < 0)
+      .filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount < 0)
       .reduce((sum, t) => sum + Math.abs(t.pnlAmount || 0), 0) / (losingTrades || 1);
     
     // Get pattern performance
@@ -205,10 +205,10 @@ router.get('/analytics/algorithm-review', async (req: Request, res: Response) =>
     // Calculate summary statistics
     const summary = {
       totalTrades: trades.length,
-      winningTrades: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount > 0).length,
-      losingTrades: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount < 0).length,
-      avgWin: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount > 0).reduce((sum, t) => sum + (t.pnlAmount || 0), 0) / trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount > 0).length || 0,
-      avgLoss: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount < 0).reduce((sum, t) => sum + Math.abs(t.pnlAmount || 0), 0) / trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount < 0).length || 0,
+      winningTrades: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount > 0).length,
+      losingTrades: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount < 0).length,
+      avgWin: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount > 0).reduce((sum, t) => sum + (t.pnlAmount || 0), 0) / trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount > 0).length || 0,
+      avgLoss: trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount < 0).reduce((sum, t) => sum + Math.abs(t.pnlAmount || 0), 0) / trades.filter(t => t.pnlAmount !== undefined && t.pnlAmount !== null && t.pnlAmount < 0).length || 0,
       totalPnL: trades.reduce((sum, t) => sum + (t.pnlAmount || 0), 0),
       
       // Pattern breakdown
@@ -216,7 +216,7 @@ router.get('/analytics/algorithm-review', async (req: Request, res: Response) =>
         if (!acc[trade.patternName]) {
           acc[trade.patternName] = { wins: 0, losses: 0, totalPnL: 0 };
         }
-        if (trade.pnlAmount !== undefined && trade.pnlAmount > 0) {
+        if (trade.pnlAmount !== undefined && trade.pnlAmount !== null && trade.pnlAmount > 0) {
           acc[trade.patternName].wins++;
         } else if (trade.pnlAmount !== undefined) {
           acc[trade.patternName].losses++;
