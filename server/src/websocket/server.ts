@@ -102,7 +102,7 @@ async function executeSignalAutomatically(signal: ComprehensiveSignal): Promise<
     const result = await metaApiHandler.placeOrder(signalToExecute);
     
     if (result.success) {
-      console.log(`✅ [AUTO-EXEC] Successfully auto-executed ${executionType}: ${signalToExecute.pattern.name} for ${signal.symbol} - Order ID: ${result.orderId}`);
+      console.log(`✅ [AUTO-EXEC] Successfully auto-executed ${executionType}: ${signalToExecute.pattern.name} for ${signal.symbol} - Order ID: ${result.data?.orderId}`);
       
       // Broadcast auto-execution notification
       broadcast({
