@@ -456,7 +456,7 @@ class MetaApiRestHandler {
           volume,
           scannerType
         );
-        tradeId = trade._id.toString();
+        tradeId = trade._id?.toString() || '';
         console.log(`[MetaApi] Created trade record: ${tradeId}`);
       } catch (tradeError) {
         console.error('[MetaApi] Error creating trade record:', tradeError);
