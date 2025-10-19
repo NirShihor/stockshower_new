@@ -1,12 +1,13 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Types } from 'mongoose';
 
+// Define the document interface with all required and optional fields
 export interface ITrade extends Document {
   // Basic trade info
   symbol: string;
   mt5Symbol: string;
   patternName: string;
   patternScore: number;
-  patternClass: 'single' | 'double' | 'triple';
+  patternClass?: 'single' | 'double' | 'triple';
   
   // Price levels
   entryPrice: number;          // Planned entry from signal
@@ -20,10 +21,10 @@ export interface ITrade extends Document {
   volume: number;
   
   // Timing
-  signalTime: Date;           // When signal was generated
-  orderPlacedTime?: Date;     // When order was sent to MT5
-  filledTime?: Date;          // When order was filled
-  closedTime?: Date;          // When position was closed
+  signalTime: Date;
+  orderPlacedTime?: Date;
+  filledTime?: Date;
+  closedTime?: Date;
   
   // Exit details
   exitPrice?: number;
@@ -34,12 +35,12 @@ export interface ITrade extends Document {
   cancelTime?: Date;
   
   // P&L
-  pnlAmount?: number;         // Dollar amount
-  pnlPercentage?: number;     // Percentage return
+  pnlAmount?: number;
+  pnlPercentage?: number;
   commission?: number;
   
-  // Market conditions at entry
-  marketConditions: {
+  // Market conditions
+  marketConditions?: {
     trend: 'up' | 'down' | 'sideways';
     volatility: 'low' | 'medium' | 'high';
     volume: number;
@@ -65,7 +66,7 @@ export interface ITrade extends Document {
   signalData?: any; // Store full ComprehensiveSignal
 }
 
-const TradeSchema = new Schema<ITrade>({
+const TradeSchema = new Schema({
   // Basic trade info
   symbol: { type: String, required: true, index: true },
   mt5Symbol: { type: String, required: true },
