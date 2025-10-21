@@ -18,7 +18,7 @@ if (reconnectTimeout) {
   clearTimeout(reconnectTimeout);
   reconnectTimeout = null;
 }
-if (wsClient) {
+if (wsClient && wsClient.close) {
   try {
     wsClient.close();
   } catch {}
@@ -266,13 +266,13 @@ export function resetPolygonConnection(apiKey: string, onCandle: (candle: Candle
 }
 
 export function isPolygonConnected(): boolean {
-  return isConnected && wsClient && wsClient.readyState === WebSocket.OPEN;
+  return isConnected && wsClient !== null && wsClient.readyState === WebSocket.OPEN;
 }
 
 export function isPolygonConnecting(): boolean {
-  return wsClient && wsClient.readyState === WebSocket.CONNECTING;
+  return wsClient !== null && wsClient.readyState === WebSocket.CONNECTING;
 }
 
 export function hasActivePolygonConnection(): boolean {
-  return wsClient && (wsClient.readyState === WebSocket.OPEN || wsClient.readyState === WebSocket.CONNECTING);
+  return wsClient !== null && (wsClient.readyState === WebSocket.OPEN || wsClient.readyState === WebSocket.CONNECTING);
 }
