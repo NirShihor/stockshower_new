@@ -12,8 +12,8 @@ const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensiv
 
 // Auto-execution configuration
 const AUTO_EXECUTION_CONFIG = {
-  enabled: true,
-  highScoreThreshold: 65,
+  enabled: true, // RE-ENABLED for automatic trading
+  highScoreThreshold: 60, // Lowered from 65 to get more trades
   enableTrapFades: true
 };
 

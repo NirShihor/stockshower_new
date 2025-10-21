@@ -277,8 +277,30 @@ interface GroupedDailyResponse {
 	results: GroupedDailyBar[];
 }
 
+// Track API requests
+let stockAnalysisRequestCounter = 0;
+let stockAnalysisRequestLog: Array<{timestamp: Date, endpoint: string, caller?: string}> = [];
+
 async function makePolygonRequest(endpoint: string, params: Record<string, string> = {}): Promise<any> {
 	try {
+		// Log the request
+		stockAnalysisRequestCounter++;
+		const logEntry = {timestamp: new Date(), endpoint, caller: new Error().stack?.split('\n')[2]?.trim()};
+		stockAnalysisRequestLog.push(logEntry);
+		
+		// Keep only last 100 entries
+		if (stockAnalysisRequestLog.length > 100) {
+			stockAnalysisRequestLog = stockAnalysisRequestLog.slice(-100);
+		}
+		
+		console.log(`[Polygon API - stockAnalysis] Request #${stockAnalysisRequestCounter}: ${endpoint}`);
+		console.log(`[Polygon API - stockAnalysis] Called from: ${logEntry.caller}`);
+		
+		// Log request rate
+		const now = new Date();
+		const lastHour = stockAnalysisRequestLog.filter(r => (now.getTime() - r.timestamp.getTime()) < 60 * 60 * 1000);
+		console.log(`[Polygon API - stockAnalysis] Requests in last hour: ${lastHour.length}`);
+		
 		const url = `${POLYGON_BASE_URL}${endpoint}`;
 		const response = await axios.get(url, {
 			params: {
@@ -288,12 +310,16 @@ async function makePolygonRequest(endpoint: string, params: Record<string, strin
 		});
 
 		if (response.data.status === 'ERROR') {
+			console.error(`[Polygon API - stockAnalysis] Error response: ${response.data.error}`);
 			throw new Error(response.data.error || 'Polygon API error');
 		}
 
 		return response.data;
 	} catch (error: any) {
-		console.error(`Polygon API request failed:`, error.message);
+		console.error(`[Polygon API - stockAnalysis] Request failed:`, error.message);
+		if (error.response?.status === 429) {
+			console.error(`[Polygon API - stockAnalysis] RATE LIMIT EXCEEDED!`);
+		}
 		throw error;
 	}
 }
@@ -2093,6 +2119,20 @@ export const getHappyTwists = async (req: Request, res: Response): Promise<void>
 		res.status(500).json({ error: 'Failed to get happy twists analysis' });
 	}
 };
+
+// Export function to get request stats
+export function getStockAnalysisRequestStats() {
+	const now = new Date();
+	const last24Hours = stockAnalysisRequestLog.filter(r => (now.getTime() - r.timestamp.getTime()) < 24 * 60 * 60 * 1000);
+	const lastHour = stockAnalysisRequestLog.filter(r => (now.getTime() - r.timestamp.getTime()) < 60 * 60 * 1000);
+	
+	return {
+		totalRequests: stockAnalysisRequestCounter,
+		lastHour: lastHour.length,
+		last24Hours: last24Hours.length,
+		recentRequests: stockAnalysisRequestLog.slice(-10)
+	};
+}
 
 export const getFundamentalAnalysis = async (req: Request, res: Response): Promise<void> => {
 	try {
