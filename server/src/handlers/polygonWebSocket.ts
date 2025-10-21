@@ -18,9 +18,11 @@ if (reconnectTimeout) {
   clearTimeout(reconnectTimeout);
   reconnectTimeout = null;
 }
-if (wsClient && wsClient.close) {
+if (wsClient) {
   try {
-    wsClient.close();
+    if (typeof wsClient.close === 'function') {
+      wsClient.close();
+    }
   } catch {}
   wsClient = null;
 }
