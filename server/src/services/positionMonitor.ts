@@ -15,6 +15,9 @@ class PositionMonitorService {
   async start() {
     console.log('📊 Starting MT5 position monitoring service...');
     
+    // Clean up any stuck trades on startup
+    await this.cleanupStuckTrades();
+    
     // Initial check
     await this.checkPositions();
     
@@ -22,6 +25,39 @@ class PositionMonitorService {
     this.intervalId = setInterval(() => {
       this.checkPositions().catch(console.error);
     }, this.checkIntervalMs);
+  }
+  
+  async cleanupStuckTrades() {
+    try {
+      console.log('🧹 Performing one-time cleanup of stuck trades...');
+      
+      // Find trades that have been "placed" for more than 1 hour
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      
+      const stuckTrades = await Trade.find({
+        status: 'placed',
+        orderPlacedTime: { $lt: oneHourAgo }
+      });
+      
+      console.log(`Found ${stuckTrades.length} stuck trades to clean up`);
+      
+      for (const trade of stuckTrades) {
+        console.log(`🧹 Cleaning up stuck trade ${trade._id} (${trade.symbol}) placed at ${trade.orderPlacedTime}`);
+        
+        await Trade.findByIdAndUpdate(
+          trade._id,
+          {
+            status: 'cancelled',
+            cancelReason: 'cleanup_stuck',
+            cancelTime: new Date()
+          }
+        );
+      }
+      
+      console.log('✅ Stuck trades cleanup completed');
+    } catch (error) {
+      console.error('Error during stuck trades cleanup:', error);
+    }
   }
   
   stop() {
@@ -87,7 +123,13 @@ class PositionMonitorService {
                 await trade.save();
               } else {
                 // Order was cancelled or rejected - determine reason
-                console.log(`❌ Trade ${trade._id} order not found - marking as cancelled`);
+                console.log(`❌ Trade ${trade._id} (${trade.symbol}) order not found - current status: ${trade.status}`);
+                
+                // Check if already marked as cancelled to avoid repeated processing
+                if (trade.status === 'cancelled') {
+                  console.log(`⚠️ Trade ${trade._id} already marked as cancelled, skipping`);
+                  continue;
+                }
                 
                 // Check if it's end of day (market close)
                 const now = new Date();
@@ -98,9 +140,9 @@ class PositionMonitorService {
                 
                 if (now > marketCloseET) {
                   cancelReason = 'end_of_day';
-                } else {
+                } else if (trade.orderPlacedTime) {
                   // Check how long the order was active
-                  const orderAge = now.getTime() - trade.orderPlacedTime!.getTime();
+                  const orderAge = now.getTime() - trade.orderPlacedTime.getTime();
                   const hoursAge = orderAge / (1000 * 60 * 60);
                   
                   if (hoursAge > 4) {
@@ -108,12 +150,24 @@ class PositionMonitorService {
                   }
                 }
                 
-                trade.status = 'cancelled';
-                trade.cancelReason = cancelReason;
-                trade.cancelTime = new Date();
-                await trade.save();
+                // Update trade status
+                console.log(`📊 Updating trade ${trade._id} from ${trade.status} to cancelled (${cancelReason})`);
                 
-                console.log(`📊 Trade cancelled due to: ${cancelReason}`);
+                const result = await Trade.findByIdAndUpdate(
+                  trade._id,
+                  {
+                    status: 'cancelled',
+                    cancelReason: cancelReason,
+                    cancelTime: new Date()
+                  },
+                  { new: true }
+                );
+                
+                if (result) {
+                  console.log(`✅ Trade ${trade._id} successfully updated to cancelled status`);
+                } else {
+                  console.error(`❌ Failed to update trade ${trade._id} status`);
+                }
               }
             }
           }

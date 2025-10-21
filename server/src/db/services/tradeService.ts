@@ -14,10 +14,12 @@ export class TradeService {
     scannerType?: 'pattern' | 'gap' | 'premarket' | 'manual'
   ): Promise<ITrade> {
     try {
+      console.log(`[TradeService] Creating trade for ${signal.symbol} - Pattern: ${signal.pattern.name}, Score: ${signal.score}`);
+      
       // Determine market volatility based on ATR
       let volatility: 'low' | 'medium' | 'high' = 'medium';
-      if (signal.context.atr) {
-        const atrPercent = (signal.context.atr / signal.currentPrice!) * 100;
+      if (signal.context.atr && signal.currentPrice) {
+        const atrPercent = (signal.context.atr / signal.currentPrice) * 100;
         if (atrPercent < 1) volatility = 'low';
         else if (atrPercent > 3) volatility = 'high';
       }
@@ -60,9 +62,11 @@ export class TradeService {
         status: 'pending'
       });
       
-      return await trade.save() as ITrade;
+      const savedTrade = await trade.save() as ITrade;
+      console.log(`[TradeService] ✅ Trade successfully saved with ID: ${savedTrade._id}`);
+      return savedTrade;
     } catch (error) {
-      console.error('Error creating trade:', error);
+      console.error(`[TradeService] ❌ Error creating trade for ${signal.symbol}:`, error);
       throw error;
     }
   }

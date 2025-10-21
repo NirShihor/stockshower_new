@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import { Candle, PolygonAggregateMessage } from '../candlestick/types/index.js';
 
+// AGGRESSIVE STATE CLEANUP - clear any lingering state from previous server sessions
 let wsClient: WebSocket | null = null;
 let isConnected = false;
 const desiredSubscriptions = new Set<string>();
@@ -8,24 +9,61 @@ let onCandleCallback: ((candle: Candle) => void) | null = null;
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 5;
 let reconnectTimeout: NodeJS.Timeout | null = null;
-let isShuttingDown = false;
+let isShuttingDown = true; // START AS SHUTDOWN to prevent any automatic connections
+let lastConnectionAttempt = 0;
+const CONNECTION_COOLDOWN = 5000; // 5 second cooldown between attempts
+
+// FORCE CLEANUP ON MODULE LOAD
+if (reconnectTimeout) {
+  clearTimeout(reconnectTimeout);
+  reconnectTimeout = null;
+}
+if (wsClient) {
+  try {
+    wsClient.close();
+  } catch {}
+  wsClient = null;
+}
+isConnected = false;
+desiredSubscriptions.clear();
+onCandleCallback = null;
+reconnectAttempts = 0;
+console.log('🧹 Polygon WebSocket module initialized - all state cleared');
 
 const STOCKS_WS_URL = 'wss://socket.polygon.io/stocks';
 
 export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => void) {
+  // LOG EXACTLY WHO IS CALLING THIS FUNCTION
+  const stack = new Error().stack;
+  console.error('🚨🚨🚨 POLYGON CONNECTION ATTEMPT DETECTED 🚨🚨🚨');
+  console.error('🚨 connectPolygon() called from:');
+  console.error(stack);
+  console.error('🚨🚨🚨 END STACK TRACE 🚨🚨🚨');
+  
   if (!apiKey) {
     throw new Error('Polygon API key is required');
   }
   
-  if (isShuttingDown) {
-    console.log('Ignoring connection attempt - server is shutting down');
+  // Rate limiting - prevent rapid connection attempts
+  const now = Date.now();
+  if (now - lastConnectionAttempt < CONNECTION_COOLDOWN) {
+    const waitTime = CONNECTION_COOLDOWN - (now - lastConnectionAttempt);
+    console.log(`🔌 Connection rate limited. Wait ${Math.ceil(waitTime/1000)}s before next attempt`);
     return;
+  }
+  lastConnectionAttempt = now;
+  
+  // Reset shutdown flag when explicitly connecting
+  if (isShuttingDown) {
+    console.log('🔌 Re-enabling Polygon connections after explicit connect request...');
+    isShuttingDown = false;
   }
   
   onCandleCallback = onCandle;
   
   if (wsClient && (wsClient.readyState === WebSocket.OPEN || 
       wsClient.readyState === WebSocket.CONNECTING)) {
+    console.log('🔌 Already connected to Polygon WebSocket');
     return;
   }
   
@@ -71,6 +109,12 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
             console.log('✅ Polygon authentication successful');
           } else if (msg.status === 'auth_failed') {
             console.error('❌ Polygon authentication failed');
+          } else if (msg.status === 'max_connections') {
+            console.error('🚫 MAX CONNECTIONS EXCEEDED - DISABLING RECONNECTION');
+            isShuttingDown = true; // Prevent any further reconnection attempts
+            if (wsClient) {
+              wsClient.close();
+            }
           }
           continue;
         }
@@ -108,6 +152,13 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
       reconnectTimeout = null;
     }
     
+    // Don't reconnect if we got a "policy violation" close code (1008 = max connections exceeded)
+    if (code === 1008) {
+      console.error('🚫 Connection closed due to policy violation (max connections) - STOPPING ALL RECONNECTION ATTEMPTS');
+      isShuttingDown = true;
+      return;
+    }
+    
     // Only reconnect if we haven't exceeded max attempts and not shutting down
     if (reconnectAttempts < maxReconnectAttempts && onCandleCallback && !isShuttingDown) {
       reconnectAttempts++;
@@ -137,6 +188,15 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
 }
 
 export function subscribeSymbols(symbols: string[], granularity: 'AM' | 'A' = 'AM') {
+  // LOG WHO IS CALLING SUBSCRIBE
+  const stack = new Error().stack;
+  console.error('🚨🚨🚨 POLYGON SUBSCRIPTION ATTEMPT DETECTED 🚨🚨🚨');
+  console.error('🚨 subscribeSymbols() called from:');
+  console.error('🚨 Symbols:', symbols);
+  console.error('🚨 Granularity:', granularity);
+  console.error(stack);
+  console.error('🚨🚨🚨 END SUBSCRIPTION STACK TRACE 🚨🚨🚨');
+  
   const topics = symbols.map(s => `${granularity}.${s.toUpperCase()}`);
   
   // Limit to first 10 symbols to avoid policy violations
@@ -167,18 +227,29 @@ export function unsubscribeSymbols(symbols: string[], granularity: 'AM' | 'A' = 
 }
 
 export function disconnectPolygon() {
+  console.log('🔌 Disconnecting from Polygon WebSocket...');
+  
+  // Prevent reconnection attempts
+  isShuttingDown = true;
+  
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
     reconnectTimeout = null;
+    console.log('🔌 Cleared reconnection timeout');
   }
   
   if (wsClient) {
-    wsClient.close();
+    console.log('🔌 Closing WebSocket connection...');
+    wsClient.close(1000, 'Manual disconnect'); // Normal closure
     wsClient = null;
   }
+  
   isConnected = false;
   reconnectAttempts = 0;
   desiredSubscriptions.clear();
+  onCandleCallback = null; // Clear callback to fully disconnect
+  
+  console.log('✅ Polygon WebSocket disconnected successfully');
 }
 
 export function shutdownPolygon() {
@@ -195,5 +266,13 @@ export function resetPolygonConnection(apiKey: string, onCandle: (candle: Candle
 }
 
 export function isPolygonConnected(): boolean {
-  return isConnected;
+  return isConnected && wsClient && wsClient.readyState === WebSocket.OPEN;
+}
+
+export function isPolygonConnecting(): boolean {
+  return wsClient && wsClient.readyState === WebSocket.CONNECTING;
+}
+
+export function hasActivePolygonConnection(): boolean {
+  return wsClient && (wsClient.readyState === WebSocket.OPEN || wsClient.readyState === WebSocket.CONNECTING);
 }

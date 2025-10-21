@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
-import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
-import { subscribeSymbols, unsubscribeSymbols, connectPolygon, disconnectPolygon, isPolygonConnected } from '../handlers/polygonWebSocket.js';
+import { fetchHistoricalBars, getPolygonRequestStats } from '../handlers/polygonAPI.js';
+import { subscribeSymbols, unsubscribeSymbols, connectPolygon, disconnectPolygon, isPolygonConnected, hasActivePolygonConnection } from '../handlers/polygonWebSocket.js';
 import { startMockDataFeed, stopMockDataFeed } from '../handlers/mockDataGenerator.js';
 import { startMockSignalFeed, stopMockSignalFeed } from '../handlers/mockSignalGenerator.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
@@ -11,6 +11,9 @@ const router = express.Router();
 router.get('/history', async (req: Request, res: Response) => {
   try {
     const { symbol, from, to, timespan = 'minute', multiplier = '1', limit = '5000' } = req.query;
+    
+    // Log incoming request
+    console.log(`[API Request] /api/candlestick/history - Symbol: ${symbol}, From: ${from}, To: ${to}, Client IP: ${req.ip}`);
     
     if (!symbol || !from || !to) {
       res.status(400).json({ error: 'symbol, from, and to parameters are required' });
@@ -47,6 +50,11 @@ router.get('/history', async (req: Request, res: Response) => {
 // Subscribe to real-time updates
 router.post('/subscribe', (req: Request, res: Response) => {
   try {
+    console.log('[SUBSCRIBE] Request received from IP:', req.ip);
+    console.log('[SUBSCRIBE] User-Agent:', req.get('User-Agent'));
+    console.log('[SUBSCRIBE] Origin:', req.get('Origin'));
+    console.log('[SUBSCRIBE] Referer:', req.get('Referer'));
+    
     const { symbols, granularity = 'AM' } = req.body;
     
     if (!Array.isArray(symbols) || symbols.length === 0) {
@@ -54,14 +62,15 @@ router.post('/subscribe', (req: Request, res: Response) => {
       return;
     }
     
-    // Check if we need to connect to Polygon first
-    const apiKey = process.env.POLYGON_API_KEY;
-    if (apiKey) {
-      // Get the candle handler from app locals
-      const { onCandle } = req.app.locals;
-      if (onCandle) {
-        connectPolygon(apiKey, onCandle);
-      }
+    // DO NOT auto-create Polygon connections - require explicit connection first
+    if (!hasActivePolygonConnection()) {
+      console.log('[SUBSCRIBE] No active Polygon connection - subscription blocked. Use /api/candlestick/connect first.');
+      res.status(400).json({ 
+        error: 'No active Polygon connection. Please connect first using /api/candlestick/connect endpoint.' 
+      });
+      return;
+    } else {
+      console.log('[SUBSCRIBE] Active Polygon connection exists, proceeding with subscription');
     }
     
     subscribeSymbols(symbols, granularity);
@@ -182,6 +191,21 @@ router.get('/status', (req: Request, res: Response) => {
 // Connect to Polygon WebSocket
 router.post('/connect', (req: Request, res: Response) => {
   try {
+    console.log('[CONNECT] Connection request received from IP:', req.ip);
+    console.log('[CONNECT] User-Agent:', req.get('User-Agent'));
+    console.log('[CONNECT] Origin:', req.get('Origin'));
+    console.log('[CONNECT] Referer:', req.get('Referer'));
+    console.log('[CONNECT] X-Forwarded-For:', req.get('X-Forwarded-For'));
+    
+    if (hasActivePolygonConnection()) {
+      console.log('[CONNECT] Already have active Polygon WebSocket connection');
+      res.json({ 
+        success: true, 
+        message: 'Already connected to Polygon WebSocket' 
+      });
+      return;
+    }
+    
     const apiKey = process.env.POLYGON_API_KEY;
     if (!apiKey) {
       res.status(500).json({ error: 'Polygon API key not configured' });
@@ -194,6 +218,7 @@ router.post('/connect', (req: Request, res: Response) => {
       return;
     }
     
+    console.log('[CONNECT] Creating new Polygon WebSocket connection...');
     connectPolygon(apiKey, onCandle);
     
     res.json({ 
@@ -209,7 +234,9 @@ router.post('/connect', (req: Request, res: Response) => {
 // Disconnect from Polygon WebSocket
 router.post('/disconnect', (req: Request, res: Response) => {
   try {
+    console.log('[API] Disconnect request received');
     disconnectPolygon();
+    console.log('[API] Disconnect command sent to Polygon handler');
     res.json({ 
       success: true, 
       message: 'Disconnected from Polygon WebSocket' 
@@ -217,6 +244,33 @@ router.post('/disconnect', (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error disconnecting from Polygon:', error);
     res.status(500).json({ error: 'Failed to disconnect from Polygon' });
+  }
+});
+
+// Get Polygon API request statistics from all sources
+router.get('/polygon/stats', (req: Request, res: Response) => {
+  try {
+    const polygonAPIStats = getPolygonRequestStats();
+    
+    // Import stockAnalysis stats
+    const { getStockAnalysisRequestStats } = require('../handlers/stockAnalysis.js');
+    const stockAnalysisStats = getStockAnalysisRequestStats();
+    
+    const combinedStats = {
+      polygonAPI: polygonAPIStats,
+      stockAnalysis: stockAnalysisStats,
+      totalRequests: polygonAPIStats.totalRequests + stockAnalysisStats.totalRequests,
+      totalLastHour: polygonAPIStats.lastHour + stockAnalysisStats.lastHour,
+      totalLast24Hours: polygonAPIStats.last24Hours + stockAnalysisStats.last24Hours
+    };
+    
+    res.json({
+      success: true,
+      stats: combinedStats
+    });
+  } catch (error) {
+    console.error('Error getting Polygon stats:', error);
+    res.status(500).json({ error: 'Failed to get Polygon statistics' });
   }
 });
 

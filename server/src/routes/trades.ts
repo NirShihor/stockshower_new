@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from 'express';
 import { TradeService } from '../db/services/tradeService.js';
 import { Trade } from '../db/models/Trade.js';
+import { positionMonitor } from '../services/positionMonitor.js';
 
 const router: Router = express.Router();
 
@@ -267,6 +268,18 @@ router.get('/analytics/algorithm-review', async (req: Request, res: Response) =>
   } catch (error) {
     console.error('Error generating algorithm review:', error);
     res.status(500).json({ error: 'Failed to generate algorithm review' });
+  }
+});
+
+// Cleanup stuck trades endpoint
+router.post('/cleanup-stuck', async (req: Request, res: Response) => {
+  try {
+    console.log('🧹 Manual cleanup of stuck trades requested');
+    await positionMonitor.cleanupStuckTrades();
+    res.json({ message: 'Stuck trades cleanup completed successfully' });
+  } catch (error) {
+    console.error('Error during manual cleanup:', error);
+    res.status(500).json({ error: 'Failed to cleanup stuck trades' });
   }
 });
 

@@ -201,8 +201,8 @@ const StockScanPage: React.FC = () => {
     // DO NOT auto-connect on mount - wait for user action
     // connectWebSocket(); // REMOVED - manual connection only
     
-    // Check Polygon connection status on mount
-    checkPolygonStatus();
+    // DO NOT check Polygon status on mount - this triggers automatic connections
+    // checkPolygonStatus(); // REMOVED - only check when user explicitly connects
 
     return () => {
       if (wsRef.current) {
@@ -389,6 +389,8 @@ const StockScanPage: React.FC = () => {
       if (response.ok) {
         setPolygonConnected(true);
         console.log('Connected to Polygon');
+        // Now check status after successful connection
+        await checkPolygonStatus();
       } else {
         console.error('Failed to connect to Polygon:', await response.text());
       }
