@@ -103,7 +103,7 @@ export function detectThreeWhiteSoldiers(
     metrics1.isBullish && metrics2.isBullish && metrics3.isBullish &&
     
     // Each close is near the high (strong closes)
-    metrics1.closePos >= 0.6 && metrics2.closePos >= 0.6 && metrics3.closePos >= 0.6 &&
+    metrics1.closePos >= 0.55 && metrics2.closePos >= 0.55 && metrics3.closePos >= 0.55 &&
     
     // Progressive higher closes
     candle2.close > candle1.close && candle3.close > candle2.close &&
@@ -140,7 +140,7 @@ export function detectThreeBlackCrows(
     metrics1.isBearish && metrics2.isBearish && metrics3.isBearish &&
     
     // Each close is near the low (strong closes)
-    metrics1.closePos <= 0.4 && metrics2.closePos <= 0.4 && metrics3.closePos <= 0.4 &&
+    metrics1.closePos <= 0.45 && metrics2.closePos <= 0.45 && metrics3.closePos <= 0.45 &&
     
     // Progressive lower closes
     candle2.close < candle1.close && candle3.close < candle2.close &&

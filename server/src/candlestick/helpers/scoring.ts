@@ -16,17 +16,17 @@ export function scorePattern(
   
   // Base score by pattern type
   if (pattern.class === 'triple') {
-    score += 30;
+    score += 45;
     notes.push('Triple candle pattern (strongest)');
-    console.log(`[SCORING] Base score +30 (triple pattern), total: ${score}`);
+    console.log(`[SCORING] Base score +45 (triple pattern), total: ${score}`);
   } else if (pattern.class === 'double') {
-    score += 22;
+    score += 35;
     notes.push('Double candle pattern');
-    console.log(`[SCORING] Base score +22 (double pattern), total: ${score}`);
+    console.log(`[SCORING] Base score +35 (double pattern), total: ${score}`);
   } else {
-    score += 15;
+    score += 25;
     notes.push('Single candle pattern');
-    console.log(`[SCORING] Base score +15 (single pattern), total: ${score}`);
+    console.log(`[SCORING] Base score +25 (single pattern), total: ${score}`);
   }
   
   // Support/Resistance alignment
@@ -43,7 +43,7 @@ export function scorePattern(
   
   // Volume requirement penalty
   if (context.volumeFactor < params.minVolumeMultiplier) {
-    const penalty = 20;
+    const penalty = 10;
     score -= penalty;
     notes.push(`⚠️ CAUTION: Pattern formed on weak volume - lacks conviction`);
     console.log(`[SCORING] Low volume penalty -${penalty} (${context.volumeFactor.toFixed(1)}x < ${params.minVolumeMultiplier}x required)`);
@@ -66,7 +66,7 @@ export function scorePattern(
   
   // Penalize counter-trend patterns in strong trends
   if (isCounterTrend(pattern, context)) {
-    const penalty = 15;
+    const penalty = 10;
     score -= penalty;
     notes.push(`⚠️ Counter-trend pattern in ${context.trend} market - higher risk`);
   }
@@ -227,7 +227,7 @@ function calculateAvgBodySize(candles: Candle[], period: number): number {
 }
 
 export function getActionableThreshold(): number {
-  return 60;  // Raised to 60+ for higher quality signals
+  return 50;  // Balanced threshold for quality signals
 }
 
 export function getWatchThreshold(): number {

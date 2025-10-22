@@ -41,10 +41,10 @@ class MetaApiRestHandler {
 
   private convertToMT5Symbol(symbol: string): string {
     // Common NASDAQ stocks that need .O suffix
-    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'DLTR', 'CSX', 'MU'];
+    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'DLTR', 'CSX', 'MU', 'ISRG'];
     
     // Common NYSE stocks that need .N suffix  
-    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR'];
+    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR', 'BSX'];
     
     if (nasdaqStocks.includes(symbol)) {
       return `${symbol}.O`;
