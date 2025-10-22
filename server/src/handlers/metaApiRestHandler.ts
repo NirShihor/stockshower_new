@@ -44,7 +44,7 @@ class MetaApiRestHandler {
     const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'DLTR', 'CSX', 'MU'];
     
     // Common NYSE stocks that need .N suffix  
-    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM'];
+    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR'];
     
     if (nasdaqStocks.includes(symbol)) {
       return `${symbol}.O`;
@@ -1185,29 +1185,79 @@ class MetaApiRestHandler {
     }
   }
 
+  // Helper to get current ET hour and minute
+  private getETTime(): { hour: number; minute: number; dayOfWeek: number } {
+    // Create a date in ET timezone
+    const etString = new Date().toLocaleString("en-US", { 
+      timeZone: "America/New_York",
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+    
+    // Parse the ET string to get components
+    const [datePart, timePart] = etString.split(', ');
+    const [month, day, year] = datePart.split('/').map(Number);
+    const [hour, minute] = timePart.split(':').map(Number);
+    
+    // Get day of week in ET
+    const etDate = new Date(`${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}T${timePart}-05:00`);
+    const dayOfWeek = etDate.getUTCDay();
+    
+    return { hour, minute, dayOfWeek };
+  }
+
+  // Helper to calculate milliseconds until specific ET time
+  private msUntilETTime(targetHour: number, targetMinute: number): number {
+    const now = new Date();
+    const { hour: currentETHour, minute: currentETMinute, dayOfWeek } = this.getETTime();
+    
+    // Calculate target time for today in ET
+    let targetDate = new Date(now);
+    
+    // Adjust for timezone difference
+    const currentTotalMinutes = currentETHour * 60 + currentETMinute;
+    const targetTotalMinutes = targetHour * 60 + targetMinute;
+    let minutesUntilTarget = targetTotalMinutes - currentTotalMinutes;
+    
+    // If target time has passed today, schedule for tomorrow
+    if (minutesUntilTarget <= 0) {
+      minutesUntilTarget += 24 * 60; // Add 24 hours
+      targetDate.setDate(targetDate.getDate() + 1);
+    }
+    
+    // Skip weekends
+    let daysToAdd = 0;
+    let checkDay = dayOfWeek;
+    if (minutesUntilTarget > 0 && minutesUntilTarget < 24 * 60) {
+      // Target is today, check today's day
+      if (checkDay === 0 || checkDay === 6) {
+        daysToAdd = checkDay === 0 ? 1 : 2; // Sunday->Monday, Saturday->Monday
+      }
+    } else {
+      // Target is tomorrow or later
+      checkDay = (checkDay + Math.floor(minutesUntilTarget / (24 * 60))) % 7;
+      if (checkDay === 0) daysToAdd = 1; // Sunday->Monday
+      else if (checkDay === 6) daysToAdd = 2; // Saturday->Monday
+    }
+    
+    // Calculate final milliseconds
+    return (minutesUntilTarget + (daysToAdd * 24 * 60)) * 60 * 1000;
+  }
+
   startEndOfDayScheduler(): void {
     // Calculate time until 3:50 PM ET (10 minutes before market close)
     const scheduleCleanup = () => {
-      const now = new Date();
-      const et = new Date(now.toLocaleString("en-US", {timeZone: "America/New_York"}));
+      const msUntilCleanup = this.msUntilETTime(15, 50); // 3:50 PM ET
+      const minutesUntilCleanup = Math.round(msUntilCleanup / 1000 / 60);
+      const hoursUntilCleanup = Math.floor(minutesUntilCleanup / 60);
+      const remainingMinutes = minutesUntilCleanup % 60;
       
-      // Set target time to 3:50 PM ET today
-      const targetTime = new Date(et);
-      targetTime.setHours(15, 50, 0, 0); // 3:50 PM
-      
-      // If it's already past 3:50 PM today, schedule for tomorrow
-      if (et > targetTime) {
-        targetTime.setDate(targetTime.getDate() + 1);
-      }
-      
-      // Skip weekends (Saturday = 6, Sunday = 0)
-      while (targetTime.getDay() === 0 || targetTime.getDay() === 6) {
-        targetTime.setDate(targetTime.getDate() + 1);
-      }
-      
-      const msUntilCleanup = targetTime.getTime() - et.getTime();
-      
-      console.log(`[MetaApi] End-of-day cleanup scheduled for ${targetTime.toLocaleString("en-US", {timeZone: "America/New_York"})} ET (in ${Math.round(msUntilCleanup / 1000 / 60)} minutes)`);
+      console.log(`[MetaApi] End-of-day cleanup scheduled in ${hoursUntilCleanup}h ${remainingMinutes}m (at 3:50 PM ET)`);
       
       setTimeout(async () => {
         console.log('[MetaApi] Executing scheduled end-of-day cleanup (10 minutes before market close)...');
