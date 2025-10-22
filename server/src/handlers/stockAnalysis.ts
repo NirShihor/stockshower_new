@@ -33,10 +33,10 @@ function isMT5Tradeable(symbol: string): boolean {
 
 function convertToMT5Symbol(symbol: string): string {
   // Common NASDAQ stocks that need .O suffix
-  const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX'];
+  const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'ISRG'];
   
   // Common NYSE stocks that need .N suffix  
-  const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F'];
+  const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'RTX', 'DHR', 'BSX'];
   
   if (nasdaqStocks.includes(symbol)) {
     return `${symbol}.O`;

@@ -10,12 +10,14 @@ export function detectBullishEngulfing(
   const prevMetrics = calculateCandleMetrics(prevCandle);
   const currMetrics = calculateCandleMetrics(currCandle);
   
+  const tolerance = Math.abs(prevCandle.close - prevCandle.open) * 0.01; // 1% tolerance
+  
   if (
     prevMetrics.isBearish &&
     currMetrics.isBullish &&
-    currCandle.open <= prevCandle.close &&
-    currCandle.close >= prevCandle.open &&
-    currMetrics.body > prevMetrics.body
+    currCandle.open <= prevCandle.close + tolerance &&
+    currCandle.close >= prevCandle.open - tolerance &&
+    currMetrics.body > prevMetrics.body * 0.95 // Allow slightly smaller body
   ) {
     return {
       name: 'Bullish Engulfing',
@@ -38,12 +40,14 @@ export function detectBearishEngulfing(
   const prevMetrics = calculateCandleMetrics(prevCandle);
   const currMetrics = calculateCandleMetrics(currCandle);
   
+  const tolerance = Math.abs(prevCandle.close - prevCandle.open) * 0.01; // 1% tolerance
+  
   if (
     prevMetrics.isBullish &&
     currMetrics.isBearish &&
-    currCandle.open >= prevCandle.close &&
-    currCandle.close <= prevCandle.open &&
-    currMetrics.body > prevMetrics.body
+    currCandle.open >= prevCandle.close - tolerance &&
+    currCandle.close <= prevCandle.open + tolerance &&
+    currMetrics.body > prevMetrics.body * 0.95 // Allow slightly smaller body
   ) {
     return {
       name: 'Bearish Engulfing',
@@ -115,7 +119,7 @@ export function detectPiercing(
   if (
     prevMetrics.isBearish &&
     currMetrics.isBullish &&
-    currCandle.open < prevCandle.low &&
+    currCandle.open <= prevCandle.low &&
     currCandle.close > prevMidpoint &&
     currCandle.close < prevCandle.open
   ) {
@@ -145,7 +149,7 @@ export function detectDarkCloudCover(
   if (
     prevMetrics.isBullish &&
     currMetrics.isBearish &&
-    currCandle.open > prevCandle.high &&
+    currCandle.open >= prevCandle.high &&
     currCandle.close < prevMidpoint &&
     currCandle.close > prevCandle.open
   ) {

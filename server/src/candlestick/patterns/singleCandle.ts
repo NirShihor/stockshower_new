@@ -29,8 +29,8 @@ export function detectHammer(
   if (
     metrics.lowerWickPctOfRange >= params.longWickPctMin &&
     metrics.upperWickPctOfRange <= (1 - params.longWickPctMin) &&
-    metrics.closePos > 0.5 &&
-    metrics.bodyPctOfRange >= 0.1
+    metrics.closePos >= 0.45 &&
+    metrics.bodyPctOfRange >= 0.08
   ) {
     return {
       name: inDowntrend ? 'Hammer' : 'Hanging Man',
@@ -53,7 +53,7 @@ export function detectInvertedHammer(
   if (
     metrics.upperWickPctOfRange >= params.longWickPctMin &&
     metrics.lowerWickPctOfRange <= (1 - params.longWickPctMin) &&
-    metrics.closePos > 0.5
+    metrics.closePos >= 0.45
   ) {
     return {
       name: inDowntrend ? 'Inverted Hammer' : 'Shooting Star',
@@ -76,7 +76,7 @@ export function detectShootingStar(
   if (
     metrics.upperWickPctOfRange >= params.longWickPctMin &&
     metrics.lowerWickPctOfRange <= (1 - params.longWickPctMin) &&
-    metrics.closePos < 0.5 &&
+    metrics.closePos <= 0.55 &&
     inUptrend
   ) {
     return {
@@ -99,7 +99,7 @@ export function detectMarubozu(
   if (
     metrics.upperWickPctOfRange <= params.marubozuWickPctMax &&
     metrics.lowerWickPctOfRange <= params.marubozuWickPctMax &&
-    metrics.bodyPctOfRange >= 0.9
+    metrics.bodyPctOfRange >= 0.85
   ) {
     return {
       name: metrics.isBullish ? 'Bullish Marubozu' : 'Bearish Marubozu',
