@@ -36,6 +36,8 @@ const recentSignals: RecentSignal[] = [];
 export class ComprehensiveScanner {
   private params: TradingParameters;
   private duplicateBlockMinutes: number = 20; // Block duplicates for 20 minutes
+  private signalRateLimiter: Map<string, number[]> = new Map(); // Track signals per hour
+  private maxSignalsPerHour: number = 5; // Maximum signals per hour per symbol
   
   constructor(params: TradingParameters = DEFAULT_PARAMS) {
     this.params = params;
@@ -67,6 +69,38 @@ export class ComprehensiveScanner {
       patternName,
       timestamp: Date.now()
     });
+  }
+  
+  private isRateLimited(symbol: string): boolean {
+    const now = Date.now();
+    const oneHourAgo = now - (60 * 60 * 1000);
+    
+    // Get or create rate limit tracker for symbol
+    if (!this.signalRateLimiter.has(symbol)) {
+      this.signalRateLimiter.set(symbol, []);
+    }
+    
+    const timestamps = this.signalRateLimiter.get(symbol)!;
+    
+    // Remove timestamps older than 1 hour
+    const recentTimestamps = timestamps.filter(ts => ts > oneHourAgo);
+    this.signalRateLimiter.set(symbol, recentTimestamps);
+    
+    // Check if we've exceeded the limit
+    if (recentTimestamps.length >= this.maxSignalsPerHour) {
+      console.log(`[RATE-LIMIT] Symbol ${symbol} has reached max signals per hour (${this.maxSignalsPerHour})`);
+      return true;
+    }
+    
+    return false;
+  }
+  
+  private recordSignal(symbol: string): void {
+    if (!this.signalRateLimiter.has(symbol)) {
+      this.signalRateLimiter.set(symbol, []);
+    }
+    
+    this.signalRateLimiter.get(symbol)!.push(Date.now());
   }
   
   public scan(candle: Candle): ComprehensiveSignal[] {

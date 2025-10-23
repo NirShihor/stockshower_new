@@ -64,9 +64,16 @@ export function scorePattern(
     score += trendBonus;
   }
   
+  // Penalize patterns in sideways markets (choppy conditions)
+  if (context.trend === 'sideways' && pattern.class !== 'triple') {
+    const penalty = 15;
+    score -= penalty;
+    notes.push('⚠️ Sideways market - increased false signal risk');
+  }
+  
   // Penalize counter-trend patterns in strong trends
   if (isCounterTrend(pattern, context)) {
-    const penalty = 10;
+    const penalty = 30; // Increased from 10 to strongly discourage counter-trend trades
     score -= penalty;
     notes.push(`⚠️ Counter-trend pattern in ${context.trend} market - higher risk`);
   }
@@ -227,7 +234,7 @@ function calculateAvgBodySize(candles: Candle[], period: number): number {
 }
 
 export function getActionableThreshold(): number {
-  return 50;  // Balanced threshold for quality signals
+  return 70;  // Higher threshold to reduce false signals and improve quality
 }
 
 export function getWatchThreshold(): number {
