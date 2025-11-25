@@ -96,7 +96,12 @@ function findOptimalStopLoss(
   context: MarketContext,
   direction: 'long' | 'short'
 ): number {
-  const minDistance = Math.max(context.atr * 0.75, 0.15); // Increased minimum distance for better stops
+  // Get the trigger price (where we expect to enter)
+  const entryPrice = direction === 'long' ? pattern.patternHigh : pattern.patternLow;
+  
+  // Calculate minimum distance as percentage of entry price (1% minimum)
+  const minDistancePercent = entryPrice * 0.01; // 1% of entry price
+  const minDistance = Math.max(context.atr * 0.75, minDistancePercent);
   
   if (direction === 'long') {
     // For long trades, stop below pattern low
@@ -106,11 +111,13 @@ function findOptimalStopLoss(
     if (context.nearestSupport && context.nearestSupport < stopLevel) {
       const distanceToSupport = pattern.patternLow - context.nearestSupport;
       if (distanceToSupport <= context.atr * 2) {
-        stopLevel = context.nearestSupport - minDistance;
+        stopLevel = context.nearestSupport;
       }
     }
     
-    return stopLevel - minDistance;
+    // Ensure stop is at least minDistance below the expected entry
+    const stopFromEntry = entryPrice - minDistance;
+    return Math.min(stopLevel, stopFromEntry);
     
   } else {
     // For short trades, stop above pattern high
@@ -120,11 +127,13 @@ function findOptimalStopLoss(
     if (context.nearestResistance && context.nearestResistance > stopLevel) {
       const distanceToResistance = context.nearestResistance - pattern.patternHigh;
       if (distanceToResistance <= context.atr * 2) {
-        stopLevel = context.nearestResistance + minDistance;
+        stopLevel = context.nearestResistance;
       }
     }
     
-    return stopLevel + minDistance;
+    // Ensure stop is at least minDistance above the expected entry
+    const stopFromEntry = entryPrice + minDistance;
+    return Math.max(stopLevel, stopFromEntry);
   }
 }
 

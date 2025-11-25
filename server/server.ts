@@ -19,6 +19,7 @@ import tradesRoutes from './src/routes/trades.js';
 import mt5Routes from './src/routes/mt5.js';
 import circuitBreakerStatusRoutes from './src/routes/circuitBreakerStatus.js';
 import testCircuitBreakerRoutes from './src/routes/testCircuitBreaker.js';
+import backtestRoutes from './src/backtesting/routes/backtestRoutes.js';
 import { setupWebSocketServer, handleCandle, handleSignal, getSignals } from './src/websocket/server.js';
 import { connectPolygon, shutdownPolygon } from './src/handlers/polygonWebSocket.js';
 import { stopMockDataFeed } from './src/handlers/mockDataGenerator.js';
@@ -55,6 +56,7 @@ app.use('/api/trades', tradesRoutes);
 app.use('/api/mt5', mt5Routes);
 app.use('/api/circuit-breaker', circuitBreakerStatusRoutes);
 app.use('/api/test', testCircuitBreakerRoutes);
+app.use('/api/backtest', backtestRoutes);
 
 // Signals endpoint
 app.get('/api/signals', (req: Request, res: Response) => {
