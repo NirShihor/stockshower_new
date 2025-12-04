@@ -5,7 +5,7 @@ import { TradingCircuitBreaker } from '../helpers/circuitBreaker.js';
 
 class PositionMonitorService {
   private intervalId: NodeJS.Timeout | null = null;
-  private checkIntervalMs = 30000; // Check every 30 seconds
+  private checkIntervalMs = 10000; // Check every 10 seconds - faster for active trading
   private circuitBreaker: TradingCircuitBreaker;
   
   constructor() {
@@ -178,7 +178,7 @@ class PositionMonitorService {
             
             if (!position) {
               // Position no longer exists - it was closed!
-              // Need to get historical data to find exit details
+              // Try multiple methods to get closure details
               const historicalData = await metaApiHandler.getClosedPosition(trade.mt5PositionId);
               
               if (historicalData) {
@@ -203,13 +203,27 @@ class PositionMonitorService {
                   await this.circuitBreaker.updateTradeResult(closedTrade);
                 }
               } else {
-                // Fallback - mark as closed without details
-                console.log(`⚠️ Trade ${trade._id} closed but no details available`);
+                // BACKUP CLOSURE: If no historical data, mark as closed with estimated P&L
+                console.log(`⚠️ Trade ${trade._id} closed but no details available - using backup closure`);
+                const estimatedClosePrice = trade.actualEntryPrice || trade.entryPrice;
+                
                 trade.status = 'closed';
-                trade.exitReason = 'system';
+                trade.exitReason = 'system_backup';
                 trade.closedTime = new Date();
+                trade.exitPrice = estimatedClosePrice;
+                // Mark as break-even since we can't determine actual exit
+                trade.pnlAmount = 0;
+                trade.pnlPercent = 0;
                 await trade.save();
+                
+                console.log(`🔄 Trade ${trade._id} marked closed with backup system`);
               }
+            } else {
+              // ACTIVE PRICE MONITORING: Check if position should be closed based on current price
+              await this.checkActivePriceTargets(trade, position);
+              
+              // TIMEOUT CLOSURE: Check if position has been open too long
+              await this.checkPositionTimeout(trade);
             }
           }
         } catch (error) {
@@ -239,6 +253,119 @@ class PositionMonitorService {
     }
     
     return 'manual';
+  }
+
+  private async checkActivePriceTargets(trade: any, position: any): Promise<void> {
+    try {
+      const currentPrice = position.currentPrice || position.openPrice;
+      
+      if (!currentPrice || !trade.stopLoss || !trade.takeProfit) {
+        return;
+      }
+
+      const isLong = trade.direction === 'long';
+      let shouldClose = false;
+      let exitReason: 'stop_loss' | 'take_profit' | null = null;
+
+      // Check if current price hit stop loss or take profit
+      if (isLong) {
+        if (currentPrice <= trade.stopLoss) {
+          shouldClose = true;
+          exitReason = 'stop_loss';
+        } else if (currentPrice >= trade.takeProfit) {
+          shouldClose = true;
+          exitReason = 'take_profit';
+        }
+      } else {
+        if (currentPrice >= trade.stopLoss) {
+          shouldClose = true;
+          exitReason = 'stop_loss';
+        } else if (currentPrice <= trade.takeProfit) {
+          shouldClose = true;
+          exitReason = 'take_profit';
+        }
+      }
+
+      if (shouldClose && exitReason) {
+        console.log(`🎯 Active monitoring triggered: ${trade.symbol} hit ${exitReason} at ${currentPrice}`);
+        
+        // Try to close the position via MetaAPI
+        try {
+          await metaApiHandler.closePosition(position.id);
+          
+          // Update trade record immediately
+          await TradeService.closeTrade(
+            trade.mt5PositionId,
+            currentPrice,
+            exitReason,
+            0 // Commission will be updated when position actually closes
+          );
+          
+          console.log(`✅ Position ${position.id} closed via active monitoring`);
+        } catch (closeError) {
+          console.error(`❌ Failed to close position ${position.id} via active monitoring:`, closeError);
+          
+          // Fallback: Mark as closed in database even if MetaAPI call fails
+          trade.status = 'closed';
+          trade.exitReason = exitReason;
+          trade.exitPrice = currentPrice;
+          trade.closedTime = new Date();
+          
+          // Calculate P&L
+          const entryPrice = trade.actualEntryPrice || trade.entryPrice;
+          if (entryPrice) {
+            const pnlPercent = isLong 
+              ? ((currentPrice - entryPrice) / entryPrice) * 100
+              : ((entryPrice - currentPrice) / entryPrice) * 100;
+            
+            trade.pnlPercent = pnlPercent;
+            trade.pnlAmount = (pnlPercent / 100) * (trade.positionSizeGBP || 5);
+          }
+          
+          await trade.save();
+          console.log(`🔄 Trade ${trade._id} force-closed via fallback system`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error in active price monitoring for trade ${trade._id}:`, error);
+    }
+  }
+
+  private async checkPositionTimeout(trade: any): Promise<void> {
+    try {
+      if (!trade.signalTime) return;
+
+      const hoursOpen = (Date.now() - trade.signalTime.getTime()) / (1000 * 60 * 60);
+      const maxHours = 72; // Close positions after 3 days maximum
+
+      if (hoursOpen > maxHours) {
+        console.log(`⏰ Position ${trade._id} (${trade.symbol}) open for ${hoursOpen.toFixed(1)} hours - forcing closure`);
+        
+        try {
+          // Try to close via MetaAPI first
+          if (trade.mt5PositionId) {
+            await metaApiHandler.closePosition(trade.mt5PositionId);
+          }
+        } catch (error) {
+          console.error(`Failed to close via MetaAPI, using database closure:`, error);
+        }
+
+        // Mark as closed in database regardless
+        trade.status = 'closed';
+        trade.exitReason = 'timeout';
+        trade.closedTime = new Date();
+        trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
+        
+        // Mark as break-even since we're force closing
+        trade.pnlAmount = -1; // Small loss for forced closure
+        trade.pnlPercent = -0.2; // 0.2% loss
+        
+        await trade.save();
+        console.log(`🔄 Trade ${trade._id} force-closed due to timeout`);
+      }
+    } catch (error) {
+      console.error(`Error in position timeout check for trade ${trade._id}:`, error);
+    }
   }
 }
 

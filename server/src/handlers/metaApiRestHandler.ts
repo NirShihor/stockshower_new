@@ -153,10 +153,16 @@ class MetaApiRestHandler {
       let canceledCount = 0;
 
       // Filter orders for this symbol (need to check both with and without suffix)
-      const baseSymbol = symbol.replace(/\.[ON]$/, ''); // Remove .O or .N suffix if present
+      // Use case-insensitive matching since MT5 may return different cases
+      const baseSymbol = symbol.replace(/\.[ON]$/i, '').toUpperCase(); // Remove .O or .N suffix, uppercase
+      
+      console.log(`[MetaApi] Looking for orders matching base symbol: ${baseSymbol}`);
+      console.log(`[MetaApi] Current pending orders:`, orders.map((o: any) => o.symbol));
       
       for (const order of orders) {
-        const orderBaseSymbol = order.symbol.replace(/\.[ON]$/, '');
+        const orderBaseSymbol = order.symbol.replace(/\.[ON]$/i, '').toUpperCase();
+        
+        console.log(`[MetaApi] Comparing: ${orderBaseSymbol} vs ${baseSymbol}`);
         
         if (orderBaseSymbol === baseSymbol) {
           try {
@@ -252,23 +258,23 @@ class MetaApiRestHandler {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Position sizing to target £5 MARGIN (not notional value)
-      const targetMarginGBP = 5; // £5 margin per trade
+      // Position sizing to target £1 MARGIN (minimum for testing)
+      const targetMarginGBP = 1; // £1 margin per trade - minimal testing size
       const gbpToUsd = 1.30; // Approximate exchange rate
-      const targetMarginUSD = targetMarginGBP * gbpToUsd; // $6.50 margin
+      const targetMarginUSD = targetMarginGBP * gbpToUsd; // $1.30 margin for testing
       let volume = 0.01; // Default fallback
       
       try {
-        // Calculate volume based on £5 target margin
+        // Calculate volume based on £1 target margin
         // This will use leverage to control much larger positions
         const entryPrice = plan.entry;
         
-        // Assume average margin requirement of 2% (1:50 leverage)
-        // You can adjust this based on specific stock margin requirements
-        const estimatedMarginPercent = 0.02; // 2% margin = 1:50 leverage
+        // Use actual account leverage (1:30) for margin calculations
+        // Based on actual MetaAPI account settings
+        const estimatedMarginPercent = 0.033; // 3.33% margin = 1:30 leverage
         
-        // Calculate notional value that £5 margin can control
-        const notionalValueUSD = targetMarginUSD / estimatedMarginPercent; // $6.50 / 0.02 = $325
+        // Calculate notional value that £1 margin can control with 1:30 leverage
+        const notionalValueUSD = targetMarginUSD / estimatedMarginPercent; // $1.30 / 0.033 = $39
         
         // Calculate lots needed (1 lot = 1 share at entry price)
         const sharesNeeded = notionalValueUSD / entryPrice;
@@ -278,7 +284,7 @@ class MetaApiRestHandler {
         
         // Apply safety limits - much higher now since we're targeting margin
         volume = Math.max(volume, 0.01); // Minimum 0.01 lots
-        volume = Math.min(volume, 10.0);  // Maximum 10 lots (£50 margin max)
+        volume = Math.min(volume, 2.0);   // Maximum 2 lots (£10 margin max for testing)
         
         // Calculate actual values for logging
         const actualNotionalUSD = volume * entryPrice;
@@ -328,7 +334,7 @@ class MetaApiRestHandler {
       }
       
       // Determine order type and adjust entry price if needed
-      const minDistancePercent = 0.007; // 0.7% minimum distance - provides adequate margin for MT5 orders
+      const minDistancePercent = 0.002; // 0.2% minimum distance - reduced for better fills
       const priceDiff = Math.abs((plan.entry - currentMarketPrice) / currentMarketPrice);
       
       let adjustedEntry = plan.entry;
@@ -382,42 +388,50 @@ class MetaApiRestHandler {
         Original TP: ${plan.targets[0]}
       `);
       
-      // Ensure minimum distances for stops (many brokers require this)
-      const minStopDistance = adjustedEntry * 0.01; // Increased to 1% minimum distance
+      // Ensure minimum distances for stops (broker requirement)
+      // Reduced from 1.5% to 1% - tighter stops for better R:R
+      const minStopDistance = adjustedEntry * 0.01; // 1% minimum distance
+      
+      // Calculate original R:R ratio to preserve it when adjusting
+      const originalRisk = Math.abs(plan.entry - plan.stop);
+      const originalReward = Math.abs(plan.targets[0] - plan.entry);
+      const originalRRRatio = originalRisk > 0 ? originalReward / originalRisk : 1.5;
       
       if (isLong) {
         // For long positions: SL below entry, TP above entry
         if (adjustedStopLoss >= adjustedEntry) {
           adjustedStopLoss = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry`);
+          adjustedTakeProfit = adjustedEntry + (minStopDistance * originalRRRatio);
+          console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry, TP scaled to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
         } else if ((adjustedEntry - adjustedStopLoss) < minStopDistance) {
-          adjustedStopLoss = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}) - distance too small`);
+          const newRisk = minStopDistance;
+          adjustedStopLoss = adjustedEntry - newRisk;
+          adjustedTakeProfit = adjustedEntry + (newRisk * originalRRRatio);
+          console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}), TP scaled to ${adjustedTakeProfit} to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
         }
         
         if (adjustedTakeProfit <= adjustedEntry) {
-          adjustedTakeProfit = adjustedEntry + minStopDistance;
+          const actualRisk = adjustedEntry - adjustedStopLoss;
+          adjustedTakeProfit = adjustedEntry + (actualRisk * originalRRRatio);
           console.warn(`[MetaApi] Adjusted TP for long: ${adjustedTakeProfit} (was ${plan.targets[0]}) - TP was below entry`);
-        } else if ((adjustedTakeProfit - adjustedEntry) < minStopDistance) {
-          adjustedTakeProfit = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Increased TP distance for long: ${adjustedTakeProfit} (was ${plan.targets[0]}) - distance too small`);
         }
       } else {
         // For short positions: SL above entry, TP below entry
         if (adjustedStopLoss <= adjustedEntry) {
           adjustedStopLoss = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry`);
+          adjustedTakeProfit = adjustedEntry - (minStopDistance * originalRRRatio);
+          console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry, TP scaled to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
         } else if ((adjustedStopLoss - adjustedEntry) < minStopDistance) {
-          adjustedStopLoss = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}) - distance too small`);
+          const newRisk = minStopDistance;
+          adjustedStopLoss = adjustedEntry + newRisk;
+          adjustedTakeProfit = adjustedEntry - (newRisk * originalRRRatio);
+          console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}), TP scaled to ${adjustedTakeProfit} to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
         }
         
         if (adjustedTakeProfit >= adjustedEntry) {
-          adjustedTakeProfit = adjustedEntry - minStopDistance;
+          const actualRisk = adjustedStopLoss - adjustedEntry;
+          adjustedTakeProfit = adjustedEntry - (actualRisk * originalRRRatio);
           console.warn(`[MetaApi] Adjusted TP for short: ${adjustedTakeProfit} (was ${plan.targets[0]}) - TP was above entry`);
-        } else if ((adjustedEntry - adjustedTakeProfit) < minStopDistance) {
-          adjustedTakeProfit = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Increased TP distance for short: ${adjustedTakeProfit} (was ${plan.targets[0]}) - distance too small`);
         }
       }
       
@@ -426,12 +440,17 @@ class MetaApiRestHandler {
       const roundedStopLoss = Math.round(adjustedStopLoss * 100) / 100;
       const roundedTakeProfit = Math.round(adjustedTakeProfit * 100) / 100;
       
+      const finalRisk = Math.abs(roundedEntry - roundedStopLoss);
+      const finalReward = Math.abs(roundedTakeProfit - roundedEntry);
+      const finalRRRatio = finalRisk > 0 ? (finalReward / finalRisk).toFixed(2) : 'N/A';
+      
       console.log(`[MetaApi] Final order prices:
         Entry: ${roundedEntry}
         Stop Loss: ${roundedStopLoss}
         Take Profit: ${roundedTakeProfit}
-        SL Distance: ${Math.abs(roundedEntry - roundedStopLoss)}
-        TP Distance: ${Math.abs(roundedTakeProfit - roundedEntry)}
+        SL Distance: ${finalRisk.toFixed(2)} (${((finalRisk/roundedEntry)*100).toFixed(2)}%)
+        TP Distance: ${finalReward.toFixed(2)} (${((finalReward/roundedEntry)*100).toFixed(2)}%)
+        R:R Ratio: 1:${finalRRRatio}
       `);
       
       orderRequest = {
@@ -669,7 +688,7 @@ class MetaApiRestHandler {
       }
       
       // Calculate price adjustments
-      const minDistancePercent = 0.007; // 0.7% minimum distance - provides adequate margin for MT5 orders
+      const minDistancePercent = 0.002; // 0.2% minimum distance - reduced for better fills
       const priceDiff = Math.abs((plan.entry - currentMarketPrice) / currentMarketPrice);
       
       let adjustedEntry = plan.entry;
@@ -701,7 +720,7 @@ class MetaApiRestHandler {
       // Adjust stop loss and take profit if needed
       let adjustedStopLoss = plan.stop;
       let adjustedTakeProfit = plan.targets[0];
-      const minStopDistance = adjustedEntry * 0.01; // 1% minimum distance
+      const minStopDistance = adjustedEntry * 0.06; // 6% minimum distance - momentum trades need room for volatility
       
       if (isLong) {
         if (adjustedStopLoss >= adjustedEntry || (adjustedEntry - adjustedStopLoss) < minStopDistance) {
@@ -1297,6 +1316,36 @@ class MetaApiRestHandler {
     } catch (error: any) {
       console.error('[MetaApi] Error getting orders:', error.response?.data || error.message);
       return [];
+    }
+  }
+
+  async closePosition(positionId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      
+      const closeRequest = {
+        actionType: 'POSITION_CLOSE_ID',
+        positionId: positionId,
+        comment: 'System auto-close'
+      };
+
+      console.log(`[MetaApi] Closing position ${positionId}`);
+      
+      const response = await this.axiosInstance.post(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+        closeRequest,
+        { headers: this.getHeaders() }
+      );
+
+      console.log(`[MetaApi] Close position response:`, response.data);
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[MetaApi] Error closing position ${positionId}:`, error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to close position'
+      };
     }
   }
 

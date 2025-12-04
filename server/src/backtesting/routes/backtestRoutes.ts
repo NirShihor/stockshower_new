@@ -3,11 +3,23 @@ import { BacktestEngine } from '../engine/backtestEngine.js';
 import { BacktestConfig } from '../types/backtestTypes.js';
 import { PerformanceAnalyzer } from '../analysis/performanceMetrics.js';
 import databaseBacktestRoutes from './databaseBacktestRoutes.js';
+import volumeBreakoutRoutes from './volumeBreakoutRoutes.js';
+import supportResistanceRoutes from './supportResistanceRoutes.js';
+import profitableFilteringRoutes from './profitableFilteringRoutes.js';
 
 const router = express.Router();
 
 // Mount database backtest routes
 router.use('/database', databaseBacktestRoutes);
+
+// Mount volume breakout routes
+router.use('/volume-breakout', volumeBreakoutRoutes);
+
+// Mount support/resistance routes
+router.use('/support-resistance', supportResistanceRoutes);
+
+// Mount profitable filtering routes
+router.use('/profitable-filtering', profitableFilteringRoutes);
 
 // Store running backtests
 const runningBacktests = new Map<string, { engine: BacktestEngine; startTime: Date; status: string }>();

@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { fetchHistoricalBars, getPolygonRequestStats } from '../handlers/polygonAPI.js';
-import { subscribeSymbols, unsubscribeSymbols, connectPolygon, disconnectPolygon, isPolygonConnected, hasActivePolygonConnection } from '../handlers/polygonWebSocket.js';
+import { subscribeSymbols, unsubscribeSymbols, connectPolygon, disconnectPolygon, isPolygonConnected, hasActivePolygonConnection, forceResetConnectionState } from '../handlers/polygonWebSocket.js';
 import { startMockDataFeed, stopMockDataFeed } from '../handlers/mockDataGenerator.js';
 import { startMockSignalFeed, stopMockSignalFeed } from '../handlers/mockSignalGenerator.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
@@ -188,6 +188,10 @@ router.get('/status', (req: Request, res: Response) => {
   }
 });
 
+// Rate limiting for connection requests
+let lastConnectRequest = 0;
+const CONNECT_COOLDOWN = 10000; // 10 seconds between connection requests
+
 // Connect to Polygon WebSocket
 router.post('/connect', (req: Request, res: Response) => {
   try {
@@ -196,6 +200,18 @@ router.post('/connect', (req: Request, res: Response) => {
     console.log('[CONNECT] Origin:', req.get('Origin'));
     console.log('[CONNECT] Referer:', req.get('Referer'));
     console.log('[CONNECT] X-Forwarded-For:', req.get('X-Forwarded-For'));
+    
+    // Rate limiting at API level
+    const now = Date.now();
+    if (now - lastConnectRequest < CONNECT_COOLDOWN) {
+      const waitTime = CONNECT_COOLDOWN - (now - lastConnectRequest);
+      console.log(`[CONNECT] Rate limited. Wait ${Math.ceil(waitTime/1000)}s before next request`);
+      res.status(429).json({ 
+        error: `Rate limited. Please wait ${Math.ceil(waitTime/1000)} seconds before trying again.` 
+      });
+      return;
+    }
+    lastConnectRequest = now;
     
     if (hasActivePolygonConnection()) {
       console.log('[CONNECT] Already have active Polygon WebSocket connection');
@@ -451,6 +467,21 @@ router.post('/mt5/cancel-old-orders', async (req: Request, res: Response) => {
       success: false,
       error: 'Failed to cancel old orders'
     });
+  }
+});
+
+// Emergency reset endpoint to clear all Polygon connection state
+router.post('/reset-connection', (req: Request, res: Response) => {
+  try {
+    console.log('[RESET] Emergency connection reset requested from IP:', req.ip);
+    forceResetConnectionState();
+    res.json({
+      success: true,
+      message: 'All Polygon connection state has been reset'
+    });
+  } catch (error) {
+    console.error('Error resetting connection state:', error);
+    res.status(500).json({ error: 'Failed to reset connection state' });
   }
 });
 

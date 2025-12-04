@@ -30,13 +30,14 @@ export function buildTradePlan(
   accountBalance: number = 10000 // Default for position sizing
 ): TradePlan {
   const tickSize = 0.01; // Assume penny stocks, adjust as needed
-  // Use ATR-based buffer for better fills (minimum 0.05% of price or 0.1 * ATR)
-  const priceBasedBuffer = confirmation.triggerPrice * 0.0005; // 0.05% of price
-  const atrBasedBuffer = context.atr * 0.1; // 10% of ATR
-  const entryBuffer = Math.max(priceBasedBuffer, atrBasedBuffer, tickSize * 5); // At least 5 ticks
+  // Minimal buffer for aggressive entry timing - reduced for more executions
+  const priceBasedBuffer = confirmation.triggerPrice * 0.0001; // 0.01% of price - very small
+  const atrBasedBuffer = context.atr * 0.02; // 2% of ATR - much smaller
+  const entryBuffer = Math.max(priceBasedBuffer, atrBasedBuffer, tickSize * 1); // Just 1 tick minimum
   
   if (pattern.direction === 'bullish') {
-    const entry = confirmation.triggerPrice + entryBuffer; // Use buffer instead of just tickSize
+    // MOMENTUM APPROACH: Enter on breakout ABOVE pattern high (confirming upward momentum)
+    const entry = pattern.patternHigh + entryBuffer; // Enter above pattern high + buffer for momentum confirmation
     const stop = findOptimalStopLoss(pattern, context, 'long');
     const risk = entry - stop;
     
@@ -63,7 +64,8 @@ export function buildTradePlan(
     };
     
   } else {
-    const entry = confirmation.triggerPrice - entryBuffer; // Use buffer instead of just tickSize
+    // MOMENTUM APPROACH: Enter on breakout BELOW pattern low (confirming downward momentum)  
+    const entry = pattern.patternLow - entryBuffer; // Enter below pattern low - buffer for momentum confirmation
     const stop = findOptimalStopLoss(pattern, context, 'short');
     const risk = stop - entry;
     

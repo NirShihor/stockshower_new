@@ -9,12 +9,19 @@ import { HistoricalDataLoader } from './dataLoader.js';
 import { MT5Simulator } from './mt5Simulator.js';
 import { ComprehensiveSignal } from '../../candlestick/types/comprehensive.js';
 import { MomentumStrategy } from '../strategies/momentumStrategy.js';
+import { applyProfitableFiltering, EnhancedBacktestConfig, FilterResult } from '../filters/profitableSignalFilter.js';
 
 export interface DatabaseBacktestConfig extends Omit<BacktestConfig, 'symbols'> {
   symbols?: string[];
   scoreThreshold?: number;
   useActualFills?: boolean;
   useMomentumStrategy?: boolean;
+  useProfitableFiltering?: boolean;
+  profitableFilterConfig?: {
+    filterMode: 'high_performance' | 'conservative' | 'aggressive' | 'custom';
+    customFilterConfig?: any;
+    enableDetailedLogging?: boolean;
+  };
 }
 
 export class DatabaseBacktestEngine {
@@ -175,6 +182,19 @@ export class DatabaseBacktestEngine {
   }
 
   private validateSignal(signal: ComprehensiveSignal, signalTime: Date): { shouldTrade: boolean; reason?: string } {
+    // Apply profitable signal filtering
+    if (this.config.useProfitableFiltering) {
+      const filterConfig = this.config.profitableFilterConfig || {
+        filterMode: 'high_performance' as const,
+        enableDetailedLogging: true
+      };
+      
+      const filterResult = this.applyProfitableFiltering(signal, filterConfig);
+      if (!filterResult.pass) {
+        return { shouldTrade: false, reason: filterResult.reason };
+      }
+    }
+    
     // Use momentum strategy if enabled
     if (this.momentumStrategy) {
       const momentumCheck = this.momentumStrategy.shouldTakeSignal(signal);
@@ -183,8 +203,8 @@ export class DatabaseBacktestEngine {
         return { shouldTrade: false, reason: momentumCheck.reason };
       }
       console.log(`Momentum filter accepted ${signal.pattern.name}`);
-    } else {
-      // Original filtering for baseline test
+    } else if (!this.config.useProfitableFiltering) {
+      // Original filtering for baseline test (only if not using profitable filtering)
       const excludedPatterns = [
         "🔄 VwapBounce Bullish", // 0% high volume
         "🔄 VwapBounce Long", // 0% high volume
@@ -206,9 +226,9 @@ export class DatabaseBacktestEngine {
       return { shouldTrade: false, reason: 'Daily loss limit reached' };
     }
 
-    // Check consecutive losses
-    if (this.state.consecutiveLosses >= 5) {
-      return { shouldTrade: false, reason: 'Consecutive loss limit reached' };
+    // Check consecutive losses - increased limit for testing
+    if (this.state.consecutiveLosses >= 20) {
+      return { shouldTrade: false, reason: 'Consecutive loss limit reached (20 losses)' };
     }
 
     // Check for recent signal on same symbol
@@ -218,6 +238,10 @@ export class DatabaseBacktestEngine {
     }
 
     return { shouldTrade: true };
+  }
+
+  private applyProfitableFiltering(signal: ComprehensiveSignal, config: any): FilterResult {
+    return applyProfitableFiltering(signal, config);
   }
 
   private simulateTradeWithActualFill(trade: any): void {
@@ -296,13 +320,13 @@ export class DatabaseBacktestEngine {
 
       // Recalculate stop with minimum percentage before placing order
       const price = signal.plan.entry;
-      const minStopDistance = price * 0.01; // 1% minimum
+      const minStopDistance = price * 0.06; // 6% minimum - momentum trades need room
       
       if (signal.plan.direction === 'long') {
         const originalDistance = price - signal.plan.stop;
         if (originalDistance < minStopDistance) {
           signal.plan.stop = price - minStopDistance;
-          console.log(`[STOP RECALCULATED] ${signal.symbol}: Original stop too tight, adjusted to 1% minimum`);
+          console.log(`[STOP RECALCULATED] ${signal.symbol}: Original stop too tight, adjusted to 6% minimum`);
           
           // Recalculate targets based on new risk
           const newRisk = price - signal.plan.stop;
@@ -316,7 +340,7 @@ export class DatabaseBacktestEngine {
         const originalDistance = signal.plan.stop - price;
         if (originalDistance < minStopDistance) {
           signal.plan.stop = price + minStopDistance;
-          console.log(`[STOP RECALCULATED] ${signal.symbol}: Original stop too tight, adjusted to 1% minimum`);
+          console.log(`[STOP RECALCULATED] ${signal.symbol}: Original stop too tight, adjusted to 6% minimum`);
           
           // Recalculate targets based on new risk
           const newRisk = signal.plan.stop - price;

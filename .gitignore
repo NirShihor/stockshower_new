@@ -45,3 +45,6 @@ temp/
 # Debug
 .nyc_output/
 
+# Trade reports
+trade_reports/
+

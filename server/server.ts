@@ -16,10 +16,12 @@ const __dirname = path.dirname(__filename);
 import analysisRoutes from './src/routes/analysis.js';
 import candlestickRoutes from './src/routes/candlestick.js';
 import tradesRoutes from './src/routes/trades.js';
+import tradeAnalysisRoutes from './src/routes/tradeAnalysis.js';
 import mt5Routes from './src/routes/mt5.js';
 import circuitBreakerStatusRoutes from './src/routes/circuitBreakerStatus.js';
 import testCircuitBreakerRoutes from './src/routes/testCircuitBreaker.js';
 import backtestRoutes from './src/backtesting/routes/backtestRoutes.js';
+import positionManagementRoutes from './src/routes/positionManagement.js';
 import { setupWebSocketServer, handleCandle, handleSignal, getSignals } from './src/websocket/server.js';
 import { connectPolygon, shutdownPolygon } from './src/handlers/polygonWebSocket.js';
 import { stopMockDataFeed } from './src/handlers/mockDataGenerator.js';
@@ -53,10 +55,12 @@ import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/candlestick', candlestickRoutes);
 app.use('/api/trades', tradesRoutes);
+app.use('/api/trade-analysis', tradeAnalysisRoutes);
 app.use('/api/mt5', mt5Routes);
 app.use('/api/circuit-breaker', circuitBreakerStatusRoutes);
 app.use('/api/test', testCircuitBreakerRoutes);
 app.use('/api/backtest', backtestRoutes);
+app.use('/api/position-management', positionManagementRoutes);
 
 // Signals endpoint
 app.get('/api/signals', (req: Request, res: Response) => {
@@ -144,9 +148,9 @@ if (process.env.NODE_ENV === 'production') {
         metaApiHandler.startEndOfDayScheduler();
         metaApiHandler.startOrderCleanup();
         
-        // Start position monitoring for trade tracking
-        console.log('Starting position monitoring service...');
-        positionMonitor.start();
+        // Position monitoring disabled to prevent stuck trade processing overload
+        // Use /api/position-management/start endpoint to manually enable if needed
+        console.log('Position monitoring available but not auto-started - use manual endpoint to enable');
       } else {
         console.log('MetaApi credentials not found - automated cleanup disabled');
       }

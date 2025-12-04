@@ -25,7 +25,9 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "dev": "nodemon --exec tsx server.ts",
-    "watch": "tsx watch server.ts"
+    "watch": "tsx watch server.ts",
+    "analyze-trades": "tsx src/analysis/runAnalysis.ts",
+    "test-analysis": "tsx src/analysis/testAnalysis.ts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

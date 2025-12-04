@@ -71,12 +71,8 @@ export function scorePattern(
     notes.push('⚠️ Sideways market - increased false signal risk');
   }
   
-  // Penalize counter-trend patterns in strong trends
-  if (isCounterTrend(pattern, context)) {
-    const penalty = 30; // Increased from 10 to strongly discourage counter-trend trades
-    score -= penalty;
-    notes.push(`⚠️ Counter-trend pattern in ${context.trend} market - higher risk`);
-  }
+  // REMOVED: Counter-trend penalty was wrong for reversal patterns
+  // Reversal patterns are SUPPOSED to go against trend - that's their purpose
   
   // Wide range / significant candle
   if (context.isWideRange) {
@@ -238,7 +234,7 @@ export function getActionableThreshold(): number {
 }
 
 export function getWatchThreshold(): number {
-  return 20;  // Very low for debugging to see all patterns
+  return 50;  // Only show signals with reasonable quality
 }
 
 export function classifySignalStrength(score: number): 'actionable' | 'watch' | 'ignore' {

@@ -1,0 +1,284 @@
+{
+  "testDate": "2025-11-26T11:11:28.873Z",
+  "config": {
+    "startDate": "2024-01-01T00:00:00.000Z",
+    "endDate": "2024-12-31T00:00:00.000Z",
+    "initialBalance": 10000,
+    "positionSizeGBP": 500,
+    "maxConcurrentPositions": 10,
+    "enableAutoExecution": false,
+    "autoExecutionThreshold": 60,
+    "enableTrapFades": false,
+    "slippageModel": "fixed",
+    "slippageBps": 5,
+    "commissionPerTrade": 1
+  },
+  "results": {
+    "baseline": {
+      "config": {
+        "symbols": [],
+        "startDate": "2024-01-01T00:00:00.000Z",
+        "endDate": "2024-12-31T00:00:00.000Z",
+        "initialBalance": 10000,
+        "positionSizeGBP": 500,
+        "maxConcurrentPositions": 10,
+        "enableAutoExecution": false,
+        "autoExecutionThreshold": 60,
+        "enableTrapFades": false,
+        "slippageModel": "fixed",
+        "slippageBps": 5,
+        "commissionPerTrade": 1
+      },
+      "summary": {
+        "totalTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "totalPnL": 0,
+        "totalPnLPercent": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPercent": 0,
+        "sharpeRatio": 0,
+        "profitFactor": 0,
+        "averageWin": 0,
+        "averageLoss": 0,
+        "largestWin": 0,
+        "largestLoss": 0,
+        "consecutiveWins": 0,
+        "consecutiveLosses": 0,
+        "timeInMarket": 0
+      },
+      "trades": [],
+      "equityCurve": [
+        {
+          "timestamp": "2024-01-01T00:00:00.000Z",
+          "balance": 10000,
+          "drawdown": 0,
+          "openPositions": 0
+        }
+      ],
+      "patternPerformance": {},
+      "dailyStats": []
+    },
+    "conservative": {
+      "config": {
+        "symbols": [],
+        "startDate": "2024-01-01T00:00:00.000Z",
+        "endDate": "2024-12-31T00:00:00.000Z",
+        "initialBalance": 10000,
+        "positionSizeGBP": 500,
+        "maxConcurrentPositions": 10,
+        "enableAutoExecution": false,
+        "autoExecutionThreshold": 60,
+        "enableTrapFades": false,
+        "slippageModel": "fixed",
+        "slippageBps": 5,
+        "commissionPerTrade": 1
+      },
+      "summary": {
+        "totalTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "totalPnL": 0,
+        "totalPnLPercent": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPercent": 0,
+        "sharpeRatio": 0,
+        "profitFactor": 0,
+        "averageWin": 0,
+        "averageLoss": 0,
+        "largestWin": 0,
+        "largestLoss": 0,
+        "consecutiveWins": 0,
+        "consecutiveLosses": 0,
+        "timeInMarket": 0
+      },
+      "trades": [],
+      "equityCurve": [
+        {
+          "timestamp": "2024-01-01T00:00:00.000Z",
+          "balance": 10000,
+          "drawdown": 0,
+          "openPositions": 0
+        }
+      ],
+      "patternPerformance": {},
+      "dailyStats": []
+    },
+    "highPerformance": {
+      "config": {
+        "symbols": [],
+        "startDate": "2024-01-01T00:00:00.000Z",
+        "endDate": "2024-12-31T00:00:00.000Z",
+        "initialBalance": 10000,
+        "positionSizeGBP": 500,
+        "maxConcurrentPositions": 10,
+        "enableAutoExecution": false,
+        "autoExecutionThreshold": 60,
+        "enableTrapFades": false,
+        "slippageModel": "fixed",
+        "slippageBps": 5,
+        "commissionPerTrade": 1
+      },
+      "summary": {
+        "totalTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "totalPnL": 0,
+        "totalPnLPercent": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPercent": 0,
+        "sharpeRatio": 0,
+        "profitFactor": 0,
+        "averageWin": 0,
+        "averageLoss": 0,
+        "largestWin": 0,
+        "largestLoss": 0,
+        "consecutiveWins": 0,
+        "consecutiveLosses": 0,
+        "timeInMarket": 0
+      },
+      "trades": [],
+      "equityCurve": [
+        {
+          "timestamp": "2024-01-01T00:00:00.000Z",
+          "balance": 10000,
+          "drawdown": 0,
+          "openPositions": 0
+        }
+      ],
+      "patternPerformance": {},
+      "dailyStats": []
+    },
+    "aggressive": {
+      "config": {
+        "symbols": [],
+        "startDate": "2024-01-01T00:00:00.000Z",
+        "endDate": "2024-12-31T00:00:00.000Z",
+        "initialBalance": 10000,
+        "positionSizeGBP": 500,
+        "maxConcurrentPositions": 10,
+        "enableAutoExecution": false,
+        "autoExecutionThreshold": 60,
+        "enableTrapFades": false,
+        "slippageModel": "fixed",
+        "slippageBps": 5,
+        "commissionPerTrade": 1
+      },
+      "summary": {
+        "totalTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "totalPnL": 0,
+        "totalPnLPercent": 0,
+        "maxDrawdown": 0,
+        "maxDrawdownPercent": 0,
+        "sharpeRatio": 0,
+        "profitFactor": 0,
+        "averageWin": 0,
+        "averageLoss": 0,
+        "largestWin": 0,
+        "largestLoss": 0,
+        "consecutiveWins": 0,
+        "consecutiveLosses": 0,
+        "timeInMarket": 0
+      },
+      "trades": [],
+      "equityCurve": [
+        {
+          "timestamp": "2024-01-01T00:00:00.000Z",
+          "balance": 10000,
+          "drawdown": 0,
+          "openPositions": 0
+        }
+      ],
+      "patternPerformance": {},
+      "dailyStats": []
+    }
+  },
+  "summary": [
+    {
+      "name": "Baseline (No Filter)",
+      "totalTrades": 0,
+      "winningTrades": 0,
+      "losingTrades": 0,
+      "winRate": 0,
+      "totalPnL": 0,
+      "totalPnLPercent": 0,
+      "maxDrawdown": 0,
+      "maxDrawdownPercent": 0,
+      "sharpeRatio": 0,
+      "profitFactor": 0,
+      "averageWin": 0,
+      "averageLoss": 0,
+      "largestWin": 0,
+      "largestLoss": 0,
+      "consecutiveWins": 0,
+      "consecutiveLosses": 0,
+      "timeInMarket": 0
+    },
+    {
+      "name": "Conservative Filter",
+      "totalTrades": 0,
+      "winningTrades": 0,
+      "losingTrades": 0,
+      "winRate": 0,
+      "totalPnL": 0,
+      "totalPnLPercent": 0,
+      "maxDrawdown": 0,
+      "maxDrawdownPercent": 0,
+      "sharpeRatio": 0,
+      "profitFactor": 0,
+      "averageWin": 0,
+      "averageLoss": 0,
+      "largestWin": 0,
+      "largestLoss": 0,
+      "consecutiveWins": 0,
+      "consecutiveLosses": 0,
+      "timeInMarket": 0
+    },
+    {
+      "name": "High Performance Filter",
+      "totalTrades": 0,
+      "winningTrades": 0,
+      "losingTrades": 0,
+      "winRate": 0,
+      "totalPnL": 0,
+      "totalPnLPercent": 0,
+      "maxDrawdown": 0,
+      "maxDrawdownPercent": 0,
+      "sharpeRatio": 0,
+      "profitFactor": 0,
+      "averageWin": 0,
+      "averageLoss": 0,
+      "largestWin": 0,
+      "largestLoss": 0,
+      "consecutiveWins": 0,
+      "consecutiveLosses": 0,
+      "timeInMarket": 0
+    },
+    {
+      "name": "Aggressive Filter",
+      "totalTrades": 0,
+      "winningTrades": 0,
+      "losingTrades": 0,
+      "winRate": 0,
+      "totalPnL": 0,
+      "totalPnLPercent": 0,
+      "maxDrawdown": 0,
+      "maxDrawdownPercent": 0,
+      "sharpeRatio": 0,
+      "profitFactor": 0,
+      "averageWin": 0,
+      "averageLoss": 0,
+      "largestWin": 0,
+      "largestLoss": 0,
+      "consecutiveWins": 0,
+      "consecutiveLosses": 0,
+      "timeInMarket": 0
+    }
+  ]
+}
