@@ -27,11 +27,10 @@ function get5MinPeriodStart(timestamp: Date): Date {
 }
 
 function scheduleCompletion(periodKey: string, periodStart: number, onComplete: (aggregatedCandle: Candle) => void): void {
-  // Clear any existing timer for this period
-  const existingTimer = completionTimers.get(periodKey);
-  if (existingTimer) {
-    clearTimeout(existingTimer);
-    console.log(`[AGGREGATOR] Cleared existing timer for ${periodKey}`);
+  // Don't reschedule if timer already exists - this prevents constant rescheduling
+  // when candles arrive frequently, which was preventing timers from ever firing
+  if (completionTimers.has(periodKey)) {
+    return;
   }
   
   // Calculate when this period should complete (5 minutes after start + small buffer)

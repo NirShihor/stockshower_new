@@ -333,10 +333,12 @@ class PositionMonitorService {
 
   private async checkPositionTimeout(trade: any): Promise<void> {
     try {
-      if (!trade.signalTime) return;
+      // Use filled time if available, otherwise signal time
+      const openTime = trade.filledTime || trade.signalTime;
+      if (!openTime) return;
 
-      const hoursOpen = (Date.now() - trade.signalTime.getTime()) / (1000 * 60 * 60);
-      const maxHours = 72; // Close positions after 3 days maximum
+      const hoursOpen = (Date.now() - openTime.getTime()) / (1000 * 60 * 60);
+      const maxHours = 4; // Close positions after 4 hours - give trades time to reach TP
 
       if (hoursOpen > maxHours) {
         console.log(`⏰ Position ${trade._id} (${trade.symbol}) open for ${hoursOpen.toFixed(1)} hours - forcing closure`);

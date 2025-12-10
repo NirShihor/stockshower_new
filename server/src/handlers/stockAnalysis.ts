@@ -19,6 +19,21 @@ dotenv.config();
 // Configuration: Set to 'marketstack' to use Marketstack API, 'polygon' for Polygon.io
 const DATA_PROVIDER = 'polygon'; // Change this to switch providers
 
+// Pattern scanner watchlist - same symbols used in real-time pattern scanning
+// This limits gap scanning to only these stocks instead of the entire market
+const PATTERN_SCANNER_WATCHLIST = [
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM',
+  'V', 'JNJ', 'WMT', 'PG', 'DIS', 'HD', 'MA', 'PYPL', 'BAC', 'ADBE',
+  'NFLX', 'CRM', 'PFE', 'TMO', 'CSCO', 'PEP', 'ABT', 'NKE', 'ORCL',
+  'CVX', 'KO', 'CMCSA', 'XOM', 'VZ', 'INTC', 'WFC', 'T', 'UNH',
+  'MRK', 'BA', 'MMM'
+];
+
+// Helper function to check if symbol is in pattern scanner watchlist
+function isInPatternScannerWatchlist(symbol: string): boolean {
+  return PATTERN_SCANNER_WATCHLIST.includes(symbol);
+}
+
 // MT5 symbol filtering - same logic as used in metaApiRestHandler
 function isMT5Tradeable(symbol: string): boolean {
   // Common NASDAQ stocks that are available on MT5
@@ -1053,20 +1068,20 @@ export const scanGapUps = async (req: Request, res: Response) => {
 				}
 			};
 			
-			// Pre-filter: Only check stocks with significant gaps and decent volume/price
+			// Pre-filter: Only check stocks in our pattern scanner watchlist with significant gaps
 			if (gapPercentage >= gapLimits[volatilityLevel].min && // Minimum gap based on volatility level
 				gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level and blue chip status
 				todayBar.v > 100000 && // Minimum volume (increased for quality)
 				todayBar.o >= 5 && // No penny stocks (>= $5)
 				todayBar.o < 1000 && // Reasonable price range
-				isMT5Tradeable(symbol)) { // Only include stocks tradeable on MT5
+				isInPatternScannerWatchlist(symbol)) { // Only include stocks from pattern scanner watchlist
 				
 				preFilteredCandidates.push({ todayBar, yesterdayBar, gapPercentage, isBlueChip });
 			}
 			processedCount++;
 		}
 
-		console.log(`Phase 1 complete: ${preFilteredCandidates.length} candidates from ${processedCount} stocks (filtered to MT5 tradeable only)`);
+		console.log(`Phase 1 complete: ${preFilteredCandidates.length} candidates from ${processedCount} stocks (filtered to pattern scanner watchlist: ${PATTERN_SCANNER_WATCHLIST.length} symbols)`);
 		console.log(`Total gap ups in market: ${gapUpCount}`);
 
 		// Track batch processing metrics
@@ -1110,13 +1125,13 @@ export const scanGapUps = async (req: Request, res: Response) => {
 						}
 					};
 					
-					// Pre-filter: Only check stocks with significant gaps and decent volume/price
+					// Pre-filter: Only check stocks in pattern scanner watchlist with significant gaps
 					if (gapPercentage >= gapLimits[volatilityLevel].min && // Minimum gap based on volatility level
 						gapPercentage <= gapLimits[volatilityLevel].max && // Maximum gap based on volatility level and blue chip status
 						todayBar.v > 100000 && // Minimum volume (increased for quality)
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000 && // Reasonable price range
-						isMT5Tradeable(symbol)) { // Only include stocks tradeable on MT5
+						isInPatternScannerWatchlist(symbol)) { // Only include stocks from pattern scanner watchlist
 						
 						// Skip 20-day high calculation during initial scan for speed
 						// We'll calculate it for the top results later and apply the proper filter there
@@ -1254,25 +1269,31 @@ export const scanGapUps = async (req: Request, res: Response) => {
 			}
 		}
 
-		// CRITICAL: Filter stocks where openPrice > twentyDayHigh using real calculated values
-		console.log(`Applying openPrice > twentyDayHigh filter...`);
+		// CRITICAL: Filter stocks where openPrice > twentyDayHigh AND first15MinHigh > twentyDayHigh
+		// This ensures the gap breakout is confirmed by the first 15 minutes of trading
+		console.log(`Applying openPrice > twentyDayHigh AND first15MinHigh > twentyDayHigh filter...`);
 		const beforeFilterCount = gapUpStocks.length;
 		gapUpStocks = gapUpStocks.filter(stock => {
 			const openPrice = parseFloat(stock.openPrice?.replace('$', '') || '0');
 			const twentyDayHigh = parseFloat(stock.twentyDayHigh?.replace('$', '') || '0');
+			const first15MinHigh = parseFloat(stock.first15MinHigh?.replace('$', '') || '0');
 			
-			const passesFilter = openPrice > twentyDayHigh;
+			const openPassesFilter = openPrice > twentyDayHigh;
+			const first15MinPassesFilter = first15MinHigh > twentyDayHigh;
+			const passesFilter = openPassesFilter && first15MinPassesFilter;
 			
-			if (!passesFilter) {
+			if (!openPassesFilter) {
 				console.log(`${stock.stockSymbol}: FILTERED OUT - Open: $${openPrice.toFixed(2)} not > 20-day high: $${twentyDayHigh.toFixed(2)}`);
+			} else if (!first15MinPassesFilter) {
+				console.log(`${stock.stockSymbol}: FILTERED OUT - First 15min high: $${first15MinHigh.toFixed(2)} not > 20-day high: $${twentyDayHigh.toFixed(2)} (gap failed to hold)`);
 			} else {
-				console.log(`${stock.stockSymbol}: PASSES FILTER - Open: $${openPrice.toFixed(2)} > 20-day high: $${twentyDayHigh.toFixed(2)}`);
+				console.log(`${stock.stockSymbol}: PASSES FILTER - Open: $${openPrice.toFixed(2)} > 20-day high: $${twentyDayHigh.toFixed(2)}, First 15min high: $${first15MinHigh.toFixed(2)} confirms breakout ✓`);
 			}
 			
 			return passesFilter;
 		});
 		
-		console.log(`Applied openPrice > twentyDayHigh filter: ${beforeFilterCount} -> ${gapUpStocks.length} stocks remaining`);
+		console.log(`Applied gap up breakout filter: ${beforeFilterCount} -> ${gapUpStocks.length} stocks remaining`);
 
 		const endTime = Date.now();
 		const duration = (endTime - startTime) / 1000;
@@ -1400,7 +1421,7 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 		const yesterdayMap = new Map<string, GroupedDailyBar>();
 		yesterdayData.forEach(bar => yesterdayMap.set(bar.T, bar));
 
-		console.log(`Processing ${todayData.length} stocks from market-wide gap down scan (filtered to MT5 tradeable only)...`);
+		console.log(`Processing ${todayData.length} stocks from market-wide gap down scan (filtered to pattern scanner watchlist: ${PATTERN_SCANNER_WATCHLIST.length} symbols)...`);
 
 		let gapDownStocks: GapUpStock[] = [];
 		let processedCount = 0;
@@ -1447,13 +1468,13 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 						}
 					};
 					
-					// Pre-filter: Only check stocks with significant gap downs and decent volume/price
+					// Pre-filter: Only check stocks in pattern scanner watchlist with significant gap downs
 					if (gapPercentage <= gapLimits[volatilityLevel].max && // Must be negative enough (gap down)
 						gapPercentage >= gapLimits[volatilityLevel].min && // But not too extreme
 						todayBar.v > 100000 && // Minimum volume (increased for quality)
 						todayBar.o >= 5 && // No penny stocks (>= $5)
 						todayBar.o < 1000 && // Reasonable price range
-						isMT5Tradeable(symbol)) { // Only include stocks tradeable on MT5
+						isInPatternScannerWatchlist(symbol)) { // Only include stocks from pattern scanner watchlist
 						
 						// Skip 20-day low calculation during initial scan for speed
 						// We'll calculate it for the top results later and apply the proper filter there

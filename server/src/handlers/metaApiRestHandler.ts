@@ -41,10 +41,10 @@ class MetaApiRestHandler {
 
   private convertToMT5Symbol(symbol: string): string {
     // Common NASDAQ stocks that need .O suffix
-    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'DLTR', 'CSX', 'MU', 'ISRG'];
+    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'ADBE', 'PYPL', 'CSCO', 'PEP', 'ORCL', 'INTC', 'CMCSA', 'DLTR', 'CSX', 'MU', 'ISRG'];
     
     // Common NYSE stocks that need .N suffix  
-    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR', 'BSX'];
+    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR', 'BSX', 'NKE', 'ABT', 'TMO', 'WFC'];
     
     if (nasdaqStocks.includes(symbol)) {
       return `${symbol}.O`;
@@ -339,16 +339,30 @@ class MetaApiRestHandler {
       
       let adjustedEntry = plan.entry;
       
+      const useMarketOrder = signal.score >= 80;
+      
       console.log(`[MetaApi] Price analysis:`, {
         originalEntry: plan.entry,
         signalCurrentPrice: currentPrice,
         marketCurrentPrice: currentMarketPrice,
         priceDiffPercent: (priceDiff * 100).toFixed(2) + '%',
         minRequiredPercent: (minDistancePercent * 100).toFixed(1) + '%',
-        willNeedAdjustment: priceDiff < minDistancePercent
+        willNeedAdjustment: priceDiff < minDistancePercent,
+        signalScore: signal.score,
+        useMarketOrder: useMarketOrder
       });
       
-      if (isLong) {
+      if (useMarketOrder) {
+        if (isLong) {
+          actionType = 'ORDER_TYPE_BUY';
+          adjustedEntry = currentMarketPrice;
+          console.log(`[MetaApi] HIGH SCORE (${signal.score}) - Using MARKET BUY at ${currentMarketPrice}`);
+        } else {
+          actionType = 'ORDER_TYPE_SELL';
+          adjustedEntry = currentMarketPrice;
+          console.log(`[MetaApi] HIGH SCORE (${signal.score}) - Using MARKET SELL at ${currentMarketPrice}`);
+        }
+      } else if (isLong) {
         if (plan.entry > currentMarketPrice && priceDiff >= minDistancePercent) {
           actionType = 'ORDER_TYPE_BUY_STOP';
           console.log(`[MetaApi] Using BUY_STOP: Entry ${plan.entry} > Current ${currentMarketPrice}, diff ${(priceDiff*100).toFixed(2)}% >= ${(minDistancePercent*100).toFixed(1)}%`);
@@ -388,9 +402,14 @@ class MetaApiRestHandler {
         Original TP: ${plan.targets[0]}
       `);
       
-      // Ensure minimum distances for stops (broker requirement)
-      // Reduced from 1.5% to 1% - tighter stops for better R:R
-      const minStopDistance = adjustedEntry * 0.01; // 1% minimum distance
+      // Use ATR-based stops - 3x ATR ensures stops are reachable within normal moves
+      // Fall back to 0.5% minimum if ATR not available
+      const atr = signal.context?.atr || 0;
+      const atrBasedStop = atr * 3;
+      const fallbackStop = adjustedEntry * 0.005; // 0.5% fallback
+      const minStopDistance = atrBasedStop > 0 ? Math.max(atrBasedStop, fallbackStop) : fallbackStop;
+      
+      console.log(`[MetaApi] Stop calculation: ATR=${atr.toFixed(4)}, 3xATR=${atrBasedStop.toFixed(4)}, minStop=${minStopDistance.toFixed(4)} (${((minStopDistance/adjustedEntry)*100).toFixed(2)}%)`)
       
       // Calculate original R:R ratio to preserve it when adjusting
       const originalRisk = Math.abs(plan.entry - plan.stop);
@@ -482,8 +501,10 @@ class MetaApiRestHandler {
         // Continue with order placement even if trade saving fails
       }
 
-      // Only add openPrice if we have a valid entry price (not null for market orders)
-      if (roundedEntry !== null && !isNaN(roundedEntry)) {
+      // Only add openPrice for pending orders (not market orders)
+      // Market orders (ORDER_TYPE_BUY/SELL) execute at current market price
+      const isMarketOrder = actionType === 'ORDER_TYPE_BUY' || actionType === 'ORDER_TYPE_SELL';
+      if (!isMarketOrder && roundedEntry !== null && !isNaN(roundedEntry)) {
         orderRequest.openPrice = roundedEntry;
       }
       
@@ -1269,17 +1290,18 @@ class MetaApiRestHandler {
   }
 
   startEndOfDayScheduler(): void {
-    // Calculate time until 3:50 PM ET (10 minutes before market close)
+    // NYSE closes at 4 PM ET = 21:00 UK time
+    // Schedule cleanup for 20:48 UK time (12 minutes before NYSE close)
     const scheduleCleanup = () => {
-      const msUntilCleanup = this.msUntilETTime(15, 50); // 3:50 PM ET
+      const msUntilCleanup = this.msUntilUKTime(20, 48); // 20:48 UK time
       const minutesUntilCleanup = Math.round(msUntilCleanup / 1000 / 60);
       const hoursUntilCleanup = Math.floor(minutesUntilCleanup / 60);
       const remainingMinutes = minutesUntilCleanup % 60;
       
-      console.log(`[MetaApi] End-of-day cleanup scheduled in ${hoursUntilCleanup}h ${remainingMinutes}m (at 3:50 PM ET)`);
+      console.log(`[MetaApi] End-of-day cleanup scheduled in ${hoursUntilCleanup}h ${remainingMinutes}m (at 20:48 UK time)`);
       
       setTimeout(async () => {
-        console.log('[MetaApi] Executing scheduled end-of-day cleanup (10 minutes before market close)...');
+        console.log('[MetaApi] Executing scheduled end-of-day cleanup (12 minutes before NYSE close)...');
         await this.endOfDayCleanup();
         
         // Schedule next cleanup for tomorrow
@@ -1288,6 +1310,52 @@ class MetaApiRestHandler {
     };
 
     scheduleCleanup();
+  }
+
+  // Helper to calculate milliseconds until specific UK time
+  private msUntilUKTime(targetHour: number, targetMinute: number): number {
+    const now = new Date();
+    
+    // Get current UK time
+    const ukString = now.toLocaleString("en-GB", { 
+      timeZone: "Europe/London",
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const [datePart, timePart] = ukString.split(', ');
+    const [day, month, year] = datePart.split('/').map(Number);
+    const [currentHour, currentMinute] = timePart.split(':').map(Number);
+    
+    // Calculate minutes until target
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    const targetTotalMinutes = targetHour * 60 + targetMinute;
+    let minutesUntilTarget = targetTotalMinutes - currentTotalMinutes;
+    
+    // If target time has passed today, schedule for tomorrow
+    if (minutesUntilTarget <= 0) {
+      minutesUntilTarget += 24 * 60; // Add 24 hours
+    }
+    
+    // Get day of week in UK
+    const ukDate = new Date(now.toLocaleString("en-US", { timeZone: "Europe/London" }));
+    let dayOfWeek = ukDate.getDay();
+    
+    // Adjust day of week if target is tomorrow
+    if (minutesUntilTarget >= 24 * 60 - (currentTotalMinutes - targetTotalMinutes)) {
+      dayOfWeek = (dayOfWeek + 1) % 7;
+    }
+    
+    // Skip weekends (no trading on Sat/Sun)
+    let daysToAdd = 0;
+    if (dayOfWeek === 6) daysToAdd = 2; // Saturday -> Monday
+    else if (dayOfWeek === 0) daysToAdd = 1; // Sunday -> Monday
+    
+    return (minutesUntilTarget + (daysToAdd * 24 * 60)) * 60 * 1000;
   }
 
   // Position monitoring methods for trade tracking

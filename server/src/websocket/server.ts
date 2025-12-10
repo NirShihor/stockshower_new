@@ -14,14 +14,57 @@ const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensiv
 const AUTO_EXECUTION_CONFIG = {
   enabled: true, // RE-ENABLED for automatic trading
   highScoreThreshold: 70, // Increased from 60 to filter low-quality signals
-  enableTrapFades: true
+  enableTrapFades: true,
+  requireTrendAlignment: false // DISABLED - trend detection unreliable with limited candle history
 };
+
+// Check if pattern direction aligns with trend
+function isTrendAligned(signal: ComprehensiveSignal): boolean {
+  const trend = signal.context.trend;
+  const patternDirection = signal.pattern.direction;
+  
+  // STRICT MODE: Only allow patterns that match the trend direction
+  // Bullish patterns ONLY in uptrend
+  if (patternDirection === 'bullish') {
+    if (trend !== 'up') {
+      console.log(`[TREND-FILTER] BLOCKED: Bullish ${signal.pattern.name} in ${trend} trend for ${signal.symbol} (require uptrend)`);
+      return false;
+    }
+  }
+  
+  // Bearish patterns ONLY in downtrend
+  if (patternDirection === 'bearish') {
+    if (trend !== 'down') {
+      console.log(`[TREND-FILTER] BLOCKED: Bearish ${signal.pattern.name} in ${trend} trend for ${signal.symbol} (require downtrend)`);
+      return false;
+    }
+  }
+  
+  console.log(`[TREND-FILTER] PASSED: ${patternDirection} ${signal.pattern.name} in ${trend} trend for ${signal.symbol}`);
+  return true;
+}
 
 // Auto-execution helper functions
 function shouldAutoExecute(signal: ComprehensiveSignal): boolean {
   if (!AUTO_EXECUTION_CONFIG.enabled) return false;
   
-  // High score signals (65+)
+  // Check minimum volatility - only trade stocks that move enough
+  const atr = signal.context?.atr || 0;
+  const price = signal.currentPrice || signal.plan?.entry || 0;
+  const atrPercent = price > 0 ? (atr / price) * 100 : 0;
+  const minVolatilityPercent = 0.15; // Minimum 0.15% ATR
+  
+  if (atrPercent < minVolatilityPercent) {
+    console.log(`[VOLATILITY-FILTER] BLOCKED: ${signal.symbol} ATR ${atrPercent.toFixed(3)}% < ${minVolatilityPercent}% minimum`);
+    return false;
+  }
+  
+  // Check trend alignment first (if enabled)
+  if (AUTO_EXECUTION_CONFIG.requireTrendAlignment && !isTrendAligned(signal)) {
+    return false;
+  }
+  
+  // High score signals (70+)
   if (signal.score >= AUTO_EXECUTION_CONFIG.highScoreThreshold) {
     console.log(`[AUTO-EXEC] High score signal (${signal.score}) qualifies for auto-execution: ${signal.pattern.name} for ${signal.symbol}`);
     return true;

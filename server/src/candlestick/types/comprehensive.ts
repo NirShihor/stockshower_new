@@ -33,8 +33,8 @@ export const DEFAULT_PARAMS: TradingParameters = {
   engulfLookback: 1,
   starGapMinPctATR: 0.02,    // Relaxed from 0.05 - tiny gaps count
   confirmBars: 1,
-  rMultiple1: 1.5,           // Realistic first target
-  rMultiple2: 2.5,           // Realistic second target  
+  rMultiple1: 2.0,           // First target - need larger wins to offset losses
+  rMultiple2: 3.0,           // Second target - extended profit taking  
   riskPerTradePct: 0.5
 };
 
