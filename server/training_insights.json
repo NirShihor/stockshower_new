@@ -1,0 +1,1478 @@
+{
+  "directionAccuracy": 21.21212121212121,
+  "averageMfe": 0.43,
+  "averageMae": 0.58,
+  "optimalStopPercent": 0.9536675413986845,
+  "optimalTargetPercent": 1.5030104882261637,
+  "patternRankings": [
+    {
+      "pattern": "Reversal Three White Soldiers",
+      "directionAccuracy": 100,
+      "winRate": 100,
+      "avgPnlPercent": 1.4730885043624924,
+      "count": 2,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 6.160966666666667,
+      "byVolume": {
+        "high": {
+          "winRate": 100,
+          "count": 1
+        },
+        "low": {
+          "winRate": 100,
+          "count": 1
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 100,
+          "count": 2
+        }
+      }
+    },
+    {
+      "pattern": "Reversal Three Inside Down",
+      "directionAccuracy": 100,
+      "winRate": 100,
+      "avgPnlPercent": 1.8778346391923981,
+      "count": 2,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 10.203891666666667,
+      "byVolume": {
+        "high": {
+          "winRate": 100,
+          "count": 2
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 100,
+          "count": 2
+        }
+      }
+    },
+    {
+      "pattern": "Reversal Tweezer Top",
+      "directionAccuracy": 100,
+      "winRate": 100,
+      "avgPnlPercent": 0.7565011846907391,
+      "count": 3,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 6.328983333333333,
+      "byVolume": {
+        "high": {
+          "winRate": 100,
+          "count": 3
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 100,
+          "count": 3
+        }
+      }
+    },
+    {
+      "pattern": "Reversal Tweezer Bottom",
+      "directionAccuracy": 100,
+      "winRate": 100,
+      "avgPnlPercent": 1.256244564712629,
+      "count": 2,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 5.201441666666667,
+      "byVolume": {
+        "high": {
+          "winRate": 100,
+          "count": 2
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 100,
+          "count": 2
+        }
+      }
+    },
+    {
+      "pattern": "Reversal Bearish Marubozu",
+      "directionAccuracy": 100,
+      "winRate": 100,
+      "avgPnlPercent": 0.7848959826378137,
+      "count": 2,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 5.154166666666667,
+      "byVolume": {
+        "high": {
+          "winRate": 100,
+          "count": 2
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 100,
+          "count": 2
+        }
+      }
+    },
+    {
+      "pattern": "Inverted Three Inside Down",
+      "directionAccuracy": 66.66666666666666,
+      "winRate": 66.66666666666666,
+      "avgPnlPercent": 0.567059014337445,
+      "count": 3,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 321.6656,
+      "byVolume": {
+        "high": {
+          "winRate": 100,
+          "count": 2
+        },
+        "low": {
+          "winRate": 0,
+          "count": 1
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 66.66666666666666,
+          "count": 3
+        }
+      }
+    },
+    {
+      "pattern": "🔄 VwapBounce Bullish",
+      "directionAccuracy": 64.70588235294117,
+      "winRate": 64.70588235294117,
+      "avgPnlPercent": 0.3651476294339388,
+      "count": 17,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 117.73153627450982,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 0
+        },
+        "low": {
+          "winRate": 64.70588235294117,
+          "count": 17
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 64.70588235294117,
+          "count": 17
+        }
+      }
+    },
+    {
+      "pattern": "Tweezer Bottom",
+      "directionAccuracy": 60,
+      "winRate": 60,
+      "avgPnlPercent": 0.12872078875257936,
+      "count": 5,
+      "recommendation": "preferred",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 58.48044,
+      "byVolume": {
+        "high": {
+          "winRate": 60,
+          "count": 5
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 100,
+          "count": 2
+        },
+        "counter": {
+          "winRate": 33.33333333333333,
+          "count": 3
+        }
+      }
+    },
+    {
+      "pattern": "Inverted Bearish Marubozu",
+      "directionAccuracy": 50,
+      "winRate": 50,
+      "avgPnlPercent": 0.05306331967110389,
+      "count": 2,
+      "recommendation": "acceptable",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 193.463075,
+      "byVolume": {
+        "high": {
+          "winRate": 50,
+          "count": 2
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 50,
+          "count": 2
+        }
+      }
+    },
+    {
+      "pattern": "Inverted Bearish Engulfing",
+      "directionAccuracy": 42.857142857142854,
+      "winRate": 42.857142857142854,
+      "avgPnlPercent": 0.13776326499716593,
+      "count": 7,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 276.2547023809524,
+      "byVolume": {
+        "high": {
+          "winRate": 25,
+          "count": 4
+        },
+        "low": {
+          "winRate": 66.66666666666666,
+          "count": 3
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 42.857142857142854,
+          "count": 7
+        }
+      }
+    },
+    {
+      "pattern": "🔄 Momentum Bullish",
+      "directionAccuracy": 33.33333333333333,
+      "winRate": 33.33333333333333,
+      "avgPnlPercent": 0.1201979652732477,
+      "count": 3,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 85.81521666666667,
+      "byVolume": {
+        "high": {
+          "winRate": 33.33333333333333,
+          "count": 3
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 33.33333333333333,
+          "count": 3
+        }
+      }
+    },
+    {
+      "pattern": "Inverted Three Black Crows",
+      "directionAccuracy": 25,
+      "winRate": 25,
+      "avgPnlPercent": -0.3067647103881792,
+      "count": 4,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 245.9210875,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 0
+        },
+        "low": {
+          "winRate": 25,
+          "count": 4
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 25,
+          "count": 4
+        }
+      }
+    },
+    {
+      "pattern": "Bullish Engulfing",
+      "directionAccuracy": 16.666666666666664,
+      "winRate": 16.666666666666664,
+      "avgPnlPercent": 0.07750368227060188,
+      "count": 6,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 113.34893611111109,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 2
+        },
+        "low": {
+          "winRate": 25,
+          "count": 4
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 4
+        },
+        "counter": {
+          "winRate": 50,
+          "count": 2
+        }
+      }
+    },
+    {
+      "pattern": "VwapBounce Bullish",
+      "directionAccuracy": 14.814814814814813,
+      "winRate": 14.814814814814813,
+      "avgPnlPercent": -0.5650221664837165,
+      "count": 27,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 43.05191728395062,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 9
+        },
+        "low": {
+          "winRate": 22.22222222222222,
+          "count": 18
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 14.814814814814813,
+          "count": 27
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 0
+        }
+      }
+    },
+    {
+      "pattern": "🔄 VwapBounce Long",
+      "directionAccuracy": 14.285714285714285,
+      "winRate": 14.285714285714285,
+      "avgPnlPercent": -0.3697564019089697,
+      "count": 7,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 51.57169761904762,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 0
+        },
+        "low": {
+          "winRate": 14.285714285714285,
+          "count": 7
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 14.285714285714285,
+          "count": 7
+        }
+      }
+    },
+    {
+      "pattern": "Tweezer Top",
+      "directionAccuracy": 12.5,
+      "winRate": 12.5,
+      "avgPnlPercent": 0.02548277815323249,
+      "count": 24,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 54.90548680555555,
+      "byVolume": {
+        "high": {
+          "winRate": 13.333333333333334,
+          "count": 15
+        },
+        "low": {
+          "winRate": 11.11111111111111,
+          "count": 9
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 9.523809523809524,
+          "count": 21
+        },
+        "counter": {
+          "winRate": 33.33333333333333,
+          "count": 3
+        }
+      }
+    },
+    {
+      "pattern": "Inverted Tweezer Top",
+      "directionAccuracy": 11.76470588235294,
+      "winRate": 11.76470588235294,
+      "avgPnlPercent": 0.047215144197876494,
+      "count": 17,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 159.72555784313727,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 12
+        },
+        "low": {
+          "winRate": 40,
+          "count": 5
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 11.76470588235294,
+          "count": 17
+        }
+      }
+    },
+    {
+      "pattern": "Morning Star",
+      "directionAccuracy": 10,
+      "winRate": 10,
+      "avgPnlPercent": -0.06328246448394056,
+      "count": 10,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 44.63555833333333,
+      "byVolume": {
+        "high": {
+          "winRate": 14.285714285714285,
+          "count": 7
+        },
+        "low": {
+          "winRate": 0,
+          "count": 3
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 1
+        },
+        "counter": {
+          "winRate": 11.11111111111111,
+          "count": 9
+        }
+      }
+    },
+    {
+      "pattern": "Evening Star",
+      "directionAccuracy": 8.333333333333332,
+      "winRate": 8.333333333333332,
+      "avgPnlPercent": 0.0075375802213902944,
+      "count": 12,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 83.19083333333333,
+      "byVolume": {
+        "high": {
+          "winRate": 14.285714285714285,
+          "count": 7
+        },
+        "low": {
+          "winRate": 0,
+          "count": 5
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 11
+        },
+        "counter": {
+          "winRate": 100,
+          "count": 1
+        }
+      }
+    },
+    {
+      "pattern": "Dark Cloud Cover",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.27698510212957983,
+      "count": 4,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 95.04575416666665,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 1
+        },
+        "low": {
+          "winRate": 0,
+          "count": 3
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 4
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 0
+        }
+      }
+    },
+    {
+      "pattern": "Three Inside Down",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.027510316368638044,
+      "count": 7,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 38.73685714285715,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 3
+        },
+        "low": {
+          "winRate": 0,
+          "count": 4
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 6
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 1
+        }
+      }
+    },
+    {
+      "pattern": "Three Black Crows",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.006659563132660013,
+      "count": 8,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 63.538143749999996,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 3
+        },
+        "low": {
+          "winRate": 0,
+          "count": 5
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 8
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 0
+        }
+      }
+    },
+    {
+      "pattern": "Bullish Marubozu",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.13701758392326724,
+      "count": 2,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 66.97639166666667,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 1
+        },
+        "low": {
+          "winRate": 0,
+          "count": 1
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 2
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 0
+        }
+      }
+    },
+    {
+      "pattern": "Three Inside Up",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": 0,
+      "count": 5,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 49.38492333333333,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 2
+        },
+        "low": {
+          "winRate": 0,
+          "count": 3
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 1
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 4
+        }
+      }
+    },
+    {
+      "pattern": "Bearish Engulfing",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": 0,
+      "count": 12,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 88.68345416666666,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 8
+        },
+        "low": {
+          "winRate": 0,
+          "count": 4
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 12
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 0
+        }
+      }
+    },
+    {
+      "pattern": "Inverted Tweezer Bottom",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.12511523771895253,
+      "count": 6,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 98.93935833333332,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 6
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 1
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 5
+        }
+      }
+    },
+    {
+      "pattern": "Inverted Evening Star",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.0643972511304775,
+      "count": 6,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 205.8591138888889,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 4
+        },
+        "low": {
+          "winRate": 0,
+          "count": 2
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 6
+        }
+      }
+    },
+    {
+      "pattern": "Bearish Marubozu",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": 0,
+      "count": 13,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 0,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 13
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 13
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 0
+        }
+      }
+    },
+    {
+      "pattern": "Momentum Bullish",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.5429406839096136,
+      "count": 4,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 61.367675000000006,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 4
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 4
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 0
+        }
+      }
+    },
+    {
+      "pattern": "🔄 Momentum Long",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.5044631022414242,
+      "count": 2,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 90.50910833333333,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 2
+        },
+        "low": {
+          "winRate": 0,
+          "count": 0
+        }
+      },
+      "byTrend": {
+        "aligned": {
+          "winRate": 0,
+          "count": 0
+        },
+        "counter": {
+          "winRate": 0,
+          "count": 2
+        }
+      }
+    }
+  ],
+  "keyInsights": [
+    "Overall win rate is poor (21.2%) - be very selective",
+    "Counter-trend trades surprisingly better by 30%",
+    "Best time: midday (29%), Worst: close (12%)",
+    "SINGLE candle patterns perform best (25% win rate)",
+    "Winners held avg 101min, losers 128min",
+    "Heed warnings! \"Bullish pattern against strong...\" only 0% win rate",
+    "Optimal stop: 0.95%, target: 1.50%",
+    "Best patterns: Reversal Three White Soldiers, Reversal Three Inside Down, Reversal Tweezer Top",
+    "Consider inverting: Bullish Engulfing, VwapBounce Bullish, 🔄 VwapBounce Long, Tweezer Top, Inverted Tweezer Top, Morning Star, Evening Star, Three Inside Down, Three Black Crows, Three Inside Up, Bearish Engulfing, Inverted Tweezer Bottom, Inverted Evening Star, Bearish Marubozu",
+    "Inverted trades: 45% win rate (132 trades)",
+    "Skipped trades would have had 42% win rate - reconsider skipping"
+  ],
+  "patternsToPrefer": [
+    "Reversal Three White Soldiers",
+    "Reversal Three Inside Down",
+    "Reversal Tweezer Top",
+    "Reversal Tweezer Bottom",
+    "Reversal Bearish Marubozu",
+    "Inverted Three Inside Down",
+    "🔄 VwapBounce Bullish",
+    "Tweezer Bottom"
+  ],
+  "patternsToAvoid": [
+    "Inverted Bearish Engulfing",
+    "🔄 Momentum Bullish"
+  ],
+  "patternsToInvert": [
+    "Bullish Engulfing",
+    "VwapBounce Bullish",
+    "🔄 VwapBounce Long",
+    "Tweezer Top",
+    "Inverted Tweezer Top",
+    "Morning Star",
+    "Evening Star",
+    "Three Inside Down",
+    "Three Black Crows",
+    "Three Inside Up",
+    "Bearish Engulfing",
+    "Inverted Tweezer Bottom",
+    "Inverted Evening Star",
+    "Bearish Marubozu"
+  ],
+  "symbolPerformance": [
+    {
+      "symbol": "ADBE",
+      "totalTrades": 8,
+      "wins": 6,
+      "winRate": 75,
+      "avgPnlPercent": 0.44465667327370884,
+      "avgHoldMinutes": 126.30721874999999,
+      "bestPattern": "🔄 VwapBounce Bullish",
+      "bestTimeOfDay": "midday"
+    },
+    {
+      "symbol": "MRK",
+      "totalTrades": 5,
+      "wins": 3,
+      "winRate": 60,
+      "avgPnlPercent": 0.5072620053378304,
+      "avgHoldMinutes": 175.2424466666667,
+      "bestTimeOfDay": "market_open"
+    },
+    {
+      "symbol": "META",
+      "totalTrades": 7,
+      "wins": 3,
+      "winRate": 42.857142857142854,
+      "avgPnlPercent": 0.31211821324863626,
+      "avgHoldMinutes": 59.131588095238094,
+      "bestPattern": "Tweezer Top",
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "INTC",
+      "totalTrades": 8,
+      "wins": 3,
+      "winRate": 37.5,
+      "avgPnlPercent": 0.3080078715471272,
+      "avgHoldMinutes": 65.11816875,
+      "worstPattern": "VwapBounce Bullish",
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "JPM",
+      "totalTrades": 9,
+      "wins": 3,
+      "winRate": 33.33333333333333,
+      "avgPnlPercent": 0.05740403469140666,
+      "avgHoldMinutes": 79.44748703703702,
+      "worstPattern": "Tweezer Top",
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "PG",
+      "totalTrades": 3,
+      "wins": 1,
+      "winRate": 33.33333333333333,
+      "avgPnlPercent": 0.018302531175323884,
+      "avgHoldMinutes": 90.05861111111112,
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "BA",
+      "totalTrades": 3,
+      "wins": 1,
+      "winRate": 33.33333333333333,
+      "avgPnlPercent": -0.015799378184734314,
+      "avgHoldMinutes": 75.87942777777778
+    },
+    {
+      "symbol": "UNH",
+      "totalTrades": 16,
+      "wins": 5,
+      "winRate": 31.25,
+      "avgPnlPercent": 0.08106130973255696,
+      "avgHoldMinutes": 56.19809999999999,
+      "worstPattern": "VwapBounce Bullish",
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "NFLX",
+      "totalTrades": 10,
+      "wins": 3,
+      "winRate": 30,
+      "avgPnlPercent": 0.010298938623436494,
+      "avgHoldMinutes": 73.185585,
+      "bestPattern": "VwapBounce Bullish",
+      "worstPattern": "Morning Star",
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "CRM",
+      "totalTrades": 7,
+      "wins": 2,
+      "winRate": 28.57142857142857,
+      "avgPnlPercent": -0.2010440535650418,
+      "avgHoldMinutes": 77.56160476190476,
+      "worstPattern": "VwapBounce Bullish",
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "MMM",
+      "totalTrades": 7,
+      "wins": 2,
+      "winRate": 28.57142857142857,
+      "avgPnlPercent": 0.17397088230677624,
+      "avgHoldMinutes": 51.29576904761905,
+      "bestTimeOfDay": "market_open",
+      "worstTimeOfDay": "midday"
+    },
+    {
+      "symbol": "TMO",
+      "totalTrades": 8,
+      "wins": 2,
+      "winRate": 25,
+      "avgPnlPercent": 0.04979813809074694,
+      "avgHoldMinutes": 66.19755833333333,
+      "bestTimeOfDay": "afternoon",
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "MSFT",
+      "totalTrades": 4,
+      "wins": 1,
+      "winRate": 25,
+      "avgPnlPercent": 0.20000846596681196,
+      "avgHoldMinutes": 93.65813750000001,
+      "worstTimeOfDay": "market_open"
+    },
+    {
+      "symbol": "NVDA",
+      "totalTrades": 5,
+      "wins": 1,
+      "winRate": 20,
+      "avgPnlPercent": -0.04945455739460887,
+      "avgHoldMinutes": 92.20679,
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "MA",
+      "totalTrades": 5,
+      "wins": 1,
+      "winRate": 20,
+      "avgPnlPercent": -0.08979060835751215,
+      "avgHoldMinutes": 134.63527333333337,
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "VZ",
+      "totalTrades": 5,
+      "wins": 1,
+      "winRate": 20,
+      "avgPnlPercent": 0.20045540435263948,
+      "avgHoldMinutes": 50.31407,
+      "worstTimeOfDay": "market_open"
+    },
+    {
+      "symbol": "NKE",
+      "totalTrades": 11,
+      "wins": 2,
+      "winRate": 18.181818181818183,
+      "avgPnlPercent": -0.003785935058388272,
+      "avgHoldMinutes": 125.82990909090908,
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "XOM",
+      "totalTrades": 6,
+      "wins": 1,
+      "winRate": 16.666666666666664,
+      "avgPnlPercent": 0.032946569259418995,
+      "avgHoldMinutes": 74.31353888888889,
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "CMCSA",
+      "totalTrades": 7,
+      "wins": 1,
+      "winRate": 14.285714285714285,
+      "avgPnlPercent": 0.079748655360915,
+      "avgHoldMinutes": 27.264814285714284,
+      "worstPattern": "Tweezer Top",
+      "worstTimeOfDay": "midday"
+    },
+    {
+      "symbol": "CSCO",
+      "totalTrades": 8,
+      "wins": 1,
+      "winRate": 12.5,
+      "avgPnlPercent": -0.02730366827795463,
+      "avgHoldMinutes": 79.9758875,
+      "worstPattern": "Tweezer Top",
+      "worstTimeOfDay": "market_open"
+    },
+    {
+      "symbol": "TSLA",
+      "totalTrades": 8,
+      "wins": 1,
+      "winRate": 12.5,
+      "avgPnlPercent": 0.29615707794902013,
+      "avgHoldMinutes": 85.70822708333333,
+      "worstPattern": "Inverted Tweezer Bottom",
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "HD",
+      "totalTrades": 9,
+      "wins": 1,
+      "winRate": 11.11111111111111,
+      "avgPnlPercent": -0.41808617346659277,
+      "avgHoldMinutes": 92.6759537037037,
+      "worstTimeOfDay": "midday"
+    },
+    {
+      "symbol": "PEP",
+      "totalTrades": 10,
+      "wins": 1,
+      "winRate": 10,
+      "avgPnlPercent": -0.048790393415556986,
+      "avgHoldMinutes": 121.01277166666667,
+      "worstPattern": "🔄 VwapBounce Bullish",
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "PFE",
+      "totalTrades": 13,
+      "wins": 1,
+      "winRate": 7.6923076923076925,
+      "avgPnlPercent": -0.11909252695763319,
+      "avgHoldMinutes": 18.075821794871793,
+      "worstPattern": "Tweezer Top",
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "WFC",
+      "totalTrades": 8,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.0764223278284472,
+      "avgHoldMinutes": 100.09728333333332,
+      "worstPattern": "Bearish Marubozu",
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "JNJ",
+      "totalTrades": 7,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.04283130681697837,
+      "avgHoldMinutes": 137.62462380952383,
+      "worstPattern": "Three Black Crows",
+      "worstTimeOfDay": "midday"
+    },
+    {
+      "symbol": "KO",
+      "totalTrades": 3,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": 0,
+      "avgHoldMinutes": 164.6267611111111,
+      "worstTimeOfDay": "market_open"
+    },
+    {
+      "symbol": "V",
+      "totalTrades": 4,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.16469345265840127,
+      "avgHoldMinutes": 75.09958333333333,
+      "worstTimeOfDay": "market_open"
+    },
+    {
+      "symbol": "GOOGL",
+      "totalTrades": 6,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.8580184725245501,
+      "avgHoldMinutes": 74.16936944444444,
+      "worstPattern": "VwapBounce Bullish",
+      "worstTimeOfDay": "afternoon"
+    },
+    {
+      "symbol": "BAC",
+      "totalTrades": 5,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.2198942798605234,
+      "avgHoldMinutes": 173.85552,
+      "worstPattern": "Inverted Tweezer Top",
+      "worstTimeOfDay": "midday"
+    },
+    {
+      "symbol": "PYPL",
+      "totalTrades": 5,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.3309867808139358,
+      "avgHoldMinutes": 75.63895333333333,
+      "worstTimeOfDay": "market_open"
+    },
+    {
+      "symbol": "ABT",
+      "totalTrades": 4,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": 0,
+      "avgHoldMinutes": 61.30654583333333,
+      "worstTimeOfDay": "close"
+    },
+    {
+      "symbol": "AAPL",
+      "totalTrades": 2,
+      "wins": 0,
+      "winRate": 0,
+      "avgPnlPercent": 0,
+      "avgHoldMinutes": 6.29205,
+      "worstTimeOfDay": "market_open"
+    }
+  ],
+  "timeOfDayPerformance": [
+    {
+      "period": "midday",
+      "winRate": 28.888888888888886,
+      "count": 45,
+      "avgPnlPercent": 0.10258528074991202
+    },
+    {
+      "period": "market_open",
+      "winRate": 25.352112676056336,
+      "count": 71,
+      "avgPnlPercent": 0.20354891934629346
+    },
+    {
+      "period": "afternoon",
+      "winRate": 21.73913043478261,
+      "count": 46,
+      "avgPnlPercent": -0.1361741313283967
+    },
+    {
+      "period": "close",
+      "winRate": 11.594202898550725,
+      "count": 69,
+      "avgPnlPercent": -0.15352356697131544
+    }
+  ],
+  "patternClassPerformance": [
+    {
+      "class": "single",
+      "winRate": 24.691358024691358,
+      "count": 81,
+      "avgPnlPercent": -0.21127446833917643,
+      "bestPatterns": [
+        "Reversal Bearish Marubozu",
+        "🔄 VwapBounce Bullish",
+        "Inverted Bearish Marubozu"
+      ],
+      "worstPatterns": [
+        "🔄 Momentum Long",
+        "Momentum Bullish",
+        "Bearish Marubozu"
+      ]
+    },
+    {
+      "class": "double",
+      "winRate": 21.59090909090909,
+      "count": 88,
+      "avgPnlPercent": 0.13461898041910036,
+      "bestPatterns": [
+        "Reversal Tweezer Top",
+        "Reversal Tweezer Bottom",
+        "Tweezer Bottom"
+      ],
+      "worstPatterns": [
+        "Inverted Tweezer Bottom",
+        "Bearish Engulfing",
+        "Dark Cloud Cover"
+      ]
+    },
+    {
+      "class": "triple",
+      "winRate": 16.129032258064516,
+      "count": 62,
+      "avgPnlPercent": 0.12061187748061836,
+      "bestPatterns": [
+        "Reversal Three White Soldiers",
+        "Reversal Three Inside Down",
+        "Inverted Three Inside Down"
+      ],
+      "worstPatterns": [
+        "Inverted Evening Star",
+        "Three Inside Up",
+        "Three Black Crows"
+      ]
+    }
+  ],
+  "volumePerformance": {
+    "highVolume": {
+      "winRate": 18.939393939393938,
+      "count": 132,
+      "avgPnlPercent": 0.0518568443746453
+    },
+    "lowVolume": {
+      "winRate": 24.242424242424242,
+      "count": 99,
+      "avgPnlPercent": -0.046807360729770854
+    }
+  },
+  "trendAlignmentPerformance": {
+    "aligned": {
+      "winRate": 6.722689075630252,
+      "count": 119,
+      "avgPnlPercent": -0.18788864842563063
+    },
+    "counter": {
+      "winRate": 36.607142857142854,
+      "count": 112,
+      "avgPnlPercent": 0.21937432060585643
+    }
+  },
+  "slippageStats": {
+    "avgSlippagePercent": 0.19354183886374376,
+    "maxSlippagePercent": 1.7949979675231567,
+    "slippageByOrderType": {
+      "market": 0.19354183886374376,
+      "stop": 0
+    }
+  },
+  "warningCorrelations": [
+    {
+      "warning": "Bullish pattern against strong downtrend with high",
+      "occurrences": 3,
+      "winRate": 0,
+      "avgPnlPercent": 0
+    },
+    {
+      "warning": "Pattern formed on weak volume - lacks conviction",
+      "occurrences": 12,
+      "winRate": 0,
+      "avgPnlPercent": -0.10695848079466819
+    },
+    {
+      "warning": "MINOR: Pattern near market close - end-of-day flow",
+      "occurrences": 3,
+      "winRate": 0,
+      "avgPnlPercent": -0.22338653994557378
+    },
+    {
+      "warning": "Possible news spike - use caution",
+      "occurrences": 22,
+      "winRate": 22.727272727272727,
+      "avgPnlPercent": 0.20110887974859296
+    },
+    {
+      "warning": "Long wick touching recent high/low - possible stop",
+      "occurrences": 3,
+      "winRate": 33.33333333333333,
+      "avgPnlPercent": 0.013817586599066296
+    },
+    {
+      "warning": "Sideways market - increased false signal risk",
+      "occurrences": 3,
+      "winRate": 66.66666666666666,
+      "avgPnlPercent": 0.837496376475086
+    },
+    {
+      "warning": "-8: Market structure transitioning - use caution",
+      "occurrences": 3,
+      "winRate": 100,
+      "avgPnlPercent": 2.9563107703292215
+    }
+  ],
+  "scoreCorrelation": {
+    "ranges": [
+      {
+        "min": 85,
+        "max": 100,
+        "winRate": 10.38961038961039,
+        "count": 77
+      },
+      {
+        "min": 75,
+        "max": 84,
+        "winRate": 15.476190476190476,
+        "count": 84
+      },
+      {
+        "min": 70,
+        "max": 74,
+        "winRate": 0,
+        "count": 3
+      }
+    ]
+  },
+  "avgHoldMinutes": {
+    "winners": 100.93147638888894,
+    "losers": 127.84786002824858
+  },
+  "decisionPerformance": {
+    "invert": {
+      "count": 132,
+      "wins": 60,
+      "losses": 72,
+      "winRate": 45.45454545454545,
+      "avgPnlPercent": -0.10082716801797706
+    },
+    "skip": {
+      "count": 186,
+      "hypotheticalWins": 79,
+      "hypotheticalLosses": 107,
+      "hypotheticalWinRate": 42.473118279569896,
+      "avgHypotheticalPnlPercent": -0.14147795860256937
+    },
+    "pass": {
+      "count": 0,
+      "wins": 0,
+      "losses": 0,
+      "winRate": 0,
+      "avgPnlPercent": 0
+    },
+    "inversionAccuracy": 45.45454545454545,
+    "skipAccuracy": 57.52688172043011
+  },
+  "generatedAt": "2025-12-18T21:10:00.697Z",
+  "totalTradesAnalyzed": 231,
+  "dataDateRange": {
+    "from": "2025-11-04",
+    "to": "2025-12-18"
+  }
+}

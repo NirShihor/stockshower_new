@@ -6,6 +6,7 @@ import databaseBacktestRoutes from './databaseBacktestRoutes.js';
 import volumeBreakoutRoutes from './volumeBreakoutRoutes.js';
 import supportResistanceRoutes from './supportResistanceRoutes.js';
 import profitableFilteringRoutes from './profitableFilteringRoutes.js';
+import tradeReportRoutes from './tradeReportRoutes.js';
 
 const router = express.Router();
 
@@ -20,6 +21,9 @@ router.use('/support-resistance', supportResistanceRoutes);
 
 // Mount profitable filtering routes
 router.use('/profitable-filtering', profitableFilteringRoutes);
+
+// Mount trade report simulation routes
+router.use('/trade-reports', tradeReportRoutes);
 
 // Store running backtests
 const runningBacktests = new Map<string, { engine: BacktestEngine; startTime: Date; status: string }>();

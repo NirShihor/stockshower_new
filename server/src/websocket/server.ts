@@ -6,6 +6,7 @@ import { logCandleActivity } from '../handlers/debugLogger.js';
 import { aggregate1MinTo5Min } from '../candlestick/aggregator.js';
 import { comprehensiveScanner } from '../candlestick/comprehensiveScanner.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
+import { evaluateSignalWithAI, isAIFilterEnabled } from '../services/aiSignalFilter.js';
 
 const clients = new Set<WebSocket>();
 const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensive signals
@@ -18,35 +19,45 @@ const AUTO_EXECUTION_CONFIG = {
   requireTrendAlignment: false // DISABLED - trend detection unreliable with limited candle history
 };
 
-// Check if pattern direction aligns with trend
-function isTrendAligned(signal: ComprehensiveSignal): boolean {
+// Block trend-aligned trades (historical data shows 6.7% win rate vs 36.6% counter-trend)
+function isTrendAlignedTrade(signal: ComprehensiveSignal): boolean {
   const trend = signal.context.trend;
-  const patternDirection = signal.pattern.direction;
+  const direction = signal.plan.direction;
   
-  // STRICT MODE: Only allow patterns that match the trend direction
-  // Bullish patterns ONLY in uptrend
-  if (patternDirection === 'bullish') {
-    if (trend !== 'up') {
-      console.log(`[TREND-FILTER] BLOCKED: Bullish ${signal.pattern.name} in ${trend} trend for ${signal.symbol} (require uptrend)`);
-      return false;
-    }
-  }
+  // Trend-aligned = going WITH the trend (historically loses)
+  // Long in uptrend OR Short in downtrend = trend-aligned = BLOCK
+  const isAligned = (trend === 'up' && direction === 'long') || 
+                    (trend === 'down' && direction === 'short');
   
-  // Bearish patterns ONLY in downtrend
-  if (patternDirection === 'bearish') {
-    if (trend !== 'down') {
-      console.log(`[TREND-FILTER] BLOCKED: Bearish ${signal.pattern.name} in ${trend} trend for ${signal.symbol} (require downtrend)`);
-      return false;
-    }
-  }
-  
-  console.log(`[TREND-FILTER] PASSED: ${patternDirection} ${signal.pattern.name} in ${trend} trend for ${signal.symbol}`);
-  return true;
+  return isAligned;
 }
 
 // Auto-execution helper functions
 function shouldAutoExecute(signal: ComprehensiveSignal): boolean {
-  if (!AUTO_EXECUTION_CONFIG.enabled) return false;
+  console.log(`[AUTO-CHECK] ${signal.symbol} ${signal.pattern.name} score=${signal.score} checking auto-execution...`);
+  
+  const now = new Date();
+  const ukHour = parseInt(now.toLocaleString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', hour12: false }));
+  const ukMinute = parseInt(now.toLocaleString('en-GB', { timeZone: 'Europe/London', minute: '2-digit' }));
+  const cutoffHour = 20;
+  const cutoffMinute = 45;
+  
+  if (ukHour > cutoffHour || (ukHour === cutoffHour && ukMinute >= cutoffMinute)) {
+    console.log(`[TIME-FILTER] BLOCKED: No new orders after ${cutoffHour}:${cutoffMinute.toString().padStart(2, '0')} UK time (current: ${ukHour}:${ukMinute.toString().padStart(2, '0')})`);
+    return false;
+  }
+  
+  // BLOCK afternoon/close trades - historical data shows 11.6% win rate at close, 21.7% afternoon vs 28.9% midday
+  // US market close period starts around 3PM UK time (10AM ET onwards = afternoon, after 3PM UK = close period)
+  if (ukHour >= 20) {
+    console.log(`[TIME-FILTER] ❌ BLOCKED: Close period trade (${ukHour}:${ukMinute.toString().padStart(2, '0')} UK). Historical: 11.6% win rate vs 28.9% midday.`);
+    return false;
+  }
+  
+  if (!AUTO_EXECUTION_CONFIG.enabled) {
+    console.log(`[AUTO-CHECK] BLOCKED: Auto-execution disabled`);
+    return false;
+  }
   
   // Check minimum volatility - only trade stocks that move enough
   const atr = signal.context?.atr || 0;
@@ -59,15 +70,19 @@ function shouldAutoExecute(signal: ComprehensiveSignal): boolean {
     return false;
   }
   
-  // Check trend alignment first (if enabled)
-  if (AUTO_EXECUTION_CONFIG.requireTrendAlignment && !isTrendAligned(signal)) {
+  // BLOCK trend-aligned trades - historical data shows 6.7% win rate vs 36.6% counter-trend
+  if (isTrendAlignedTrade(signal)) {
+    console.log(`[TREND-FILTER] ❌ BLOCKED: Trend-aligned trade (${signal.plan.direction} in ${signal.context.trend} trend). Historical: 6.7% win rate vs 36.6% counter-trend.`);
     return false;
   }
   
   // High score signals (70+)
   if (signal.score >= AUTO_EXECUTION_CONFIG.highScoreThreshold) {
-    console.log(`[AUTO-EXEC] High score signal (${signal.score}) qualifies for auto-execution: ${signal.pattern.name} for ${signal.symbol}`);
+    console.log(`[AUTO-EXEC] ✅ High score signal (${signal.score}) qualifies for auto-execution: ${signal.pattern.name} for ${signal.symbol}`);
+    console.log(`[AUTO-EXEC] AI_SIGNAL_FILTER enabled: ${isAIFilterEnabled()}`);
     return true;
+  } else {
+    console.log(`[AUTO-CHECK] Score ${signal.score} < threshold ${AUTO_EXECUTION_CONFIG.highScoreThreshold} - skipping`);
   }
   
   // Trap fade trades
@@ -133,12 +148,96 @@ async function executeSignalAutomatically(signal: ComprehensiveSignal): Promise<
     let signalToExecute = signal;
     let executionType = 'normal';
     
-    // Check if this is a trap fade candidate
-    if (isTrapFadeCandidate(signal)) {
+    // AI Filter - if enabled, ask Claude to evaluate the signal
+    if (isAIFilterEnabled()) {
+      console.log(`[AI-FILTER] AI filtering enabled - evaluating ${signal.symbol} ${signal.pattern.name}...`);
+      
+      const aiDecision = await evaluateSignalWithAI(signal);
+      
+      // Broadcast AI decision for visibility
+      broadcast({
+        type: 'ai-decision',
+        payload: {
+          signal,
+          decision: aiDecision,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      if (!aiDecision.execute) {
+        console.log(`🤖 [AI-FILTER] SKIPPED: ${signal.symbol} ${signal.pattern.name} - ${aiDecision.reasoning}`);
+        return;
+      }
+      
+      // Handle INVERT action - trade opposite direction
+      if (aiDecision.action === 'invert') {
+        console.log(`🔄 [AI-FILTER] INVERTING: ${signal.symbol} ${signal.pattern.name} - ${aiDecision.reasoning}`);
+        
+        const oppositeDirection = signal.plan.direction === 'long' ? 'short' : 'long';
+        const oppositePatternDirection = signal.pattern.direction === 'bullish' ? 'bearish' : 'bullish';
+        
+        signalToExecute = {
+          ...signal,
+          id: `${signal.symbol}-${Date.now()}-INVERT-${Math.random().toString(36).substr(2, 9)}`,
+          pattern: {
+            ...signal.pattern,
+            name: `Inverted ${signal.pattern.name}`,
+            direction: oppositePatternDirection
+          },
+          plan: {
+            ...signal.plan,
+            direction: oppositeDirection,
+            entry: aiDecision.adjustedEntry || signal.plan.entry,
+            stop: aiDecision.adjustedStop || signal.plan.stop,
+            targets: aiDecision.adjustedTarget 
+              ? [aiDecision.adjustedTarget, ...signal.plan.targets.slice(1)]
+              : signal.plan.targets
+          },
+          notes: [
+            ...signal.notes,
+            `🔄 AI INVERTED: Original ${signal.pattern.name} (${signal.pattern.direction}) → ${oppositeDirection}`,
+            `Reason: ${aiDecision.reasoning}`
+          ]
+        };
+        
+        executionType = 'ai-inverted';
+        console.log(`[AI-FILTER] Inverted to ${oppositeDirection}: Entry=$${signalToExecute.plan.entry}, Stop=$${signalToExecute.plan.stop}, Target=$${signalToExecute.plan.targets[0]}`);
+      } else {
+        console.log(`🤖 [AI-FILTER] APPROVED: ${signal.symbol} ${signal.pattern.name} (${aiDecision.confidence} confidence) - ${aiDecision.reasoning}`);
+        
+        // Apply AI adjustments if provided
+        if (aiDecision.adjustedEntry) {
+          signalToExecute = {
+            ...signalToExecute,
+            plan: { ...signalToExecute.plan, entry: aiDecision.adjustedEntry }
+          };
+          console.log(`[AI-FILTER] Adjusted entry: $${aiDecision.adjustedEntry}`);
+        }
+        if (aiDecision.adjustedStop) {
+          signalToExecute = {
+            ...signalToExecute,
+            plan: { ...signalToExecute.plan, stop: aiDecision.adjustedStop }
+          };
+          console.log(`[AI-FILTER] Adjusted stop: $${aiDecision.adjustedStop}`);
+        }
+        if (aiDecision.adjustedTarget) {
+          signalToExecute = {
+            ...signalToExecute,
+            plan: { ...signalToExecute.plan, targets: [aiDecision.adjustedTarget, ...signalToExecute.plan.targets.slice(1)] }
+          };
+          console.log(`[AI-FILTER] Adjusted target: $${aiDecision.adjustedTarget}`);
+        }
+        
+        executionType = 'ai-approved';
+      }
+    }
+    
+    // Check if this is a trap fade candidate (only if not using AI filter)
+    if (!isAIFilterEnabled() && isTrapFadeCandidate(signal)) {
       signalToExecute = createFadeSignal(signal);
       executionType = 'trap-fade';
       console.log(`[AUTO-EXEC] Creating trap fade trade (opposite direction) for ${signal.pattern.name} on ${signal.symbol}`);
-    } else {
+    } else if (!isAIFilterEnabled()) {
       console.log(`[AUTO-EXEC] Attempting automatic execution for ${signal.pattern.name} on ${signal.symbol} (score: ${signal.score})`);
     }
     
@@ -284,20 +383,29 @@ export function handleCandle(candle: Candle, _deprecatedDetectPatterns?: any) {
       const detectedSignals = comprehensiveScanner.scan(aggregated5MinCandle);
       
       if (detectedSignals.length > 0) {
+        console.log(`[DEBUG] Found ${detectedSignals.length} signals to process`);
         detectedSignals.forEach(async (signal) => {
-          signals.push(signal);
-          
-          // Check for auto-execution
-          if (shouldAutoExecute(signal)) {
-            await executeSignalAutomatically(signal);
+          try {
+            console.log(`[DEBUG] Processing signal: ${signal.symbol} ${signal.pattern.name} score=${signal.score}`);
+            signals.push(signal);
+            
+            // Check for auto-execution
+            console.log(`[DEBUG] About to call shouldAutoExecute for ${signal.symbol}`);
+            const shouldExec = shouldAutoExecute(signal);
+            console.log(`[DEBUG] shouldAutoExecute returned: ${shouldExec}`);
+            if (shouldExec) {
+              await executeSignalAutomatically(signal);
+            }
+            
+            // Broadcast the comprehensive signal
+            console.log(`[WEBSOCKET] Broadcasting signal for ${signal.symbol} with ID: ${signal.id}`);
+            broadcast({ type: 'signal', payload: signal });
+            
+            console.log(`🚨 ${signal.pattern.name} detected for ${signal.symbol} (score: ${signal.score}) - ${signal.plan.direction.toUpperCase()}`);
+            console.log(`   Entry: $${signal.plan.entry}, Stop: $${signal.plan.stop}, Targets: $${signal.plan.targets.join(', $')}`);
+          } catch (err) {
+            console.error(`[ERROR] Failed to process signal ${signal.symbol}:`, err);
           }
-          
-          // Broadcast the comprehensive signal
-          console.log(`[WEBSOCKET] Broadcasting signal for ${signal.symbol} with ID: ${signal.id}`);
-          broadcast({ type: 'signal', payload: signal });
-          
-          console.log(`🚨 ${signal.pattern.name} detected for ${signal.symbol} (score: ${signal.score}) - ${signal.plan.direction.toUpperCase()}`);
-          console.log(`   Entry: $${signal.plan.entry}, Stop: $${signal.plan.stop}, Targets: $${signal.plan.targets.join(', $')}`);
         });
         
         // Keep only last 1000 signals in memory

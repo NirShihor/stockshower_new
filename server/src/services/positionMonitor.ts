@@ -5,7 +5,7 @@ import { TradingCircuitBreaker } from '../helpers/circuitBreaker.js';
 
 class PositionMonitorService {
   private intervalId: NodeJS.Timeout | null = null;
-  private checkIntervalMs = 10000; // Check every 10 seconds - faster for active trading
+  private checkIntervalMs = 60000; // Check every 60 seconds - reduced to avoid MetaAPI rate limits
   private circuitBreaker: TradingCircuitBreaker;
   
   constructor() {

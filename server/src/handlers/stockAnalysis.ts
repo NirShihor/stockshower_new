@@ -20,13 +20,28 @@ dotenv.config();
 const DATA_PROVIDER = 'polygon'; // Change this to switch providers
 
 // Pattern scanner watchlist - same symbols used in real-time pattern scanning
-// This limits gap scanning to only these stocks instead of the entire market
+// Expanded to include all MT5-tradeable liquid stocks
 const PATTERN_SCANNER_WATCHLIST = [
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM',
-  'V', 'JNJ', 'WMT', 'PG', 'DIS', 'HD', 'MA', 'PYPL', 'BAC', 'ADBE',
-  'NFLX', 'CRM', 'PFE', 'TMO', 'CSCO', 'PEP', 'ABT', 'NKE', 'ORCL',
-  'CVX', 'KO', 'CMCSA', 'XOM', 'VZ', 'INTC', 'WFC', 'T', 'UNH',
-  'MRK', 'BA', 'MMM'
+  // Mega-cap Tech
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA',
+  // Large-cap Tech
+  'ADBE', 'CRM', 'ORCL', 'INTC', 'CSCO', 'AMD', 'AVGO', 'QCOM', 'TXN', 'MU', 'AMAT', 'LRCX', 'KLAC', 'SNPS', 'CDNS', 'ADSK', 'INTU', 'NOW', 'TEAM', 'WDAY',
+  // Communication/Media
+  'NFLX', 'DIS', 'CMCSA', 'VZ', 'T', 'TMUS',
+  // Financial Services
+  'JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'V', 'MA', 'PYPL', 'AXP', 'BLK', 'SPGI', 'ICE', 'COF', 'USB', 'PNC',
+  // Healthcare
+  'JNJ', 'UNH', 'PFE', 'MRK', 'ABT', 'TMO', 'LLY', 'ABBV', 'BMY', 'AMGN', 'GILD', 'REGN', 'VRTX', 'ISRG', 'MDT', 'SYK', 'BDX', 'ZTS', 'BSX', 'DHR',
+  // Consumer
+  'WMT', 'HD', 'NKE', 'SBUX', 'KO', 'PEP', 'PG', 'COST', 'TGT', 'LOW', 'TJX', 'CMG', 'MDLZ', 'CL', 'ORLY', 'BKNG',
+  // Industrial
+  'BA', 'CAT', 'HON', 'UNP', 'RTX', 'GE', 'DE', 'MMM', 'EMR', 'NOC', 'GD', 'ITW', 'NSC', 'CSX', 'WM', 'FIS', 'FISV', 'ADP',
+  // Energy
+  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'OXY', 'PSX', 'VLO', 'MPC', 'KMI', 'HAL',
+  // Utilities/Real Estate
+  'NEE', 'DUK', 'SO', 'D', 'AEP', 'EXC', 'XEL', 'AMT', 'PLD', 'SPG', 'PSA',
+  // Other
+  'ACN', 'IBM', 'PM', 'LIN', 'SHW', 'APH', 'AON', 'MMC', 'MCO', 'ECL', 'FCX'
 ];
 
 // Helper function to check if symbol is in pattern scanner watchlist

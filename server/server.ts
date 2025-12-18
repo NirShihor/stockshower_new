@@ -29,6 +29,7 @@ import { stopMockSignalFeed } from './src/handlers/mockSignalGenerator.js';
 import { detectEngulfingPatterns } from './src/candlestick/patterns/engulfing.js';
 import { aggregate1MinTo5Min, clearAggregator } from './src/candlestick/aggregator.js';
 import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
+import { startTrainingScheduler, stopTrainingScheduler } from './src/services/trainingScheduler.js';
 
   // Load environment variables
   dotenv.config();
@@ -148,12 +149,15 @@ if (process.env.NODE_ENV === 'production') {
         metaApiHandler.startEndOfDayScheduler();
         metaApiHandler.startOrderCleanup();
         
-        // Position monitoring disabled to prevent stuck trade processing overload
-        // Use /api/position-management/start endpoint to manually enable if needed
-        console.log('Position monitoring available but not auto-started - use manual endpoint to enable');
+        // Position monitoring enabled - tracks SL/TP hits and updates database
+        positionMonitor.start();
+        console.log('Position monitoring started - will track trade exits');
       } else {
         console.log('MetaApi credentials not found - automated cleanup disabled');
       }
+      
+      // Start daily training insights regeneration scheduler (21:10 UK time)
+      startTrainingScheduler();
     });
   };
 
@@ -179,6 +183,7 @@ process.on('SIGINT', () => {
   stopMockSignalFeed();
   clearAggregator(); // Clean up aggregator timers
   positionMonitor.stop(); // Stop position monitoring
+  stopTrainingScheduler(); // Stop training scheduler
   
   // Force exit after 5 seconds if graceful shutdown fails
   setTimeout(() => {

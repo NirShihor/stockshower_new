@@ -2,6 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import { ComprehensiveSignal } from '../candlestick/types/comprehensive.js';
 import { TradeService } from '../db/services/tradeService.js';
+import { Trade } from '../db/models/Trade.js';
 
 export interface MetaApiOrderResult {
   success: boolean;
@@ -478,7 +479,7 @@ class MetaApiRestHandler {
         volume: volume,
         stopLoss: roundedStopLoss,
         takeProfit: roundedTakeProfit,
-        comment: `Signal: ${signal.pattern.name}`
+        comment: `Signal: ${signal.pattern.name}`.slice(0, 31)
       };
       
       // Create trade record before placing order
@@ -903,7 +904,6 @@ class MetaApiRestHandler {
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
       
-      // Get all open positions
       const positionsResponse = await this.axiosInstance.get(
         `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
         { headers: this.getHeaders() }
@@ -942,6 +942,41 @@ class MetaApiRestHandler {
           });
 
           console.log(`[MetaApi] Successfully closed position ${position.id}`);
+          
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          try {
+            const historicalData = await this.getClosedPosition(position.id);
+            if (historicalData && historicalData.closePrice) {
+              const trade = await Trade.findOne({ mt5PositionId: position.id });
+              if (trade) {
+                const entryPrice = trade.actualEntryPrice || trade.entryPrice;
+                const exitPrice = historicalData.closePrice;
+                const isLong = trade.direction === 'long';
+                
+                let pnlPercentage = 0;
+                if (entryPrice) {
+                  pnlPercentage = isLong
+                    ? ((exitPrice - entryPrice) / entryPrice) * 100
+                    : ((entryPrice - exitPrice) / entryPrice) * 100;
+                }
+                
+                await Trade.findByIdAndUpdate(trade._id, {
+                  status: 'closed',
+                  exitPrice: exitPrice,
+                  closedTime: new Date(),
+                  exitReason: 'end_of_day',
+                  pnlPercentage: pnlPercentage,
+                  pnlAmount: historicalData.profit || 0,
+                  commission: historicalData.commission || 0
+                });
+                
+                console.log(`[MetaApi] ✅ Database updated for ${position.symbol}: exit=${exitPrice}, P&L=${pnlPercentage.toFixed(2)}%`);
+              }
+            }
+          } catch (dbError) {
+            console.error(`[MetaApi] Failed to update database for position ${position.id}:`, dbError);
+          }
         } catch (error: any) {
           console.error(`[MetaApi] Failed to close position ${position.id}:`, error.response?.data);
           closeResults.push({
@@ -1420,23 +1455,18 @@ class MetaApiRestHandler {
   async getClosedPosition(positionId: string): Promise<any | null> {
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      // Try to get historical data for closed position
+      const endTime = new Date().toISOString();
+      const startTime = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      
       const response = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/history-deals`,
-        { 
-          headers: this.getHeaders(),
-          params: {
-            positionId: positionId,
-            limit: 10
-          }
-        }
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/history-deals/time/${startTime}/${endTime}`,
+        { headers: this.getHeaders() }
       );
       
       const deals = response.data || [];
-      // Find the closing deal (type should be OUT)
       const closingDeal = deals.find((deal: any) => 
-        deal.positionId === positionId && 
-        (deal.entryType === 'DEAL_ENTRY_OUT' || deal.type === 'DEAL_TYPE_SELL')
+        String(deal.positionId) === String(positionId) && 
+        deal.entryType === 'DEAL_ENTRY_OUT'
       );
       
       if (closingDeal) {
