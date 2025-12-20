@@ -76,13 +76,16 @@ function shouldAutoExecute(signal: ComprehensiveSignal): boolean {
     return false;
   }
   
-  // High score signals (70+)
-  if (signal.score >= AUTO_EXECUTION_CONFIG.highScoreThreshold) {
-    console.log(`[AUTO-EXEC] ✅ High score signal (${signal.score}) qualifies for auto-execution: ${signal.pattern.name} for ${signal.symbol}`);
+  // Counter-trend trades use lower threshold (55) since they get penalized by scoring but perform better historically
+  const counterTrendThreshold = 55;
+  
+  // High score signals (70+ for trend-aligned which are blocked above, 55+ for counter-trend)
+  if (signal.score >= counterTrendThreshold) {
+    console.log(`[AUTO-EXEC] ✅ Counter-trend signal (${signal.score} >= ${counterTrendThreshold}) qualifies for auto-execution: ${signal.pattern.name} for ${signal.symbol}`);
     console.log(`[AUTO-EXEC] AI_SIGNAL_FILTER enabled: ${isAIFilterEnabled()}`);
     return true;
   } else {
-    console.log(`[AUTO-CHECK] Score ${signal.score} < threshold ${AUTO_EXECUTION_CONFIG.highScoreThreshold} - skipping`);
+    console.log(`[AUTO-CHECK] Score ${signal.score} < threshold ${counterTrendThreshold} - skipping`);
   }
   
   // Trap fade trades

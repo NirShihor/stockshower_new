@@ -1452,19 +1452,45 @@ class MetaApiRestHandler {
     }
   }
 
+  private lastHistoryFetch: number = 0;
+  private cachedDeals: any[] = [];
+  private historyFetchCooldown = 15000; // 15 seconds between history API calls
+
   async getClosedPosition(positionId: string): Promise<any | null> {
     try {
+      const now = Date.now();
+      
+      // Use cached deals if we fetched recently (avoid rate limiting)
+      if (now - this.lastHistoryFetch < this.historyFetchCooldown && this.cachedDeals.length > 0) {
+        const closingDeal = this.cachedDeals.find((deal: any) => 
+          String(deal.positionId) === String(positionId) && 
+          deal.entryType === 'DEAL_ENTRY_OUT'
+        );
+        
+        if (closingDeal) {
+          return {
+            closePrice: closingDeal.price,
+            closeTime: closingDeal.time,
+            commission: closingDeal.commission || 0,
+            profit: closingDeal.profit || 0
+          };
+        }
+        return null;
+      }
+      
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
       const endTime = new Date().toISOString();
-      const startTime = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       
       const response = await this.axiosInstance.get(
         `${londonClientUrl}/users/current/accounts/${this.accountId}/history-deals/time/${startTime}/${endTime}`,
         { headers: this.getHeaders() }
       );
       
-      const deals = response.data || [];
-      const closingDeal = deals.find((deal: any) => 
+      this.cachedDeals = response.data || [];
+      this.lastHistoryFetch = now;
+      
+      const closingDeal = this.cachedDeals.find((deal: any) => 
         String(deal.positionId) === String(positionId) && 
         deal.entryType === 'DEAL_ENTRY_OUT'
       );
@@ -1480,6 +1506,10 @@ class MetaApiRestHandler {
       
       return null;
     } catch (error: any) {
+      // If rate limited, return null silently (backup closure will handle it)
+      if (error.response?.data?.error === 'TooManyRequestsError') {
+        return null;
+      }
       console.error('[MetaApi] Error getting closed position:', error.response?.data || error.message);
       return null;
     }

@@ -49,19 +49,16 @@ export function scorePattern(
     console.log(`[SCORING] Low volume penalty -${penalty} (${context.volumeFactor.toFixed(1)}x < ${params.minVolumeMultiplier}x required)`);
   }
   
-  // Trend alignment (for reversal patterns)
+  // Counter-trend bonus (data shows 35.7% win rate vs 6.7% for trend-aligned)
+  if (isCounterTrend(pattern, context)) {
+    score += 15;
+    notes.push('Counter-trend setup (historically 35% win rate)');
+  }
+  
+  // Trend-aligned penalty (data shows only 6.7% win rate)
   if (isTrendAligned(pattern, context)) {
-    let trendBonus = 15;
-    
-    // Reduce bonus for sideways trends
-    if (context.trend === 'sideways') {
-      trendBonus = 8;
-      notes.push('Trend context supports pattern (sideways market)');
-    } else {
-      notes.push('Trend context supports pattern');
-    }
-    
-    score += trendBonus;
+    score -= 10;
+    notes.push('⚠️ Trend-aligned (historically 6.7% win rate)');
   }
   
   // Penalize patterns in sideways markets (choppy conditions)
