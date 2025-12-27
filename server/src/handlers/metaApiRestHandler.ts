@@ -1452,6 +1452,49 @@ class MetaApiRestHandler {
     }
   }
 
+  async modifyPosition(positionId: string, stopLoss?: number, takeProfit?: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      
+      const modifyRequest: any = {
+        actionType: 'POSITION_MODIFY',
+        positionId: positionId
+      };
+
+      if (stopLoss !== undefined) {
+        modifyRequest.stopLoss = Math.round(stopLoss * 100) / 100;
+      }
+      if (takeProfit !== undefined) {
+        modifyRequest.takeProfit = Math.round(takeProfit * 100) / 100;
+      }
+
+      console.log(`[MetaApi] Modifying position ${positionId}:`, modifyRequest);
+      
+      const response = await this.axiosInstance.post(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+        modifyRequest,
+        { headers: this.getHeaders() }
+      );
+
+      console.log(`[MetaApi] Modify position response:`, response.data);
+      
+      if (response.data.stringCode && response.data.stringCode !== 'TRADE_RETCODE_DONE') {
+        return {
+          success: false,
+          error: `${response.data.stringCode}: ${response.data.message}`
+        };
+      }
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[MetaApi] Error modifying position ${positionId}:`, error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to modify position'
+      };
+    }
+  }
+
   private lastHistoryFetch: number = 0;
   private cachedDeals: any[] = [];
   private historyFetchCooldown = 15000; // 15 seconds between history API calls

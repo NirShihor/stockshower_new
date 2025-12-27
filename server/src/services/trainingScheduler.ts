@@ -347,7 +347,8 @@ async function regenerateTrainingInsights(): Promise<void> {
     const closedTrades = await Trade.find({ 
       status: { $in: ['closed', 'filled'] },
       exitPrice: { $exists: true, $ne: null },
-      actualEntryPrice: { $exists: true, $ne: null }
+      actualEntryPrice: { $exists: true, $ne: null },
+      pnlPercentage: { $exists: true, $ne: null }
     }).sort({ closedTime: -1 });
     
     if (closedTrades.length === 0) {

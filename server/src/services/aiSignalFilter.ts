@@ -1,8 +1,61 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ComprehensiveSignal } from '../candlestick/types/comprehensive.js';
 import { DecisionLog } from '../db/models/DecisionLog.js';
+import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
 import fs from 'fs';
 import path from 'path';
+
+let cachedSpyTrend: { trend: 'up' | 'down' | 'sideways'; timestamp: number } | null = null;
+const SPY_CACHE_DURATION = 5 * 60 * 1000;
+
+async function getSpyMarketTrend(): Promise<'up' | 'down' | 'sideways'> {
+  if (cachedSpyTrend && Date.now() - cachedSpyTrend.timestamp < SPY_CACHE_DURATION) {
+    return cachedSpyTrend.trend;
+  }
+
+  try {
+    const apiKey = process.env.POLYGON_API_KEY;
+    if (!apiKey) {
+      console.log('[MARKET-REGIME] No Polygon API key, defaulting to sideways');
+      return 'sideways';
+    }
+
+    const to = new Date();
+    const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const fromStr = from.toISOString().split('T')[0];
+    const toStr = to.toISOString().split('T')[0];
+
+    const candles = await fetchHistoricalBars(apiKey, 'SPY', fromStr, toStr, 'day', 1, 30);
+    
+    if (candles.length < 10) {
+      console.log('[MARKET-REGIME] Not enough SPY data, defaulting to sideways');
+      return 'sideways';
+    }
+
+    const fastMA = 8;
+    const slowMA = 20;
+    const closes = candles.map(c => c.close);
+    const fastMAValue = closes.slice(-fastMA).reduce((a, b) => a + b, 0) / fastMA;
+    const slowMAValue = closes.slice(-slowMA).reduce((a, b) => a + b, 0) / slowMA;
+    const currentPrice = closes[closes.length - 1];
+
+    const priceAboveBoth = currentPrice > fastMAValue && currentPrice > slowMAValue;
+    const priceBelowBoth = currentPrice < fastMAValue && currentPrice < slowMAValue;
+    const fastAboveSlow = fastMAValue > slowMAValue;
+
+    let trend: 'up' | 'down' | 'sideways' = 'sideways';
+    if (priceAboveBoth && fastAboveSlow) trend = 'up';
+    else if (priceBelowBoth && !fastAboveSlow) trend = 'down';
+
+    console.log(`[MARKET-REGIME] SPY trend: ${trend} (price=${currentPrice.toFixed(2)}, fastMA=${fastMAValue.toFixed(2)}, slowMA=${slowMAValue.toFixed(2)})`);
+
+    cachedSpyTrend = { trend, timestamp: Date.now() };
+    return trend;
+  } catch (error) {
+    console.error('[MARKET-REGIME] Error fetching SPY data:', error);
+    return 'sideways';
+  }
+}
 
 interface AIDecision {
   action: 'execute' | 'skip' | 'invert';
@@ -727,10 +780,10 @@ function tryAutoInvert(signal: ComprehensiveSignal, reason: string): AIDecision 
   };
 }
 
-function applyHardFilters(
+async function applyHardFilters(
   signal: ComprehensiveSignal,
   insights: TrainingInsights | null
-): AIDecision | null {
+): Promise<AIDecision | null> {
   if (!insights) return null;
 
   const timeOfDay = getTimeOfDay();
@@ -750,6 +803,30 @@ function applyHardFilters(
       confidence: 'high',
       reasoning: `HARD FILTER: Trend-aligned trade blocked. Going ${direction} in ${trend} trend has 4.3% historical win rate vs 35.6% for counter-trend.`
     };
+  }
+
+  if (timeOfDay === 'close') {
+    console.log(`[HARD-FILTER] ❌ BLOCKED: Close period trading. Historical win rate: 11.6%`);
+    return {
+      action: 'skip',
+      execute: false,
+      confidence: 'high',
+      reasoning: `HARD FILTER: Trading during market close period blocked. Historical win rate: 11.6% (69 trades).`
+    };
+  }
+
+  if (direction === 'long') {
+    const spyTrend = await getSpyMarketTrend();
+    if (spyTrend === 'down') {
+      console.log(`[HARD-FILTER] ❌ BLOCKED: LONG trade in bearish market. SPY trend: ${spyTrend}. Historical long win rate: 28.6%`);
+      return {
+        action: 'skip',
+        execute: false,
+        confidence: 'high',
+        reasoning: `HARD FILTER: LONG trades blocked in bearish market (SPY trend: down). Historical long win rate: 28.6% vs short: 43.2%.`
+      };
+    }
+    console.log(`[HARD-FILTER] ✓ LONG allowed - SPY trend: ${spyTrend}`);
   }
   
   const patternPerf = insights.patternRankings.find(p => p.pattern === patternName);
@@ -973,7 +1050,7 @@ export async function evaluateSignalWithAI(
                          (trend === 'down' && direction === 'short');
   const timeOfDay = getTimeOfDay();
 
-  const hardFilterResult = applyHardFilters(signal, insights);
+  const hardFilterResult = await applyHardFilters(signal, insights);
   if (hardFilterResult) {
     console.log(`[AI-FILTER] 🚫 ${hardFilterResult.reasoning}`);
     logDecision(signal, hardFilterResult, isTrendAligned, timeOfDay).catch(() => {});

@@ -55,10 +55,15 @@ export function scorePattern(
     notes.push('Counter-trend setup (historically 35% win rate)');
   }
   
-  // Trend-aligned penalty (data shows only 6.7% win rate)
+  // Trend-aligned: penalise weak, reward strong momentum
   if (isTrendAligned(pattern, context)) {
-    score -= 10;
-    notes.push('⚠️ Trend-aligned (historically 6.7% win rate)');
+    if (isStrongMomentum(context)) {
+      score += 10;
+      notes.push('Strong momentum setup (high volume + clear trend)');
+    } else {
+      score -= 10;
+      notes.push('⚠️ Weak trend-aligned (historically 6.7% win rate)');
+    }
   }
   
   // Penalize patterns in sideways markets (choppy conditions)
@@ -179,6 +184,13 @@ function isCounterTrend(pattern: PatternDetails, context: MarketContext): boolea
   }
   
   return false;
+}
+
+function isStrongMomentum(context: MarketContext): boolean {
+  if (context.trend === 'sideways') return false;
+  if (!context.isHighVolume) return false;
+  if (context.volumeFactor < 1.5) return false;
+  return true;
 }
 
 function hasCleanInvalidation(pattern: PatternDetails, context: MarketContext): boolean {

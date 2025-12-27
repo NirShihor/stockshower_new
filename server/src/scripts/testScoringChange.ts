@@ -10,6 +10,7 @@ interface ScoreComparison {
   direction: string;
   trend: string;
   isTrendAligned: boolean;
+  isStrongMomentum: boolean;
   oldScore: number;
   newScore: number;
   scoreDiff: number;
@@ -17,13 +18,20 @@ interface ScoreComparison {
   wasWin: boolean;
 }
 
-function calculateNewScore(trade: any): { oldScore: number; newScore: number } {
+function isStrongMomentum(context: any): boolean {
+  if (context.trend === 'sideways') return false;
+  if (!context.isHighVolume) return false;
+  if (context.volumeFactor < 1.5) return false;
+  return true;
+}
+
+function calculateNewScore(trade: any): { oldScore: number; newScore: number; isStrongMomentum: boolean } {
   const signalData = trade.signalData;
-  if (!signalData) return { oldScore: trade.patternScore || 0, newScore: trade.patternScore || 0 };
+  if (!signalData) return { oldScore: trade.patternScore || 0, newScore: trade.patternScore || 0, isStrongMomentum: false };
 
   const pattern = signalData.pattern;
   const context = signalData.context;
-  if (!pattern || !context) return { oldScore: trade.patternScore || 0, newScore: trade.patternScore || 0 };
+  if (!pattern || !context) return { oldScore: trade.patternScore || 0, newScore: trade.patternScore || 0, isStrongMomentum: false };
 
   const direction = pattern.direction;
   const trend = context.trend;
@@ -34,12 +42,19 @@ function calculateNewScore(trade: any): { oldScore: number; newScore: number } {
   const isCounterTrend = (direction === 'bullish' && trend === 'down') ||
                          (direction === 'bearish' && trend === 'up');
 
+  const strongMomentum = isStrongMomentum(context);
+
   let oldScore = trade.patternScore || 0;
   let newScore = oldScore;
 
   if (isTrendAligned) {
     const oldBonus = trend === 'sideways' ? 8 : 15;
-    newScore = newScore - oldBonus - 10;
+    newScore = newScore - oldBonus;
+    if (strongMomentum) {
+      newScore = newScore + 10;
+    } else {
+      newScore = newScore - 10;
+    }
   }
   
   if (isCounterTrend) {
@@ -48,7 +63,7 @@ function calculateNewScore(trade: any): { oldScore: number; newScore: number } {
 
   newScore = Math.min(100, Math.max(0, newScore));
 
-  return { oldScore, newScore };
+  return { oldScore, newScore, isStrongMomentum: strongMomentum };
 }
 
 async function testScoringChange(): Promise<void> {
@@ -68,6 +83,8 @@ async function testScoringChange(): Promise<void> {
   
   const summary = {
     trendAligned: { count: 0, wins: 0, losses: 0, oldAvgScore: 0, newAvgScore: 0 },
+    trendAlignedMomentum: { count: 0, wins: 0, losses: 0, oldAvgScore: 0, newAvgScore: 0 },
+    trendAlignedWeak: { count: 0, wins: 0, losses: 0, oldAvgScore: 0, newAvgScore: 0 },
     counterTrend: { count: 0, wins: 0, losses: 0, oldAvgScore: 0, newAvgScore: 0 },
     neutral: { count: 0, wins: 0, losses: 0, oldAvgScore: 0, newAvgScore: 0 }
   };
@@ -83,7 +100,7 @@ async function testScoringChange(): Promise<void> {
     const signalData = trade.signalData;
     if (!signalData?.pattern || !signalData?.context) continue;
 
-    const { oldScore, newScore } = calculateNewScore(trade);
+    const { oldScore, newScore, isStrongMomentum: strongMomentum } = calculateNewScore(trade);
     const direction = signalData.pattern.direction;
     const trend = signalData.context.trend;
     
@@ -101,6 +118,7 @@ async function testScoringChange(): Promise<void> {
       direction,
       trend,
       isTrendAligned,
+      isStrongMomentum: strongMomentum,
       oldScore,
       newScore,
       scoreDiff: newScore - oldScore,
@@ -115,6 +133,20 @@ async function testScoringChange(): Promise<void> {
       summary.trendAligned.newAvgScore += newScore;
       if (wasWin) summary.trendAligned.wins++;
       else summary.trendAligned.losses++;
+      
+      if (strongMomentum) {
+        summary.trendAlignedMomentum.count++;
+        summary.trendAlignedMomentum.oldAvgScore += oldScore;
+        summary.trendAlignedMomentum.newAvgScore += newScore;
+        if (wasWin) summary.trendAlignedMomentum.wins++;
+        else summary.trendAlignedMomentum.losses++;
+      } else {
+        summary.trendAlignedWeak.count++;
+        summary.trendAlignedWeak.oldAvgScore += oldScore;
+        summary.trendAlignedWeak.newAvgScore += newScore;
+        if (wasWin) summary.trendAlignedWeak.wins++;
+        else summary.trendAlignedWeak.losses++;
+      }
     } else if (isCounterTrend) {
       summary.counterTrend.count++;
       summary.counterTrend.oldAvgScore += oldScore;
@@ -151,7 +183,10 @@ async function testScoringChange(): Promise<void> {
     }
 
     const winIcon = wasWin ? '✅' : '❌';
-    const alignIcon = isTrendAligned ? '📈ALIGNED' : isCounterTrend ? '📉COUNTER' : '➡️NEUTRAL';
+    let alignIcon = '➡️NEUTRAL';
+    if (isTrendAligned && strongMomentum) alignIcon = '🚀MOMENTUM';
+    else if (isTrendAligned) alignIcon = '📈WEAK-AL';
+    else if (isCounterTrend) alignIcon = '📉COUNTER';
     const diffStr = result.scoreDiff >= 0 ? `+${result.scoreDiff}` : `${result.scoreDiff}`;
     
     console.log(`${winIcon} ${trade.symbol.padEnd(6)} | ${trade.patternName.padEnd(28)} | ${alignIcon.padEnd(10)} | Old: ${oldScore.toString().padStart(2)} → New: ${newScore.toString().padStart(2)} (${diffStr.padStart(3)}) | P&L: ${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}%`);
@@ -160,6 +195,14 @@ async function testScoringChange(): Promise<void> {
   if (summary.trendAligned.count > 0) {
     summary.trendAligned.oldAvgScore /= summary.trendAligned.count;
     summary.trendAligned.newAvgScore /= summary.trendAligned.count;
+  }
+  if (summary.trendAlignedMomentum.count > 0) {
+    summary.trendAlignedMomentum.oldAvgScore /= summary.trendAlignedMomentum.count;
+    summary.trendAlignedMomentum.newAvgScore /= summary.trendAlignedMomentum.count;
+  }
+  if (summary.trendAlignedWeak.count > 0) {
+    summary.trendAlignedWeak.oldAvgScore /= summary.trendAlignedWeak.count;
+    summary.trendAlignedWeak.newAvgScore /= summary.trendAlignedWeak.count;
   }
   if (summary.counterTrend.count > 0) {
     summary.counterTrend.oldAvgScore /= summary.counterTrend.count;
@@ -174,11 +217,28 @@ async function testScoringChange(): Promise<void> {
   console.log('SCORE CHANGE IMPACT BY TREND ALIGNMENT');
   console.log('='.repeat(140));
   
-  console.log('\n📈 TREND-ALIGNED (historically 6.7% win rate):');
+  console.log('\n📈 TREND-ALIGNED (all):');
   console.log(`   Count: ${summary.trendAligned.count} | Wins: ${summary.trendAligned.wins} | Losses: ${summary.trendAligned.losses}`);
-  console.log(`   Win Rate: ${((summary.trendAligned.wins / summary.trendAligned.count) * 100).toFixed(1)}%`);
-  console.log(`   Old Avg Score: ${summary.trendAligned.oldAvgScore.toFixed(1)} → New Avg Score: ${summary.trendAligned.newAvgScore.toFixed(1)}`);
-  console.log(`   Score Change: ${(summary.trendAligned.newAvgScore - summary.trendAligned.oldAvgScore).toFixed(1)} points`);
+  if (summary.trendAligned.count > 0) {
+    console.log(`   Win Rate: ${((summary.trendAligned.wins / summary.trendAligned.count) * 100).toFixed(1)}%`);
+    console.log(`   Old Avg Score: ${summary.trendAligned.oldAvgScore.toFixed(1)} → New Avg Score: ${summary.trendAligned.newAvgScore.toFixed(1)}`);
+  }
+
+  console.log('\n🚀 TREND-ALIGNED + STRONG MOMENTUM (high volume + clear trend):');
+  console.log(`   Count: ${summary.trendAlignedMomentum.count} | Wins: ${summary.trendAlignedMomentum.wins} | Losses: ${summary.trendAlignedMomentum.losses}`);
+  if (summary.trendAlignedMomentum.count > 0) {
+    console.log(`   Win Rate: ${((summary.trendAlignedMomentum.wins / summary.trendAlignedMomentum.count) * 100).toFixed(1)}%`);
+    console.log(`   Old Avg Score: ${summary.trendAlignedMomentum.oldAvgScore.toFixed(1)} → New Avg Score: ${summary.trendAlignedMomentum.newAvgScore.toFixed(1)}`);
+    console.log(`   Score Change: ${(summary.trendAlignedMomentum.newAvgScore - summary.trendAlignedMomentum.oldAvgScore).toFixed(1)} points`);
+  }
+
+  console.log('\n📈 TREND-ALIGNED + WEAK (low volume):');
+  console.log(`   Count: ${summary.trendAlignedWeak.count} | Wins: ${summary.trendAlignedWeak.wins} | Losses: ${summary.trendAlignedWeak.losses}`);
+  if (summary.trendAlignedWeak.count > 0) {
+    console.log(`   Win Rate: ${((summary.trendAlignedWeak.wins / summary.trendAlignedWeak.count) * 100).toFixed(1)}%`);
+    console.log(`   Old Avg Score: ${summary.trendAlignedWeak.oldAvgScore.toFixed(1)} → New Avg Score: ${summary.trendAlignedWeak.newAvgScore.toFixed(1)}`);
+    console.log(`   Score Change: ${(summary.trendAlignedWeak.newAvgScore - summary.trendAlignedWeak.oldAvgScore).toFixed(1)} points`);
+  }
 
   console.log('\n📉 COUNTER-TREND (historically 35.7% win rate):');
   console.log(`   Count: ${summary.counterTrend.count} | Wins: ${summary.counterTrend.wins} | Losses: ${summary.counterTrend.losses}`);
@@ -208,11 +268,11 @@ async function testScoringChange(): Promise<void> {
   console.log('\n' + '='.repeat(140));
   console.log('KEY INSIGHT');
   console.log('='.repeat(140));
-  console.log('The new scoring should:');
-  console.log('  - LOWER scores for trend-aligned trades (which have 6.7% win rate)');
-  console.log('  - RAISE scores for counter-trend trades (which have 35.7% win rate)');
-  console.log('  - Result in more counter-trend trades qualifying at 70+ threshold');
-  console.log('  - Result in fewer trend-aligned trades qualifying');
+  console.log('The new scoring:');
+  console.log('  - REWARDS trend-aligned + strong momentum (+10 bonus)');
+  console.log('  - PENALISES trend-aligned + weak volume (-10 penalty)');
+  console.log('  - REWARDS counter-trend trades (+15 bonus)');
+  console.log('  - Check if momentum trades have better win rate than weak trend-aligned');
 
   await mongoose.disconnect();
   console.log('\nDone.');

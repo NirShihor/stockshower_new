@@ -7,6 +7,7 @@ class PositionMonitorService {
   private intervalId: NodeJS.Timeout | null = null;
   private checkIntervalMs = 60000; // Check every 60 seconds - reduced to avoid MetaAPI rate limits
   private circuitBreaker: TradingCircuitBreaker;
+  private breakEvenPositions: Set<string> = new Set();
   
   constructor() {
     this.circuitBreaker = new TradingCircuitBreaker();
@@ -264,10 +265,36 @@ class PositionMonitorService {
       }
 
       const isLong = trade.direction === 'long';
+      const entryPrice = trade.actualEntryPrice || trade.entryPrice;
+      const positionId = position.id || trade.mt5PositionId;
+
+      if (entryPrice && positionId && !this.breakEvenPositions.has(positionId)) {
+        const initialRisk = Math.abs(entryPrice - trade.stopLoss);
+        const currentProfit = isLong 
+          ? currentPrice - entryPrice 
+          : entryPrice - currentPrice;
+
+        if (currentProfit >= initialRisk) {
+          console.log(`🔒 Break-even triggered for ${trade.symbol}: profit ${currentProfit.toFixed(2)} >= risk ${initialRisk.toFixed(2)}`);
+          
+          const result = await metaApiHandler.modifyPosition(positionId, entryPrice);
+          
+          if (result.success) {
+            this.breakEvenPositions.add(positionId);
+            trade.stopLoss = entryPrice;
+            trade.breakEvenTriggered = true;
+            trade.breakEvenTime = new Date();
+            await trade.save();
+            console.log(`✅ ${trade.symbol} SL moved to break-even at ${entryPrice}`);
+          } else {
+            console.error(`❌ Failed to move SL to break-even for ${trade.symbol}: ${result.error}`);
+          }
+        }
+      }
+
       let shouldClose = false;
       let exitReason: 'stop_loss' | 'take_profit' | null = null;
 
-      // Check if current price hit stop loss or take profit
       if (isLong) {
         if (currentPrice <= trade.stopLoss) {
           shouldClose = true;
@@ -289,30 +316,26 @@ class PositionMonitorService {
       if (shouldClose && exitReason) {
         console.log(`🎯 Active monitoring triggered: ${trade.symbol} hit ${exitReason} at ${currentPrice}`);
         
-        // Try to close the position via MetaAPI
         try {
           await metaApiHandler.closePosition(position.id);
           
-          // Update trade record immediately
           await TradeService.closeTrade(
             trade.mt5PositionId,
             currentPrice,
             exitReason,
-            0 // Commission will be updated when position actually closes
+            0
           );
           
+          this.breakEvenPositions.delete(positionId);
           console.log(`✅ Position ${position.id} closed via active monitoring`);
         } catch (closeError) {
           console.error(`❌ Failed to close position ${position.id} via active monitoring:`, closeError);
           
-          // Fallback: Mark as closed in database even if MetaAPI call fails
           trade.status = 'closed';
           trade.exitReason = exitReason;
           trade.exitPrice = currentPrice;
           trade.closedTime = new Date();
           
-          // Calculate P&L
-          const entryPrice = trade.actualEntryPrice || trade.entryPrice;
           if (entryPrice) {
             const pnlPercent = isLong 
               ? ((currentPrice - entryPrice) / entryPrice) * 100
@@ -323,6 +346,7 @@ class PositionMonitorService {
           }
           
           await trade.save();
+          this.breakEvenPositions.delete(positionId);
           console.log(`🔄 Trade ${trade._id} force-closed via fallback system`);
         }
       }

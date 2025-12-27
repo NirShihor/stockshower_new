@@ -157,16 +157,6 @@ async function executeSignalAutomatically(signal: ComprehensiveSignal): Promise<
       
       const aiDecision = await evaluateSignalWithAI(signal);
       
-      // Broadcast AI decision for visibility
-      broadcast({
-        type: 'ai-decision',
-        payload: {
-          signal,
-          decision: aiDecision,
-          timestamp: new Date().toISOString()
-        }
-      });
-      
       if (!aiDecision.execute) {
         console.log(`🤖 [AI-FILTER] SKIPPED: ${signal.symbol} ${signal.pattern.name} - ${aiDecision.reasoning}`);
         return;
@@ -189,48 +179,16 @@ async function executeSignalAutomatically(signal: ComprehensiveSignal): Promise<
           },
           plan: {
             ...signal.plan,
-            direction: oppositeDirection,
-            entry: aiDecision.adjustedEntry || signal.plan.entry,
-            stop: aiDecision.adjustedStop || signal.plan.stop,
-            targets: aiDecision.adjustedTarget 
-              ? [aiDecision.adjustedTarget, ...signal.plan.targets.slice(1)]
-              : signal.plan.targets
-          },
-          notes: [
-            ...signal.notes,
-            `🔄 AI INVERTED: Original ${signal.pattern.name} (${signal.pattern.direction}) → ${oppositeDirection}`,
-            `Reason: ${aiDecision.reasoning}`
-          ]
+            direction: oppositeDirection
+          }
         };
         
         executionType = 'ai-inverted';
-        console.log(`[AI-FILTER] Inverted to ${oppositeDirection}: Entry=$${signalToExecute.plan.entry}, Stop=$${signalToExecute.plan.stop}, Target=$${signalToExecute.plan.targets[0]}`);
+        console.log(`[AI-FILTER] Inverting to ${oppositeDirection}...`);
       } else {
         console.log(`🤖 [AI-FILTER] APPROVED: ${signal.symbol} ${signal.pattern.name} (${aiDecision.confidence} confidence) - ${aiDecision.reasoning}`);
         
-        // Apply AI adjustments if provided
-        if (aiDecision.adjustedEntry) {
-          signalToExecute = {
-            ...signalToExecute,
-            plan: { ...signalToExecute.plan, entry: aiDecision.adjustedEntry }
-          };
-          console.log(`[AI-FILTER] Adjusted entry: $${aiDecision.adjustedEntry}`);
-        }
-        if (aiDecision.adjustedStop) {
-          signalToExecute = {
-            ...signalToExecute,
-            plan: { ...signalToExecute.plan, stop: aiDecision.adjustedStop }
-          };
-          console.log(`[AI-FILTER] Adjusted stop: $${aiDecision.adjustedStop}`);
-        }
-        if (aiDecision.adjustedTarget) {
-          signalToExecute = {
-            ...signalToExecute,
-            plan: { ...signalToExecute.plan, targets: [aiDecision.adjustedTarget, ...signalToExecute.plan.targets.slice(1)] }
-          };
-          console.log(`[AI-FILTER] Adjusted target: $${aiDecision.adjustedTarget}`);
-        }
-        
+        signalToExecute = signal;
         executionType = 'ai-approved';
       }
     }

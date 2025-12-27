@@ -17,26 +17,43 @@ async function check() {
   
   let counterTrendCount = 0;
   let trendAlignedCount = 0;
+  let wins = 0, losses = 0;
+  let longCount = 0, shortCount = 0, longWins = 0, shortWins = 0;
+  let totalPnl = 0;
   
-  for (const t of trades) {
+  const closedTrades = trades.filter(t => t.status === 'closed');
+  
+  for (const t of closedTrades) {
     const trend = t.marketConditions?.trend || t.signalData?.context?.trend || 'N/A';
     const patternDir = t.signalData?.pattern?.direction || 'N/A';
-    const score = t.patternScore || t.signalData?.score || 'N/A';
-    const notes = t.signalData?.notes || [];
+    const pnl = t.pnlPercentage || 0;
+    totalPnl += pnl;
     
     const isCounterTrend = (patternDir === 'bullish' && trend === 'down') || (patternDir === 'bearish' && trend === 'up');
-    const hasCounterTrendNote = notes.some((n: string) => n.includes('Counter-trend'));
-    const hasTrendAlignedNote = notes.some((n: string) => n.includes('Trend-aligned'));
+    if (isCounterTrend) counterTrendCount++;
+    else trendAlignedCount++;
     
-    if (isCounterTrend || hasCounterTrendNote) counterTrendCount++;
-    if (hasTrendAlignedNote) trendAlignedCount++;
+    if (pnl > 0) wins++;
+    else if (pnl < 0) losses++;
     
-    console.log(`${t.symbol.padEnd(6)} | ${t.direction.padEnd(5)} | trend: ${trend.padEnd(8)} | pattern: ${patternDir.padEnd(8)} | score: ${score} | counter: ${isCounterTrend ? 'YES' : 'no'}`);
+    if (t.direction === 'long') {
+      longCount++;
+      if (pnl > 0) longWins++;
+    } else {
+      shortCount++;
+      if (pnl > 0) shortWins++;
+    }
+    
+    const winLoss = pnl > 0 ? 'WIN' : pnl < 0 ? 'LOSS' : 'BE';
+    console.log(`${t.symbol.padEnd(6)} | ${t.patternName?.padEnd(20) || 'unknown'.padEnd(20)} | ${t.direction.padEnd(5)} | trend: ${trend.padEnd(8)} | ${isCounterTrend ? 'COUNTER' : 'ALIGNED'} | ${winLoss} ${pnl.toFixed(2)}%`);
   }
   
-  console.log(`\n--- Summary ---`);
-  console.log(`Counter-trend trades: ${counterTrendCount}`);
-  console.log(`Trend-aligned trades: ${trendAlignedCount}`);
+  console.log(`\n--- Summary (${closedTrades.length} closed trades) ---`);
+  console.log(`Wins: ${wins} | Losses: ${losses} | Win Rate: ${((wins/(wins+losses))*100).toFixed(1)}%`);
+  console.log(`Total P&L: ${totalPnl.toFixed(2)}%`);
+  console.log(`LONG: ${longCount} trades, ${longWins} wins (${longCount > 0 ? ((longWins/longCount)*100).toFixed(1) : 0}%)`);
+  console.log(`SHORT: ${shortCount} trades, ${shortWins} wins (${shortCount > 0 ? ((shortWins/shortCount)*100).toFixed(1) : 0}%)`);
+  console.log(`Counter-trend: ${counterTrendCount} | Trend-aligned: ${trendAlignedCount}`);
   
   await mongoose.disconnect();
 }
