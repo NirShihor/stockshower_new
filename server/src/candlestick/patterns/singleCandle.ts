@@ -119,28 +119,30 @@ export function detectSingleCandlePatterns(
   params: TradingParameters,
   trend: 'up' | 'down' | 'sideways'
 ): PatternDetails[] {
-  const metrics = calculateCandleMetrics(candle, prevCandle?.close);
   const patterns: PatternDetails[] = [];
+  const metrics = calculateCandleMetrics(candle);
+  const inDowntrend = trend === 'down';
+  const inUptrend = trend === 'up';
+
+  // V12 HIGH OCTANE: Enabling Single Candle Patterns
   
-  // Check for Doji
+  // Shooting Star (Bearish Reversal at Top)
+  const invertedHammerOrStar = detectInvertedHammer(candle, metrics, params, inDowntrend);
+  if (invertedHammerOrStar && invertedHammerOrStar.name === 'Shooting Star') {
+    patterns.push(invertedHammerOrStar);
+  }
+
+  // Hammer / Hanging Man
+  const hammerOrHanging = detectHammer(candle, metrics, params, inDowntrend);
+  if (hammerOrHanging) {
+    // Only Hanging Man is bearish (Short), but usually weaker.
+    // We'll allow it for now and let AI filter decide, or just push it.
+    patterns.push(hammerOrHanging);
+  }
+
+  // Doji (Neutral/Reversal)
   const doji = detectDoji(candle, metrics, params);
   if (doji) patterns.push(doji);
-  
-  // Check for Hammer/Hanging Man
-  const hammer = detectHammer(candle, metrics, params, trend === 'down');
-  if (hammer && !doji) patterns.push(hammer); // Don't double-count if it's also a doji
-  
-  // Check for Inverted Hammer/Shooting Star
-  const inverted = detectInvertedHammer(candle, metrics, params, trend === 'down');
-  if (inverted) patterns.push(inverted);
-  
-  // Check for specific Shooting Star
-  const shooting = detectShootingStar(candle, metrics, params, trend === 'up');
-  if (shooting && !inverted) patterns.push(shooting);
-  
-  // Check for Marubozu
-  const marubozu = detectMarubozu(candle, metrics, params);
-  if (marubozu) patterns.push(marubozu);
-  
+
   return patterns;
 }

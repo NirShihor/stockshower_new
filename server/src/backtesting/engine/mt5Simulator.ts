@@ -82,6 +82,9 @@ export class MT5Simulator {
     const filledPositions: BacktestPosition[] = [];
 
     for (const [id, position] of this.pendingOrders) {
+      // ONLY check orders for the current candle's symbol
+      if (position.symbol !== candle.symbol) continue;
+
       const shouldFill = this.shouldFillOrder(position, candle);
       
       if (shouldFill) {

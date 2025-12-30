@@ -421,37 +421,48 @@ class MetaApiRestHandler {
         // For long positions: SL below entry, TP above entry
         if (adjustedStopLoss >= adjustedEntry) {
           adjustedStopLoss = adjustedEntry - minStopDistance;
-          adjustedTakeProfit = adjustedEntry + (minStopDistance * originalRRRatio);
-          console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry, TP scaled to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
+          console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry`);
         } else if ((adjustedEntry - adjustedStopLoss) < minStopDistance) {
-          const newRisk = minStopDistance;
-          adjustedStopLoss = adjustedEntry - newRisk;
-          adjustedTakeProfit = adjustedEntry + (newRisk * originalRRRatio);
-          console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}), TP scaled to ${adjustedTakeProfit} to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
+          adjustedStopLoss = adjustedEntry - minStopDistance;
+          console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
         }
         
-        if (adjustedTakeProfit <= adjustedEntry) {
-          const actualRisk = adjustedEntry - adjustedStopLoss;
-          adjustedTakeProfit = adjustedEntry + (actualRisk * originalRRRatio);
-          console.warn(`[MetaApi] Adjusted TP for long: ${adjustedTakeProfit} (was ${plan.targets[0]}) - TP was below entry`);
+        // CRITICAL: Stop expanding targets proportionally! Keep them near origin or optimal target.
+        // If original target is already > 0.5% away, we keep it. If not, we use a 1.2RR minimum of the NEW stop.
+        const currentTargetDistance = adjustedTakeProfit - adjustedEntry;
+        if (currentTargetDistance < (adjustedEntry * 0.005)) {
+           // Use 1.2RR of the NEW stop (more conservative than original 2.0RR)
+           // because the new stop is already quite wide (3x ATR)
+           adjustedTakeProfit = adjustedEntry + (minStopDistance * 1.2);
+           console.log(`[MetaApi] Adjusted TP for long (was too close): ${adjustedTakeProfit}`);
+        }
+        
+        // Final sanity check: cap TP near historical optimal (~1.22%) if it's overextended (>3%)
+        const tpPercent = (adjustedTakeProfit - adjustedEntry) / adjustedEntry;
+        if (tpPercent > 0.03) {
+           adjustedTakeProfit = adjustedEntry * 1.0122;
+           console.log(`[MetaApi] Capping extreme long TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
         }
       } else {
         // For short positions: SL above entry, TP below entry
         if (adjustedStopLoss <= adjustedEntry) {
           adjustedStopLoss = adjustedEntry + minStopDistance;
-          adjustedTakeProfit = adjustedEntry - (minStopDistance * originalRRRatio);
-          console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry, TP scaled to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
+          console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry`);
         } else if ((adjustedStopLoss - adjustedEntry) < minStopDistance) {
-          const newRisk = minStopDistance;
-          adjustedStopLoss = adjustedEntry + newRisk;
-          adjustedTakeProfit = adjustedEntry - (newRisk * originalRRRatio);
-          console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}), TP scaled to ${adjustedTakeProfit} to maintain ${originalRRRatio.toFixed(2)}:1 R:R`);
+          adjustedStopLoss = adjustedEntry + minStopDistance;
+          console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
         }
         
-        if (adjustedTakeProfit >= adjustedEntry) {
-          const actualRisk = adjustedStopLoss - adjustedEntry;
-          adjustedTakeProfit = adjustedEntry - (actualRisk * originalRRRatio);
-          console.warn(`[MetaApi] Adjusted TP for short: ${adjustedTakeProfit} (was ${plan.targets[0]}) - TP was above entry`);
+        const currentTargetDistance = adjustedEntry - adjustedTakeProfit;
+        if (currentTargetDistance < (adjustedEntry * 0.005)) {
+           adjustedTakeProfit = adjustedEntry - (minStopDistance * 1.2);
+           console.log(`[MetaApi] Adjusted TP for short (was too close): ${adjustedTakeProfit}`);
+        }
+        
+        const tpPercent = (adjustedEntry - adjustedTakeProfit) / adjustedEntry;
+        if (tpPercent > 0.03) {
+           adjustedTakeProfit = adjustedEntry * (1 - 0.0122);
+           console.log(`[MetaApi] Capping extreme short TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
         }
       }
       

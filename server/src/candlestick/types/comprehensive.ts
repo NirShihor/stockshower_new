@@ -62,6 +62,8 @@ export interface MarketContext {
   volumeFactor: number;
   isHighVolume: boolean;
   isWideRange: boolean;
+  maSlope: number; // Normalized slope (bps per candle)
+  h1Trend?: 'up' | 'down' | 'sideways';
 }
 
 export interface PatternDetails {

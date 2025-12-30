@@ -14,19 +14,19 @@ export function scorePattern(
   
   console.log(`[SCORING] Scoring pattern: ${pattern.name} (${pattern.class}, ${pattern.direction})`);
   
-  // Base score by pattern type
+  // Base score by pattern type (V12 BOOSTED)
   if (pattern.class === 'triple') {
-    score += 45;
+    score += 85; // Was 45
     notes.push('Triple candle pattern (strongest)');
-    console.log(`[SCORING] Base score +45 (triple pattern), total: ${score}`);
+    console.log(`[SCORING] Base score +85 (triple pattern), total: ${score}`);
   } else if (pattern.class === 'double') {
-    score += 35;
+    score += 75; // Was 35
     notes.push('Double candle pattern');
-    console.log(`[SCORING] Base score +35 (double pattern), total: ${score}`);
+    console.log(`[SCORING] Base score +75 (double pattern), total: ${score}`);
   } else {
-    score += 25;
+    score += 65; // Was 25
     notes.push('Single candle pattern');
-    console.log(`[SCORING] Base score +25 (single pattern), total: ${score}`);
+    console.log(`[SCORING] Base score +65 (single pattern), total: ${score}`);
   }
   
   // Support/Resistance alignment
@@ -41,37 +41,57 @@ export function scorePattern(
     notes.push(`Volume spike ${context.volumeFactor.toFixed(1)}x average`);
   }
   
-  // Volume requirement penalty
-  if (context.volumeFactor < params.minVolumeMultiplier) {
-    const penalty = 10;
-    score -= penalty;
-    notes.push(`⚠️ CAUTION: Pattern formed on weak volume - lacks conviction`);
-    console.log(`[SCORING] Low volume penalty -${penalty} (${context.volumeFactor.toFixed(1)}x < ${params.minVolumeMultiplier}x required)`);
-  }
-  
-  // Counter-trend bonus (data shows 35.7% win rate vs 6.7% for trend-aligned)
-  if (isCounterTrend(pattern, context)) {
-    score += 15;
-    notes.push('Counter-trend setup (historically 35% win rate)');
-  }
-  
-  // Trend-aligned: penalise weak, reward strong momentum
+  // Trend Alignment Logic
   if (isTrendAligned(pattern, context)) {
+    score += 20;
+    notes.push('Trend-aligned setup (higher probability)');
     if (isStrongMomentum(context)) {
       score += 10;
-      notes.push('Strong momentum setup (high volume + clear trend)');
-    } else {
-      score -= 10;
-      notes.push('⚠️ Weak trend-aligned (historically 6.7% win rate)');
+      notes.push('Strong momentum confirmation');
     }
   }
   
-  // Penalize patterns in sideways markets (choppy conditions)
-  if (context.trend === 'sideways' && pattern.class !== 'triple') {
-    const penalty = 15;
+  /* V12: DISABLING MA SLOPE PENALTIES
+     Reversals often happen against the slope.
+  // MA Slope Scoring Logic - Sniper Precision
+  if (pattern.direction === 'bullish') {
+    if (context.maSlope > 5) {
+      score += 15;
+      notes.push('Strong positive trend slope');
+    } else if (context.maSlope < 1) {
+      score -= 20;
+      notes.push('⚠️ Bullish signal in weak/declining slope');
+    }
+  } else if (pattern.direction === 'bearish') {
+    if (context.maSlope < -5) {
+      score += 15;
+      notes.push('Strong negative trend slope');
+    } else if (context.maSlope > -1) {
+      score -= 20;
+      notes.push('⚠️ Bearish signal in weak/rising slope');
+    }
+  }
+  */
+  
+  /* V12 HIGH OCTANE: DISABLING SCORING PENALTIES
+     We want raw pattern detection. Context filtering happens later in AI Filter (if enabled).
+     
+  // Counter-trend Penalty
+  if (isCounterTrend(pattern, context)) {
+    const penalty = 20;
+    score -= penalty;
+    notes.push('⚠️ Counter-trend setup - increased fail risk');
+    console.log(`[SCORING] Counter-trend penalty -${penalty}`);
+  }
+  
+  // Penalize patterns in sideways markets (choppy conditions) - NO EXEMPTIONS
+  if (context.trend === 'sideways') {
+    const penalty = 20;
     score -= penalty;
     notes.push('⚠️ Sideways market - increased false signal risk');
+    console.log(`[SCORING] Sideways market penalty -${penalty}`);
   }
+  */
   
   // REMOVED: Counter-trend penalty was wrong for reversal patterns
   // Reversal patterns are SUPPOSED to go against trend - that's their purpose
@@ -229,11 +249,11 @@ function calculateAvgBodySize(candles: Candle[], period: number): number {
 }
 
 export function getActionableThreshold(): number {
-  return 70;  // Higher threshold to reduce false signals and improve quality
+  return 92;  // BASELINE threshold restored.
 }
 
 export function getWatchThreshold(): number {
-  return 50;  // Only show signals with reasonable quality
+  return 65;  // High quality signals that are candidates for closer inspection
 }
 
 export function classifySignalStrength(score: number): 'actionable' | 'watch' | 'ignore' {

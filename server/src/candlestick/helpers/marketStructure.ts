@@ -4,7 +4,7 @@ import { calculateATR, calculateVolumeMA, isHighVolumeBar, isWideRangeBar } from
 
 export function detectTrend(candles: Candle[], fastMA: number, slowMA: number): 'up' | 'down' | 'sideways' {
   // Use what we have, minimum 3 candles
-  if (candles.length < 3) return 'sideways';
+  if (candles.length < 5) return 'sideways';
   
   const fastMAValue = calculateMA(candles.map(c => c.close), fastMA);
   const slowMAValue = calculateMA(candles.map(c => c.close), slowMA);
@@ -14,10 +14,25 @@ export function detectTrend(candles: Candle[], fastMA: number, slowMA: number): 
   const priceBelowBoth = currentPrice < fastMAValue && currentPrice < slowMAValue;
   const fastAboveSlow = fastMAValue > slowMAValue;
   
-  if (priceAboveBoth && fastAboveSlow) return 'up';
-  if (priceBelowBoth && !fastAboveSlow) return 'down';
+  // Calculate slope for momentum confirmation
+  const slope = calculateMASlope(candles.map(c => c.close), fastMA);
+  
+  if (priceAboveBoth && fastAboveSlow && slope > 2) return 'up'; // Require at least 2 bps slope for 'up'
+  if (priceBelowBoth && !fastAboveSlow && slope < -2) return 'down'; // Require at least -2 bps slope for 'down'
   
   return 'sideways';
+}
+
+function calculateMASlope(values: number[], period: number): number {
+  if (values.length < period + 5) return 0;
+  
+  const currentMA = calculateMA(values, period);
+  const prevMA = calculateMA(values.slice(0, -1), period);
+  
+  if (currentMA === 0) return 0;
+  
+  // Return slope in basis points (1 bp = 0.01%)
+  return ((currentMA - prevMA) / currentMA) * 10000;
 }
 
 export function findSwingPoints(candles: Candle[], lookback: number = 5): { highs: number[], lows: number[] } {
@@ -127,7 +142,8 @@ export function isNearLevel(
 
 export function buildMarketContext(
   candles: Candle[],
-  params: TradingParameters
+  params: TradingParameters,
+  h1Trend?: 'up' | 'down' | 'sideways'
 ): MarketContext {
   const current = candles[candles.length - 1];
   const atr = calculateATR(candles, params.atrLen);
@@ -135,24 +151,31 @@ export function buildMarketContext(
   const volumeFactor = current.volume ? current.volume / volumeMA : 0;
   
   const trend = detectTrend(candles, params.maFast, params.maSlow);
+  const maSlope = calculateMASlope(candles.map(c => c.close), params.maFast);
   const srLevels = detectSupportResistance(candles, params);
   
-  const supportLevels = srLevels.filter(l => l.type === 'support' && l.price < current.close);
-  const resistanceLevels = srLevels.filter(l => l.type === 'resistance' && l.price > current.close);
+  // V5 Delta: Dynamic Polarity (Role Reversal)
+  // Any verified level BELOW current price acts as Support (Old Resistance becomes Support).
+  // Any verified level ABOVE current price acts as Resistance (Old Support becomes Resistance).
+  const supportLevels = srLevels.filter(l => l.price < current.close);
+  const resistanceLevels = srLevels.filter(l => l.price > current.close);
   
-  const nearSupport = isNearLevel(current.low, supportLevels, atr, params.srToleranceATR);
-  const nearResistance = isNearLevel(current.high, resistanceLevels, atr, params.srToleranceATR);
+  // V5 Gamma: Widened to 1.0 ATR (Standard Zone) to maximize volume.
+  const nearSupport = isNearLevel(current.low, supportLevels, atr, 1.0); 
+  const nearResistance = isNearLevel(current.high, resistanceLevels, atr, 1.0); 
   
   return {
     trend,
     atSupport: nearSupport.near,
     atResistance: nearResistance.near,
-    nearestSupport: supportLevels[0]?.price,
-    nearestResistance: resistanceLevels[0]?.price,
+    nearestSupport: nearSupport.level?.price || supportLevels[0]?.price, // Prefer touched level
+    nearestResistance: nearResistance.level?.price || resistanceLevels[0]?.price, // Prefer touched level
     atr,
     volumeFactor,
     isHighVolume: isHighVolumeBar(current, volumeMA, params.volSpikeFactor),
-    isWideRange: isWideRangeBar(current, atr)
+    isWideRange: isWideRangeBar(current, atr),
+    maSlope,
+    h1Trend
   };
 }
 

@@ -11,6 +11,8 @@ import { ComprehensiveScanner } from '../../candlestick/comprehensiveScanner.js'
 import { ComprehensiveSignal } from '../../candlestick/types/comprehensive.js';
 import { Candle } from '../../candlestick/types/index.js';
 import { TradingCircuitBreaker } from '../../helpers/circuitBreaker.js';
+import { detectTrend } from '../../candlestick/helpers/marketStructure.js';
+import { evaluateSignalWithAI, updateRollingStats } from '../../services/aiSignalFilter.js';
 
 export class BacktestEngine {
   private config: BacktestConfig;
@@ -19,13 +21,15 @@ export class BacktestEngine {
   private scanner: ComprehensiveScanner;
   private circuitBreaker: TradingCircuitBreaker;
   private state: BacktestState;
+  private symbolCandleIndex: Map<string, Map<number, BacktestCandle>> = new Map();
 
   constructor(config: BacktestConfig) {
     this.config = config;
-    this.dataLoader = new HistoricalDataLoader();
+    this.dataLoader = new HistoricalDataLoader(config.source || 'polygon');
     this.mt5Simulator = new MT5Simulator(config.slippageBps || 2, config.commissionPerTrade);
     this.scanner = new ComprehensiveScanner();
     this.circuitBreaker = new TradingCircuitBreaker();
+    console.log(`[BACKTEST] Engine initialized. Circuit Breaker is ${config.enableCircuitBreaker ? 'ENABLED' : 'DISABLED'}`);
     
     // Initialize state
     this.state = {
@@ -60,6 +64,17 @@ export class BacktestEngine {
 
     if (allData.size === 0) {
       throw new Error('No historical data loaded');
+    }
+
+    // Build candle index for fast lookup
+    console.log('Building candle index...');
+    for (const [symbol, candles] of allData) {
+      const index = new Map<number, BacktestCandle>();
+      for (const candle of candles) {
+        candle.symbol = symbol; // Ensure symbol is attached for simulator checks
+        index.set(candle.timestamp.getTime(), candle);
+      }
+      this.symbolCandleIndex.set(symbol, index);
     }
 
     // Get all unique timestamps across all symbols
@@ -127,7 +142,7 @@ export class BacktestEngine {
       const candles = allData.get(position.symbol);
       if (!candles) continue;
 
-      const currentCandle = candles.find(c => c.timestamp.getTime() === timestamp.getTime());
+      const currentCandle = this.symbolCandleIndex.get(position.symbol)?.get(timestamp.getTime());
       if (!currentCandle) continue;
 
       const exit = this.mt5Simulator.checkPositionExit(position, currentCandle);
@@ -142,7 +157,7 @@ export class BacktestEngine {
       const candles = allData.get(symbol);
       if (!candles) continue;
 
-      const currentCandle = candles.find(c => c.timestamp.getTime() === timestamp.getTime());
+      const currentCandle = this.symbolCandleIndex.get(symbol)?.get(timestamp.getTime());
       if (!currentCandle) continue;
 
       const filledPositions = this.mt5Simulator.checkPendingOrders(currentCandle);
@@ -164,17 +179,40 @@ export class BacktestEngine {
       const candles = allData.get(symbol);
       if (!candles) continue;
 
-      // Get recent candles (last 100 5-minute candles)
-      const recentCandles = this.getRecentCandles(candles, timestamp, 100 * 5);
-      if (recentCandles.length < 20) continue;
+      // Get recent candles for M5 aggregation
+      const recentM5History = this.getRecentCandles(candles, timestamp, 500);
+      if (recentM5History.length < 20) continue;
 
+      // Get recent candles for H1 aggregation (need ~50 hours for 50-SMA)
+      const recentH1History = this.getRecentCandles(candles, timestamp, 4500); // 4500 mins lookback
+      
       // Aggregate to 5-minute candles
-      const fiveMinCandles = this.dataLoader.aggregateCandles(recentCandles, 5);
+      const fiveMinCandles = this.dataLoader.aggregateCandles(recentM5History, 5);
+      
+      // Aggregate to H1 candles
+      const h1BacktestCandles = this.dataLoader.aggregateCandles(recentH1History, 60);
+
+      // Detect H1 trend direction
+      let h1Trend: 'up' | 'down' | 'sideways' = 'sideways';
+      if (h1BacktestCandles.length >= 20) {
+        const h1Candles: Candle[] = h1BacktestCandles.map(c => ({
+          symbol: c.symbol,
+          timeframe: '1h',
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+          volume: c.volume,
+          start: c.timestamp.toISOString(),
+          end: new Date(c.timestamp.getTime() + 60 * 60 * 1000).toISOString()
+        }));
+        h1Trend = detectTrend(h1Candles, 20, 50);
+      }
       
       // Scan for patterns using the last candle
       if (fiveMinCandles.length > 0) {
         const lastCandle = fiveMinCandles[fiveMinCandles.length - 1];
-        const candleForScanner: any = {
+        const candleForScanner: Candle = {
           symbol: symbol,
           timeframe: '5m',
           open: lastCandle.open,
@@ -186,8 +224,8 @@ export class BacktestEngine {
           end: new Date(lastCandle.timestamp.getTime() + 5 * 60 * 1000).toISOString()
         };
         
-        // Scan the candle
-        const signals = this.scanner.scan(candleForScanner);
+        // Scan with H1 trend context
+        const signals = this.scanner.scan(candleForScanner, h1Trend);
         
         for (const signal of signals) {
           await this.processSignal(signal, timestamp);
@@ -217,34 +255,79 @@ export class BacktestEngine {
     }
 
     if (shouldAutoExecute) {
-      // Validate with circuit breaker
-      const validation = await this.circuitBreaker.validateTrade(
-        {
-          symbol: signal.symbol,
-          mt5Symbol: signal.symbol,
-          patternName: signal.pattern.name,
-          patternScore: signal.score,
-          entryPrice: signal.plan.entry,
-          stopLoss: signal.plan.stop,
-          takeProfit: signal.plan.targets[0],
-          direction: signal.plan.direction === 'long' ? 'long' : 'short',
-          orderType: 'market',
-          volume: this.config.positionSizeGBP / signal.plan.entry,
-          signalTime: new Date(timestamp)
-        },
-        this.state.currentBalance
-      );
+      console.log(`[BACKTEST] Signal ${signal.symbol} ${signal.pattern.name} is candidate for execution...`);
+      
+      // V6 HYBRID BACKTEST: AI Gatekeeper
+      if (process.env.AI_SIGNAL_FILTER === 'true') {
+         console.log(`[BACKTEST] 🤖 Consulting AI for ${signal.symbol}...`);
+         try {
+             // We pass empty array for recentCandles for now as loading them in backtest specific format is extra work, 
+             // but scanner signal usually has enough data or the function handles it.
+             const decision = await evaluateSignalWithAI(signal);
+             
+             if (!decision.execute) {
+                 console.log(`[BACKTEST] 🛑 AI BLOCKED trade: ${decision.reasoning}`);
+                 return; // SIGNAL REJECTED BY AI
+             }
+             
+             if (decision.action === 'invert') {
+                 console.log(`[BACKTEST] 🔄 AI INVERTED trade! (Note: Inversion logic simulation simplified - using AI parameters)`);
+                 // Apply inversion parameters if present
+                 if (decision.adjustedEntry && decision.adjustedStop) {
+                     signal.plan.direction = decision.adjustedEntry > decision.adjustedStop ? 'long' : 'short'; // Rough deduction
+                     // Actually better to trust explicit invert direction logic from filter
+                     const originalDir = signal.plan.direction;
+                     signal.plan.direction = originalDir === 'long' ? 'short' : 'long';
+                     signal.plan.entry = decision.adjustedEntry;
+                     signal.plan.stop = decision.adjustedStop;
+                     signal.plan.targets[0] = decision.adjustedTarget || signal.plan.targets[0];
+                 }
+             }
+             
+             console.log(`[BACKTEST] ✅ AI APPROVED trade.`);
+         } catch (err) {
+             console.error(`[BACKTEST] AI Check Failed, skipping trade for safety:`, err);
+             return;
+         }
+      }
 
-      if (validation.isValid && this.canAddPosition()) {
+      let isValid = true;
+      let reason = '';
+
+      if (this.config.enableCircuitBreaker) {
+        const validation = await this.circuitBreaker.validateTrade(
+          {
+            symbol: signal.symbol,
+            mt5Symbol: signal.symbol,
+            patternName: signal.pattern.name,
+            patternScore: signal.score,
+            entryPrice: signal.plan.entry,
+            stopLoss: signal.plan.stop,
+            takeProfit: signal.plan.targets[0],
+            direction: signal.plan.direction === 'long' ? 'long' : 'short',
+            orderType: 'market',
+            volume: this.config.positionSizeGBP / signal.plan.entry,
+            signalTime: new Date(timestamp)
+          },
+          this.state.currentBalance
+        );
+        isValid = validation.isValid;
+        reason = validation.reason || 'Unknown circuit breaker reason';
+      }
+
+      if (isValid && this.canAddPosition()) {
         // Place order
+        console.log(`[BACKTEST] ✅ Validating and placing order for ${signal.symbol}`);
         const position = this.mt5Simulator.placeOrder(
           signal,
           this.config.positionSizeGBP,
-          { timestamp, open: signal.currentPrice || signal.plan.entry, high: signal.currentPrice || signal.plan.entry, low: signal.currentPrice || signal.plan.entry, close: signal.currentPrice || signal.plan.entry, volume: 0 }
+          { symbol: signal.symbol, timestamp, open: signal.currentPrice || signal.plan.entry, high: signal.currentPrice || signal.plan.entry, low: signal.currentPrice || signal.plan.entry, close: signal.currentPrice || signal.plan.entry, volume: 0 }
         );
         
         console.log(`Order placed: ${signal.symbol} - ${signal.pattern.name} (Score: ${signal.score})`);
         this.state.lastSignalTime.set(signal.symbol, timestamp);
+      } else {
+        console.log(`[BACKTEST] ❌ Order REJECTED: ${!isValid ? reason : 'Buffer full / concurrent limits'}`);
       }
     }
   }
@@ -268,11 +351,13 @@ export class BacktestEngine {
         direction: oppositeDirection,
         entry: fadeEntry,
         stop: signal.plan.direction === 'long' ? signal.plan.targets[0] : signal.plan.stop,
+        risk: Math.abs(fadeEntry - (signal.plan.direction === 'long' ? signal.plan.targets[0] : signal.plan.stop)),
         targets: [
           fadeEntry + (oppositeDirection === 'long' ? 1 : -1) * signal.context.atr * 1.5,
           fadeEntry + (oppositeDirection === 'long' ? 1 : -1) * signal.context.atr * 2.5
         ],
-        size: signal.plan.size
+        positionQty: signal.plan.positionQty,
+        riskRewardRatio: signal.plan.riskRewardRatio
       },
       score: 75,
       notes: [`Trap fade trade: ${signal.notes.join(', ')}`]
@@ -333,7 +418,12 @@ export class BacktestEngine {
       closedTime: closedPosition.exitTime!
     });
 
-    console.log(`Position closed: ${position.symbol} - P&L: $${closedPosition.pnl!.toFixed(2)} (${exitReason})`);
+    console.log(`[TRADE_CLOSE] ${position.symbol} ${position.direction} | Entry: ${position.entryPrice.toFixed(2)} | Exit: ${exitPrice.toFixed(2)} | PnL: $${closedPosition.pnl!.toFixed(2)} | Reason: ${exitReason}`);
+    
+    // V9 ADAPTIVE: Report result to AI
+    if (process.env.AI_SIGNAL_FILTER === 'true') {
+        updateRollingStats(closedPosition.pnl! > 0);
+    }
   }
 
   private closeAllPositions(timestamp: Date, allData: Map<string, BacktestCandle[]>): void {
@@ -410,15 +500,13 @@ export class BacktestEngine {
     const totalPnL = trades.reduce((sum, t) => sum + t.pnl!, 0);
     const winRate = trades.length > 0 ? (winningTrades.length / trades.length) * 100 : 0;
     
-    const avgWin = winningTrades.length > 0 
-      ? winningTrades.reduce((sum, t) => sum + t.pnl!, 0) / winningTrades.length
-      : 0;
+    const grossProfit = winningTrades.reduce((sum, t) => sum + t.pnl!, 0);
+    const grossLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl!, 0));
     
-    const avgLoss = losingTrades.length > 0
-      ? Math.abs(losingTrades.reduce((sum, t) => sum + t.pnl!, 0) / losingTrades.length)
-      : 0;
-
-    const profitFactor = avgLoss > 0 ? avgWin / avgLoss : avgWin > 0 ? Infinity : 0;
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
+    
+    const avgWin = winningTrades.length > 0 ? grossProfit / winningTrades.length : 0;
+    const avgLoss = losingTrades.length > 0 ? grossLoss / losingTrades.length : 0;
 
     // Pattern performance
     const patternPerformance = new Map<string, any>();

@@ -6,7 +6,7 @@ import { logCandleActivity } from '../handlers/debugLogger.js';
 import { aggregate1MinTo5Min } from '../candlestick/aggregator.js';
 import { comprehensiveScanner } from '../candlestick/comprehensiveScanner.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
-import { evaluateSignalWithAI, isAIFilterEnabled } from '../services/aiSignalFilter.js';
+import { evaluateSignalWithAI, isAIFilterEnabled, applyHardFilters } from '../services/aiSignalFilter.js';
 
 const clients = new Set<WebSocket>();
 const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensive signals
@@ -70,22 +70,14 @@ function shouldAutoExecute(signal: ComprehensiveSignal): boolean {
     return false;
   }
   
-  // BLOCK trend-aligned trades - historical data shows 6.7% win rate vs 36.6% counter-trend
-  if (isTrendAlignedTrade(signal)) {
-    console.log(`[TREND-FILTER] ❌ BLOCKED: Trend-aligned trade (${signal.plan.direction} in ${signal.context.trend} trend). Historical: 6.7% win rate vs 36.6% counter-trend.`);
-    return false;
-  }
-  
-  // Counter-trend trades use lower threshold (55) since they get penalized by scoring but perform better historically
-  const counterTrendThreshold = 55;
-  
-  // High score signals (70+ for trend-aligned which are blocked above, 55+ for counter-trend)
-  if (signal.score >= counterTrendThreshold) {
-    console.log(`[AUTO-EXEC] ✅ Counter-trend signal (${signal.score} >= ${counterTrendThreshold}) qualifies for auto-execution: ${signal.pattern.name} for ${signal.symbol}`);
+  // Counter-trend trades used to be preferred, but now we let the AI decide
+  // High score signals (70+) qualify for AI evaluation
+  if (signal.score >= AUTO_EXECUTION_CONFIG.highScoreThreshold) {
+    console.log(`[AUTO-EXEC] ✅ Signal (${signal.score} >= ${AUTO_EXECUTION_CONFIG.highScoreThreshold}) qualifies for auto-execution evaluation: ${signal.pattern.name} for ${signal.symbol}`);
     console.log(`[AUTO-EXEC] AI_SIGNAL_FILTER enabled: ${isAIFilterEnabled()}`);
     return true;
   } else {
-    console.log(`[AUTO-CHECK] Score ${signal.score} < threshold ${counterTrendThreshold} - skipping`);
+    console.log(`[AUTO-CHECK] Score ${signal.score} < threshold ${AUTO_EXECUTION_CONFIG.highScoreThreshold} - skipping`);
   }
   
   // Trap fade trades
@@ -385,9 +377,27 @@ export function handleCandle(candle: Candle, _deprecatedDetectPatterns?: any) {
       detectedSignals.forEach(async (signal) => {
         signals.push(signal);
         
+        // V6 HYBRID: AI Gatekeeper
+        // Only proceed if AI approves or we are in mock mode
+        let aiDecision = null;
+        try {
+          // This calls Anthropic Claude to review the trade aka "Gut Check"
+          // We use evaluateSignalWithAI which handles the full prompt and LLM call
+          aiDecision = await evaluateSignalWithAI(signal); 
+        } catch (e) {
+            console.error('[AI-GATEKEEPER] Failed:', e);
+        }
+
+        /* 
+           NOTE: AI is currently in PASSIVE MODE. 
+           It logs the decision but does not block execution yet.
+        */
+        
         // Check for auto-execution
         if (shouldAutoExecute(signal)) {
-          await executeSignalAutomatically(signal);
+             // For ACTIVE mode, uncomment:
+             // if (aiDecision && !aiDecision.execute) return;
+             await executeSignalAutomatically(signal);
         }
         
         broadcast({ type: 'signal', payload: signal });

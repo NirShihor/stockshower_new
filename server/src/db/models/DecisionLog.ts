@@ -58,7 +58,7 @@ const DecisionLogSchema = new Schema<IDecisionLog>({
   originalStop: { type: Number, required: true },
   originalTarget: { type: Number, required: true },
   
-  decision: { type: String, required: true, enum: ['invert', 'skip', 'pass'], index: true },
+  decision: { type: String, required: true, enum: ['invert', 'skip', 'pass', 'execute'], index: true },
   decisionReason: { type: String, required: true },
   
   wasInverted: { type: Boolean, required: true },

@@ -10,13 +10,16 @@ export interface BacktestConfig {
   maxConcurrentPositions: number;
   enableAutoExecution: boolean;
   autoExecutionThreshold: number;
+  enableCircuitBreaker?: boolean;
   enableTrapFades: boolean;
   slippageModel: 'fixed' | 'dynamic';
   slippageBps?: number; // basis points
   commissionPerTrade: number;
+  source?: 'polygon' | 'local';
 }
 
 export interface BacktestCandle {
+  symbol: string;
   timestamp: Date;
   open: number;
   high: number;

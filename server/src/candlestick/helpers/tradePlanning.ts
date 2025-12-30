@@ -46,49 +46,71 @@ export function buildTradePlan(
       return createFallbackTradePlan(entry, 'long', context.atr, params, accountBalance);
     }
     
+    // PROFIT INTEGRITY FILTERS:
+    // 1. Precision Volatility Cap: Reject if risk > 1.6% (Standard Institutional Stop)
+    const riskPct = risk / entry;
+    if (riskPct > 0.016) {
+      console.log(`[TRADE-PLAN] REJECTED: Risk too wide (${(riskPct * 100).toFixed(2)}% > 1.6%)`);
+      return { ...createFallbackTradePlan(entry, 'long', context.atr, params, accountBalance), risk: -1 };
+    }
+
+    // 2. Minimum 1.5x R/R Enforcement:
+    // With V4, MFT requires high-payoff winners to filter out M5 noise.
+    const minTargetDistance = Math.max(risk * 1.5, entry * 0.01);
+    
     const targets = [
-      entry + (risk * params.rMultiple1),
-      entry + (risk * params.rMultiple2)
+      Number((entry + minTargetDistance).toFixed(2)),
+      Number((entry + minTargetDistance * 1.5).toFixed(2))
     ];
     
     const positionQty = calculatePositionSize(risk, params.riskPerTradePct, accountBalance);
-    
+
     return {
       direction: 'long',
       entry: Number(entry.toFixed(2)),
       stop: Number(stop.toFixed(2)),
       risk: Number(risk.toFixed(2)),
-      targets: targets.map(t => Number(t.toFixed(2))),
+      targets: targets,
       positionQty,
-      riskRewardRatio: `1:${params.rMultiple1}`
+      riskRewardRatio: `1:${(minTargetDistance / risk).toFixed(2)}`
     };
     
   } else {
-    // MOMENTUM APPROACH: Enter on breakout BELOW pattern low (confirming downward momentum)  
-    const entry = pattern.patternLow - entryBuffer; // Enter below pattern low - buffer for momentum confirmation
+    // SHORT DIRECTION
+    const entry = pattern.patternLow - entryBuffer;
     const stop = findOptimalStopLoss(pattern, context, 'short');
     const risk = stop - entry;
     
     if (risk <= 0) {
-      // Fallback if risk calculation is invalid
       return createFallbackTradePlan(entry, 'short', context.atr, params, accountBalance);
     }
+
+    // PROFIT INTEGRITY FILTERS:
+    // 1. Precision Volatility Cap: Reject if risk > 1.6%
+    const riskPct = risk / entry;
+    if (riskPct > 0.016) {
+      console.log(`[TRADE-PLAN] REJECTED: Risk too wide (${(riskPct * 100).toFixed(2)}% > 1.6%)`);
+      return { ...createFallbackTradePlan(entry, 'short', context.atr, params, accountBalance), risk: -1 };
+    }
+
+    // 2. Minimum 1.5x R/R Enforcement:
+    const minTargetDistance = Math.max(risk * 1.5, entry * 0.01);
     
     const targets = [
-      entry - (risk * params.rMultiple1),
-      entry - (risk * params.rMultiple2)
+      Number((entry - minTargetDistance).toFixed(2)),
+      Number((entry - minTargetDistance * 1.5).toFixed(2))
     ];
     
     const positionQty = calculatePositionSize(risk, params.riskPerTradePct, accountBalance);
-    
+
     return {
       direction: 'short',
       entry: Number(entry.toFixed(2)),
       stop: Number(stop.toFixed(2)),
       risk: Number(risk.toFixed(2)),
-      targets: targets.map(t => Number(t.toFixed(2))),
+      targets: targets,
       positionQty,
-      riskRewardRatio: `1:${params.rMultiple1}`
+      riskRewardRatio: `1:${(minTargetDistance / risk).toFixed(2)}`
     };
   }
 }
@@ -101,9 +123,10 @@ function findOptimalStopLoss(
   // Get the trigger price (where we expect to enter)
   const entryPrice = direction === 'long' ? pattern.patternHigh : pattern.patternLow;
   
-  // Calculate minimum distance as percentage of entry price (1% minimum)
-  const minDistancePercent = entryPrice * 0.01; // 1% of entry price
-  const minDistance = Math.max(context.atr * 0.75, minDistancePercent);
+  // Calculate minimum distance as percentage of entry price (1.5% minimum for better survival)
+  const minDistancePercent = entryPrice * 0.015; 
+  // Restore 2.0x ATR stops to survive choppy market noise
+  const minDistance = Math.max(context.atr * 2.0, minDistancePercent);
   
   if (direction === 'long') {
     // For long trades, stop below pattern low

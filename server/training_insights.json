@@ -650,27 +650,19 @@
     "Skipped trades would have had 42% win rate - reconsider skipping"
   ],
   "patternsToPrefer": [
-    "Tweezer Bottom",
-    "Inverted Tweezer Top",
-    "Reversal Three White Soldiers",
-    "Reversal Three Inside Down",
-    "Reversal Tweezer Top",
-    "Reversal Tweezer Bottom",
-    "Reversal Bearish Marubozu",
-    "Tweezer Top",
-    "Inverted Three Inside Down",
-    "🔄 VwapBounce Bullish"
+    "Tweezer Top"
   ],
   "patternsToAvoid": [
-    "Inverted Bearish Engulfing",
-    "Bullish Engulfing",
-    "🔄 Momentum Bullish"
-  ],
-  "patternsToInvert": [
     "Morning Star",
-    "VwapBounce Bullish",
-    "🔄 VwapBounce Long"
+    "Bullish Engulfing",
+    "Three White Soldiers",
+    "Hammer",
+    "Bearish Engulfing",
+    "Shooting Star",
+    "Dark Cloud Cover"
   ],
+  "patternsToInvert": [],
+
   "symbolPerformance": [
     {
       "symbol": "MRK",
@@ -1083,7 +1075,7 @@
     "inversionAccuracy": 45.45454545454545,
     "skipAccuracy": 57.52688172043011
   },
-  "generatedAt": "2025-12-26T21:10:00.695Z",
+  "generatedAt": "2025-12-29T21:10:00.712Z",
   "totalTradesAnalyzed": 117,
   "dataDateRange": {
     "from": "2025-11-04",

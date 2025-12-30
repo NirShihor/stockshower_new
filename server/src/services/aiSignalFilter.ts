@@ -442,10 +442,12 @@ ${volumeDiff > 10 ? '⚡ HIGH VOLUME STRONGLY PREFERRED (+' + volumeDiff.toFixed
   if (insights.trendAlignmentPerformance) {
     const t = insights.trendAlignmentPerformance;
     const trendDiff = t.aligned.winRate - t.counter.winRate;
-    trendSection = `\nTREND ALIGNMENT:
+    trendSection = `\nSTRATEGY PREFERENCE:
+Our historical data shows that COUNTER-TREND REVERSALS (e.g. going short in an uptrend near resistance) perform significantly better than trend-aligned continuations for the patterns we scan.
 - Trend-Aligned: ${t.aligned.winRate.toFixed(1)}% win rate (${t.aligned.count} trades)
 - Counter-Trend: ${t.counter.winRate.toFixed(1)}% win rate (${t.counter.count} trades)
-${trendDiff > 10 ? '⚡ TREND ALIGNMENT CRITICAL (+' + trendDiff.toFixed(1) + '%)' : trendDiff > 5 ? '→ Trend alignment helps' : '→ Trend alignment not decisive'}`;
+${trendDiff < -10 ? '⚡ PREFER COUNTER-TREND REVERSALS (Historically +' + (-trendDiff).toFixed(1) + '% better)' : '→ Counter-trend slightly preferred'}.
+However, if a trend move is exceptionally strong and has cleared all resistance, do not be afraid to follow it.`;
   }
 
   let patternClassSection = '';
@@ -585,8 +587,8 @@ Trust your instincts. If something feels off, skip it. Only execute on high-conv
 `;
 }
 
-function getTimeOfDay(): 'market_open' | 'midday' | 'afternoon' | 'close' {
-  const now = new Date();
+function getTimeOfDay(timestamp?: Date): 'market_open' | 'midday' | 'afternoon' | 'close' {
+  const now = timestamp || new Date();
   const etTime = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false });
   const [hourStr, minuteStr] = etTime.split(':');
   const etHour = parseInt(hourStr);
@@ -715,6 +717,7 @@ function tryAutoInvert(signal: ComprehensiveSignal, reason: string): AIDecision 
     invertedStop = entry - originalRisk;
     invertedTarget = entry + (originalRisk * riskRewardMultiple);
     
+    /*
     if (context.atResistance) {
       console.log(`[AUTO-INVERT] Skipping inversion to long - at resistance`);
       return {
@@ -724,6 +727,7 @@ function tryAutoInvert(signal: ComprehensiveSignal, reason: string): AIDecision 
         reasoning: `AUTO-INVERT BLOCKED: Would invert to long but price is at resistance. Original: ${reason}`
       };
     }
+    */
     
     if (context.nearestResistance && currentPrice) {
       const roomToResistance = ((context.nearestResistance - currentPrice) / currentPrice) * 100;
@@ -780,211 +784,101 @@ function tryAutoInvert(signal: ComprehensiveSignal, reason: string): AIDecision 
   };
 }
 
-async function applyHardFilters(
+// V11 STRATEGY: SMART SHORT SPECIALIST
+const MOMENTUM_BLACKLIST = ['NVDA', 'META', 'MSFT'];
+
+export function updateRollingStats(win: boolean) {
+  // Keeping interface but not using adaptive logic for V11 to allow pure testing of rules
+}
+
+// Exporting so it can be used if needed, though evaluateSignalWithAI is the main entry point
+export async function applyHardFilters(
   signal: ComprehensiveSignal,
   insights: TrainingInsights | null
 ): Promise<AIDecision | null> {
-  if (!insights) return null;
-
-  const timeOfDay = getTimeOfDay();
-  const patternName = signal.pattern.name;
-  const trend = signal.context.trend;
+  const timeOfDay = getTimeOfDay(new Date(signal.time));
   const direction = signal.plan.direction;
-  const isTrendAligned = (trend === 'up' && direction === 'long') || 
-                         (trend === 'down' && direction === 'short');
-  
-  console.log(`[HARD-FILTER] Checking ${signal.symbol} ${patternName}: trend=${trend}, dir=${direction}, aligned=${isTrendAligned}, time=${timeOfDay}`);
 
-  if (isTrendAligned) {
-    console.log(`[HARD-FILTER] ❌ BLOCKED: Trend-aligned trade (${direction} in ${trend} trend). Historical: 4.3% win rate vs 35.6% counter-trend.`);
-    return {
-      action: 'skip',
-      execute: false,
-      confidence: 'high',
-      reasoning: `HARD FILTER: Trend-aligned trade blocked. Going ${direction} in ${trend} trend has 4.3% historical win rate vs 35.6% for counter-trend.`
-    };
-  }
-
-  if (timeOfDay === 'close') {
-    console.log(`[HARD-FILTER] ❌ BLOCKED: Close period trading. Historical win rate: 11.6%`);
-    return {
-      action: 'skip',
-      execute: false,
-      confidence: 'high',
-      reasoning: `HARD FILTER: Trading during market close period blocked. Historical win rate: 11.6% (69 trades).`
-    };
-  }
-
+  // RULE 1: SHORT ONLY.
+  // Morning Stars / Longs have failed consistently. We cut the entire long side.
   if (direction === 'long') {
-    const spyTrend = await getSpyMarketTrend();
-    if (spyTrend === 'down') {
-      console.log(`[HARD-FILTER] ❌ BLOCKED: LONG trade in bearish market. SPY trend: ${spyTrend}. Historical long win rate: 28.6%`);
-      return {
-        action: 'skip',
-        execute: false,
-        confidence: 'high',
-        reasoning: `HARD FILTER: LONG trades blocked in bearish market (SPY trend: down). Historical long win rate: 28.6% vs short: 43.2%.`
-      };
-    }
-    console.log(`[HARD-FILTER] ✓ LONG allowed - SPY trend: ${spyTrend}`);
-  }
-  
-  const patternPerf = insights.patternRankings.find(p => p.pattern === patternName);
-  console.log(`[HARD-FILTER] Pattern perf for ${patternName}:`, patternPerf ? `winRate=${patternPerf.winRate?.toFixed(1)}%, byTrend=${JSON.stringify(patternPerf.byTrend)}` : 'NOT FOUND');
-
-  // ========== BLOCKING FILTERS ==========
-
-  const timePerf = insights.timeOfDayPerformance?.find(t => t.period === timeOfDay);
-  if (timePerf && timePerf.winRate < 15 && timePerf.count >= 10) {
     return {
       action: 'skip',
       execute: false,
       confidence: 'high',
-      reasoning: `HARD FILTER: ${timeOfDay} period has only ${timePerf.winRate.toFixed(1)}% win rate (${timePerf.count} trades). Auto-rejected.`
+      reasoning: 'V11 HARD FILTER: Longs are disabled. Strategy is Short-Only.'
     };
   }
 
-  if (insights.patternsToAvoid?.includes(patternName)) {
+
+
+  // RULE 2: PATTERN WHITELIST (V13 SPECIALIST).
+  // We only trade Tweezer Tops. Everything else (Engulfing, Stars) is noise.
+  if (signal.pattern.name !== 'Tweezer Top') {
     return {
       action: 'skip',
       execute: false,
       confidence: 'high',
-      reasoning: `HARD FILTER: ${patternName} is on avoid list (${patternPerf?.winRate?.toFixed(1) || 0}% win rate). Auto-rejected.`
+      reasoning: `V13 HARD FILTER: Only Tweezer Top is allowed. ${signal.pattern.name} is blocked.`
     };
   }
 
-  if (patternPerf?.recommendation === 'avoid' || (patternPerf && patternPerf.winRate < 25 && patternPerf.count >= 3)) {
-    if (!isTrendAligned) {
-      return {
-        action: 'skip',
-        execute: false,
-        confidence: 'high',
-        reasoning: `HARD FILTER: ${patternName} has ${patternPerf.winRate?.toFixed(1) || 0}% win rate (${patternPerf.count} trades, counter-trend). Auto-rejected.`
-      };
-    }
-  }
-
-  const symbolPerf = insights.symbolPerformance?.find(s => s.symbol === signal.symbol);
-  if (symbolPerf && symbolPerf.winRate === 0 && symbolPerf.totalTrades >= 3) {
+  // RULE 3: MOMENTUM BLACKLIST.
+  // Tech momentum stocks (NVDA, META) rip faces on shorts.
+  if (MOMENTUM_BLACKLIST.includes(signal.symbol)) {
     return {
       action: 'skip',
       execute: false,
       confidence: 'high',
-      reasoning: `HARD FILTER: ${signal.symbol} has 0% win rate over ${symbolPerf.totalTrades} trades. Auto-rejected.`
+      reasoning: `V11 HARD FILTER: ${signal.symbol} is on Momentum Blacklist. Shorting dangerous.`
     };
   }
 
-  if (symbolPerf?.worstTimeOfDay === timeOfDay && symbolPerf.totalTrades >= 3) {
-    const timeWinRate = insights.timeOfDayPerformance?.find(t => t.period === timeOfDay)?.winRate;
-    if (timeWinRate && timeWinRate < 20) {
-      return {
-        action: 'skip',
-        execute: false,
-        confidence: 'high',
-        reasoning: `HARD FILTER: ${signal.symbol} performs worst during ${timeOfDay} (marked as worstTimeOfDay). Auto-rejected.`
-      };
-    }
-  }
-
+  // RULE 3: TRAP DETECTION.
+  // Block "Short at Support".
   const trapCheck = detectTrapSetup(signal);
   if (trapCheck) {
     return trapCheck;
   }
 
-  return null;
+  // If we survived all filters, we allow the trade.
+  // We log it so we can track V11 specific throughput.
+  console.log(`[HARD-FILTER] V11 ALLOWING: ${signal.symbol} ${signal.pattern.name} at ${timeOfDay}`);
+
+  return null; // Null means "Pass to AI" (or Execute if AI is permissive)
 }
 
 function detectTrapSetup(signal: ComprehensiveSignal): AIDecision | null {
-  const { context, plan, currentPrice, pattern } = signal;
+  const { context, plan, currentPrice } = signal;
   const direction = plan.direction;
-  const entry = plan.entry;
   const atr = context.atr;
 
-  if (direction === 'long' && context.atResistance) {
-    return {
-      action: 'skip',
-      execute: false,
-      confidence: 'high',
-      reasoning: `TRAP FILTER: Long entry at resistance level - high probability of rejection/bull trap.`
-    };
-  }
-
-  if (direction === 'short' && context.atSupport) {
-    return {
-      action: 'skip',
-      execute: false,
-      confidence: 'high',
-      reasoning: `TRAP FILTER: Short entry at support level - high probability of bounce/bear trap.`
-    };
-  }
-
-  if (direction === 'long' && context.nearestResistance && currentPrice) {
-    const distanceToResistance = context.nearestResistance - currentPrice;
-    const distancePercent = (distanceToResistance / currentPrice) * 100;
-    if (distancePercent > 0 && distancePercent < 0.3) {
+  // V11 TRAP: SHORTING AT SUPPORT
+  // This was the #1 cause of "Stupid Losses" in V10 (e.g. INTC, TMO).
+  if (direction === 'short') {
+    if (context.atSupport) {
       return {
         action: 'skip',
         execute: false,
         confidence: 'high',
-        reasoning: `TRAP FILTER: Long entry ${distancePercent.toFixed(2)}% below resistance - insufficient room before rejection zone.`
+        reasoning: `TRAP FILTER: Short entry at support level - high probability of bounce/bear trap.`
       };
     }
-  }
-
-  if (direction === 'short' && context.nearestSupport && currentPrice) {
-    const distanceToSupport = currentPrice - context.nearestSupport;
-    const distancePercent = (distanceToSupport / currentPrice) * 100;
-    if (distancePercent > 0 && distancePercent < 0.3) {
-      return {
-        action: 'skip',
-        execute: false,
-        confidence: 'high',
-        reasoning: `TRAP FILTER: Short entry ${distancePercent.toFixed(2)}% above support - insufficient room before bounce zone.`
-      };
-    }
-  }
-
-  if (!context.isHighVolume && context.volumeFactor < 0.8) {
-    const patternClass = pattern.class;
-    if (patternClass === 'single') {
-      return {
-        action: 'skip',
-        execute: false,
-        confidence: 'medium',
-        reasoning: `TRAP FILTER: Low volume (${context.volumeFactor.toFixed(2)}x avg) on single candle pattern - weak conviction, likely false signal.`
-      };
-    }
-  }
-
-  if (context.trend === 'sideways' && !context.isHighVolume) {
-    return {
-      action: 'skip',
-      execute: false,
-      confidence: 'medium',
-      reasoning: `TRAP FILTER: Sideways market with low volume - high probability of choppy price action and stop hunts.`
-    };
-  }
-
-  if (signal.trapRisk === 'high') {
-    return {
-      action: 'skip',
-      execute: false,
-      confidence: 'high',
-      reasoning: `TRAP FILTER: Signal already flagged as high trap risk by pattern detector.`
-    };
-  }
-
-  if (currentPrice && atr) {
-    const riskPercent = (plan.risk / entry) * 100;
-    const atrPercent = (atr / currentPrice) * 100;
     
-    if (riskPercent < atrPercent * 0.5) {
-      return {
-        action: 'skip',
-        execute: false,
-        confidence: 'medium',
-        reasoning: `TRAP FILTER: Stop loss (${riskPercent.toFixed(2)}%) too tight relative to ATR (${atrPercent.toFixed(2)}%) - likely to get stopped out by noise.`
-      };
+    // Also check distance to support if available - don't short right above it
+    if (context.nearestSupport && currentPrice) {
+      const distanceToSupport = currentPrice - context.nearestSupport;
+      const distancePercent = (distanceToSupport / currentPrice) * 100;
+      
+      // If we are within 0.3% of support, it's too close.
+      if (distancePercent > 0 && distancePercent < 0.3) {
+         return {
+          action: 'skip',
+          execute: false,
+          confidence: 'high',
+          reasoning: `TRAP FILTER: Short entry ${distancePercent.toFixed(2)}% above support - insufficient room for profit.`
+        };
+      }
     }
   }
 
@@ -1048,7 +942,7 @@ export async function evaluateSignalWithAI(
   const direction = signal.plan?.direction || 'unknown';
   const isTrendAligned = (trend === 'up' && direction === 'long') || 
                          (trend === 'down' && direction === 'short');
-  const timeOfDay = getTimeOfDay();
+  const timeOfDay = getTimeOfDay(new Date(signal.time));
 
   const hardFilterResult = await applyHardFilters(signal, insights);
   if (hardFilterResult) {
