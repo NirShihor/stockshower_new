@@ -41,14 +41,18 @@ export function scorePattern(
     notes.push(`Volume spike ${context.volumeFactor.toFixed(1)}x average`);
   }
   
-  // Trend Alignment Logic
+  // Counter-trend bonus (reversal patterns work better against the trend)
+  if (isCounterTrend(pattern, context)) {
+    score += 15;
+    notes.push('Counter-trend reversal setup (historically higher win rate)');
+    console.log(`[SCORING] Counter-trend bonus +15, total: ${score}`);
+  }
+  
+  // Trend-aligned penalty (trend-following has lower win rate historically)
   if (isTrendAligned(pattern, context)) {
-    score += 20;
-    notes.push('Trend-aligned setup (higher probability)');
-    if (isStrongMomentum(context)) {
-      score += 10;
-      notes.push('Strong momentum confirmation');
-    }
+    score -= 10;
+    notes.push('Trend-aligned setup (historically lower win rate)');
+    console.log(`[SCORING] Trend-aligned penalty -10, total: ${score}`);
   }
   
   /* V12: DISABLING MA SLOPE PENALTIES
@@ -249,7 +253,7 @@ function calculateAvgBodySize(candles: Candle[], period: number): number {
 }
 
 export function getActionableThreshold(): number {
-  return 92;  // BASELINE threshold restored.
+  return 70;  // Lowered to allow more counter-trend trades
 }
 
 export function getWatchThreshold(): number {

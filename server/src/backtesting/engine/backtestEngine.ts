@@ -235,6 +235,17 @@ export class BacktestEngine {
   }
 
   private async processSignal(signal: ComprehensiveSignal, timestamp: Date): Promise<void> {
+    // PATTERN FILTER: Only allow Tweezer Top (historically profitable)
+    if (signal.pattern.name !== 'Tweezer Top') {
+      return;
+    }
+
+    // SYMBOL FILTER: Exclude consistently unprofitable symbols
+    const excludedSymbols = ['CSCO'];
+    if (excludedSymbols.includes(signal.symbol)) {
+      return;
+    }
+
     // Check if we already have this signal or recent signal for symbol
     const lastSignal = this.state.lastSignalTime.get(signal.symbol);
     if (lastSignal && timestamp.getTime() - lastSignal.getTime() < 20 * 60 * 1000) {

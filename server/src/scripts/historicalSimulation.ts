@@ -53,7 +53,7 @@ async function runHistoricalSimulation() {
       positionSizeGBP: 10000,
       maxConcurrentPositions: 10,
       enableAutoExecution: true,
-      autoExecutionThreshold: 92, 
+      autoExecutionThreshold: 70, 
       enableCircuitBreaker: false,
       enableTrapFades: false,
       slippageModel: 'fixed' as const,
