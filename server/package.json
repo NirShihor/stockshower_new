@@ -9,6 +9,7 @@
   "private": true,
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
+    "@stoqey/ib": "^1.5.3",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/mongoose": "^5.11.97",

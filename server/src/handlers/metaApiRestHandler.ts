@@ -33,6 +33,11 @@ class MetaApiRestHandler {
     });
   }
 
+  reinitialize(): void {
+    this.token = process.env.METAAPI_TOKEN || '';
+    this.accountId = process.env.METAAPI_ACCOUNT_ID || '';
+  }
+
   private getHeaders() {
     return {
       'auth-token': this.token,

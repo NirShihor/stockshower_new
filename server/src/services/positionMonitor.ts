@@ -175,6 +175,19 @@ class PositionMonitorService {
           
           // Check if filled position was closed
           if (trade.status === 'filled' && trade.mt5PositionId) {
+            // Skip invalid position IDs (e.g., "N/A" from failed order placements)
+            if (!trade.mt5PositionId || trade.mt5PositionId === 'N/A' || trade.mt5PositionId === 'undefined') {
+              console.log(`⚠️ Skipping trade ${trade._id} - invalid position ID: ${trade.mt5PositionId}`);
+              // Mark as closed with unknown outcome to stop further processing
+              trade.status = 'closed';
+              trade.exitReason = 'invalid_position';
+              trade.closedTime = new Date();
+              trade.pnlAmount = 0;
+              trade.pnlPercent = 0;
+              await trade.save();
+              continue;
+            }
+            
             const position = positionMap.get(trade.mt5PositionId);
             
             if (!position) {
@@ -357,12 +370,43 @@ class PositionMonitorService {
 
   private async checkPositionTimeout(trade: any): Promise<void> {
     try {
+      const now = new Date();
+      const utcHours = now.getUTCHours();
+      const utcMinutes = now.getUTCMinutes();
+      const totalMinutes = utcHours * 60 + utcMinutes;
+      
+      const marketCloseMinutes = 21 * 60; // 4 PM EST = 21:00 UTC
+      const isAfterMarketClose = totalMinutes >= marketCloseMinutes;
+      
+      if (isAfterMarketClose) {
+        console.log(`🔔 End of day closure: ${trade._id} (${trade.symbol}) - market closed at 21:00 UTC`);
+        
+        try {
+          if (trade.mt5PositionId) {
+            await metaApiHandler.closePosition(trade.mt5PositionId);
+          }
+        } catch (error) {
+          console.error(`Failed to close via MetaAPI for EOD:`, error);
+        }
+
+        trade.status = 'closed';
+        trade.exitReason = 'end_of_day';
+        trade.closedTime = new Date();
+        trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
+        trade.pnlAmount = 0;
+        trade.pnlPercent = 0;
+        
+        await trade.save();
+        console.log(`✅ Trade ${trade._id} closed at end of day`);
+        return;
+      }
+      
       // Use filled time if available, otherwise signal time
       const openTime = trade.filledTime || trade.signalTime;
       if (!openTime) return;
 
       const hoursOpen = (Date.now() - openTime.getTime()) / (1000 * 60 * 60);
-      const maxHours = 4; // Close positions after 4 hours - give trades time to reach TP
+      const maxHours = 6; // Close positions after 6 hours if still open
 
       if (hoursOpen > maxHours) {
         console.log(`⏰ Position ${trade._id} (${trade.symbol}) open for ${hoursOpen.toFixed(1)} hours - forcing closure`);

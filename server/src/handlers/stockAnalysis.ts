@@ -19,30 +19,67 @@ dotenv.config();
 // Configuration: Set to 'marketstack' to use Marketstack API, 'polygon' for Polygon.io
 const DATA_PROVIDER = 'polygon'; // Change this to switch providers
 
-// Pattern scanner watchlist - same symbols used in real-time pattern scanning
-// Expanded to include all MT5-tradeable liquid stocks
-const PATTERN_SCANNER_WATCHLIST = [
-  // Mega-cap Tech
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA',
-  // Large-cap Tech
-  'ADBE', 'CRM', 'ORCL', 'INTC', 'CSCO', 'AMD', 'AVGO', 'QCOM', 'TXN', 'MU', 'AMAT', 'LRCX', 'KLAC', 'SNPS', 'CDNS', 'ADSK', 'INTU', 'NOW', 'TEAM', 'WDAY',
-  // Communication/Media
-  'NFLX', 'DIS', 'CMCSA', 'VZ', 'T', 'TMUS',
-  // Financial Services
-  'JPM', 'BAC', 'WFC', 'C', 'GS', 'MS', 'V', 'MA', 'PYPL', 'AXP', 'BLK', 'SPGI', 'ICE', 'COF', 'USB', 'PNC',
-  // Healthcare
-  'JNJ', 'UNH', 'PFE', 'MRK', 'ABT', 'TMO', 'LLY', 'ABBV', 'BMY', 'AMGN', 'GILD', 'REGN', 'VRTX', 'ISRG', 'MDT', 'SYK', 'BDX', 'ZTS', 'BSX', 'DHR',
-  // Consumer
-  'WMT', 'HD', 'NKE', 'SBUX', 'KO', 'PEP', 'PG', 'COST', 'TGT', 'LOW', 'TJX', 'CMG', 'MDLZ', 'CL', 'ORLY', 'BKNG',
-  // Industrial
-  'BA', 'CAT', 'HON', 'UNP', 'RTX', 'GE', 'DE', 'MMM', 'EMR', 'NOC', 'GD', 'ITW', 'NSC', 'CSX', 'WM', 'FIS', 'FISV', 'ADP',
-  // Energy
-  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'OXY', 'PSX', 'VLO', 'MPC', 'KMI', 'HAL',
-  // Utilities/Real Estate
-  'NEE', 'DUK', 'SO', 'D', 'AEP', 'EXC', 'XEL', 'AMT', 'PLD', 'SPG', 'PSA',
-  // Other
-  'ACN', 'IBM', 'PM', 'LIN', 'SHW', 'APH', 'AON', 'MMC', 'MCO', 'ECL', 'FCX'
+// FxPro NYSE symbols - all .N suffix stocks available on FxPro MT5
+const FXPRO_NYSE_SYMBOLS = [
+  'A', 'AA', 'AAP', 'ABBV', 'ABEV', 'ABM', 'ABT', 'ACN', 'ACHR', 'ADM', 'ADNT', 'AEE', 'AEO', 'AEP', 'AER', 'AES', 'AFL', 'AG', 'AGCO', 'AGG', 'AGL', 'AGO', 'AI', 'AIG', 'AIT', 'AJG', 'AL', 'ALB', 'ALC', 'ALK', 'ALL', 'ALLE', 'ALLY', 'ALSN', 'AMC', 'AME', 'AMRC', 'AMN', 'AMP', 'AMT', 'ANET', 'ANF', 'AON', 'AOS', 'APA', 'APD', 'APH', 'APTV', 'AR', 'ARDT', 'ARE', 'ARKB', 'ARMK', 'ASAN', 'ATHM', 'ATO', 'ATR', 'AU', 'AUB', 'AVB', 'AVY', 'AWK', 'AXL', 'AXP', 'AZO',
+  'B', 'BA', 'BABA', 'BAC', 'BAH', 'BAK', 'BALL', 'BANC', 'BARK', 'BAX', 'BB', 'BBBY', 'BBY', 'BC', 'BCC', 'BCH', 'BCS', 'BDC', 'BDX', 'BEKE', 'BEN', 'BEP', 'BEPC', 'BFAM', 'BG', 'BHC', 'BHP', 'BIL', 'BILL', 'BIO', 'BIPC', 'BIRK', 'BJ', 'BK', 'BKE', 'BKH', 'BKU', 'BKV', 'BLK', 'BLND', 'BMY', 'BNL', 'BOX', 'BR', 'BRBR', 'BRKb', 'BRSL', 'BSX', 'BUD', 'BURL', 'BWA', 'BX', 'BXP',
+  'C', 'CABO', 'CAG', 'CAH', 'CARR', 'CARS', 'CAT', 'CB', 'CBOE', 'CBRE', 'CC', 'CCI', 'CDE', 'CE', 'CF', 'CFG', 'CHD', 'CHGG', 'CHPT', 'CHWY', 'CI', 'CIEN', 'CIG', 'CL', 'CLF', 'CLVT', 'CLX', 'CMA', 'CMG', 'CMI', 'CMS', 'CNC', 'CNH', 'CNMD', 'CNM', 'CNO', 'CNP', 'CNX', 'COF', 'COHR', 'COMP', 'CON', 'COP', 'COR', 'COTY', 'COUR', 'CPA', 'CPAY', 'CPNG', 'CPRI', 'CPT', 'CRBG', 'CRCL', 'CRI', 'CRL', 'CRM', 'CRS', 'CSTM', 'CTRA', 'CTS', 'CTVA', 'CVE', 'CVS', 'CVX', 'CW', 'CWH', 'CWK', 'CX', 'CXM', 'CYH',
+  'D', 'DAL', 'DAN', 'DAR', 'DBA', 'DBC', 'DD', 'DDL', 'DE', 'DELL', 'DEO', 'DG', 'DGX', 'DHI', 'DHR', 'DIN', 'DINO', 'DIS', 'DLR', 'DOC', 'DOCN', 'DOCS', 'DOLE', 'DOV', 'DOW', 'DQ', 'DRI', 'DT', 'DTM', 'DUK', 'DVA', 'DVN', 'DXC',
+  'EB', 'ECL', 'ED', 'EFX', 'EG', 'EGO', 'EIX', 'EL', 'ELAN', 'ELV', 'EMBJ', 'EMN', 'EMR', 'EOG', 'EPAM', 'EQH', 'EQNR', 'EQR', 'EQT', 'ES', 'ESI', 'ESS', 'ET', 'ETN', 'ETR', 'ETSY', 'EXPD', 'EXR',
+  'F', 'FBIN', 'FBTC', 'FCX', 'FDS', 'FDX', 'FE', 'FIG', 'FIGS', 'FIS', 'FLOC', 'FLR', 'FMC', 'FNF', 'FRT', 'FSLY', 'FTI', 'FTV', 'FUBO', 'FVRR', 'FXI',
+  'GAP', 'GBTC', 'GBTG', 'GD', 'GDDY', 'GE', 'GES', 'GFI', 'GGB', 'GGG', 'GIS', 'GL', 'GLD', 'GLW', 'GM', 'GMED', 'GME', 'GNRC', 'GNW', 'GOTU', 'GPC', 'GPN', 'GPK', 'GRMN', 'GS', 'GWW',
+  'H', 'HAL', 'HAS', 'HAYW', 'HCA', 'HD', 'HEI', 'HES', 'HGV', 'HIG', 'HII', 'HL', 'HLF', 'HLT', 'HMC', 'HMY', 'HOG', 'HOUS', 'HP', 'HPE', 'HPQ', 'HRB', 'HRL', 'HST', 'HSY', 'HTT', 'HUBS', 'HUM', 'HUN', 'HUYA', 'HWM',
+  'IAG', 'IBM', 'ICE', 'IEFA', 'IEMG', 'IEX', 'IFF', 'IGT', 'IJH', 'INFY', 'INGM', 'INVH', 'IOT', 'IP', 'IQV', 'IR', 'IRM', 'IT', 'ITW', 'IVV', 'IVZ', 'IWD', 'IWF', 'IWM',
+  'J', 'JBI', 'JCI', 'JD', 'JKS', 'JMIA', 'JNJ', 'JPM',
+  'KEY', 'KEYS', 'KGC', 'KIM', 'KLAR', 'KLC', 'KMI', 'KMX', 'KNX', 'KO', 'KR', 'KRMN', 'KSS', 'KT', 'KVYO',
+  'L', 'LB', 'LDOS', 'LEG', 'LEN', 'LEVI', 'LH', 'LHX', 'LLY', 'LMND', 'LMT', 'LNC', 'LNT', 'LOMA', 'LOW', 'LPL', 'LTH', 'LU', 'LUMN', 'LUV', 'LVWR', 'LVS', 'LW', 'LYB', 'LYV',
+  'M', 'MA', 'MAA', 'MAS', 'MAT', 'MCD', 'MCK', 'MCO', 'MDT', 'MET', 'MGM', 'MHK', 'MIR', 'MKC', 'MKL', 'MLM', 'MMC', 'MMM', 'MO', 'MOH', 'MOS', 'MPC', 'MRK', 'MS', 'MSCI', 'MSGS', 'MSI', 'MTB', 'MTDR', 'MTG', 'MUR', 'NCLH',
+  'NCLH', 'NEM', 'NET', 'NEE', 'NI', 'NKE', 'NMAX', 'NOC', 'NOK', 'NOV', 'NOW', 'NRG', 'NSC', 'NU', 'NUE', 'NVO', 'NVR', 'NVS', 'NYT',
+  'O', 'OGN', 'OKE', 'OKLO', 'OLN', 'OMC', 'OPFI', 'OPLN', 'OPTU', 'ORA', 'ORCL', 'OSCR', 'OTIS', 'OVV', 'OXY',
+  'PAAS', 'PAM', 'PANW', 'PATH', 'PAYC', 'PBF', 'PBI', 'PCOR', 'PCG', 'PD', 'PEG', 'PFE', 'PG', 'PGR', 'PH', 'PHM', 'PII', 'PINS', 'PKG', 'PLD', 'PLNT', 'PM', 'PNC', 'PNR', 'PNW', 'PPG', 'PPL', 'PRGO', 'PRI', 'PRU', 'PSA', 'PSTG', 'PSX', 'PVH', 'PWR', 'PX', 'PXD',
+  'QSR', 'QTWO',
+  'RACE', 'RBLX', 'RCL', 'RDDT', 'RERE', 'RES', 'RF', 'RH', 'RHI', 'RJF', 'RKT', 'RL', 'RMD', 'RNG', 'ROK', 'ROL', 'RRC', 'RSG', 'RTX', 'RUN', 'RVTY', 'RYAN',
+  'S', 'SARO', 'SBH', 'SBS', 'SBSW', 'SCCO', 'SCHD', 'SCHH', 'SCHW', 'SE', 'SEB', 'SEE', 'SG', 'SGI', 'SHAK', 'SHCO', 'SHW', 'SID', 'SKLZ', 'SLB', 'SLV', 'SM', 'SMG', 'SNA', 'SNAP', 'SNOW', 'SO', 'SONY', 'SOXL', 'SPG', 'SPGI', 'SPOT', 'SPY', 'SQM', 'SSB', 'STE', 'STVN', 'STT', 'STZ', 'SU', 'SUI', 'SVOL', 'SWK', 'SYF', 'SYK', 'SYY',
+  'T', 'TAK', 'TAL', 'TAP', 'TDG', 'TDY', 'TECK', 'TEL', 'TEVA', 'TFC', 'TFX', 'TGT', 'TIMB', 'TJX', 'TKO', 'TKR', 'TM', 'TME', 'TMO', 'TPR', 'TRGP', 'TREX', 'TRV', 'TRU', 'TSM', 'TSN', 'TT', 'TTAM', 'TUYA', 'TV', 'TWLO', 'TXT', 'TYL',
+  'U', 'UA', 'UAA', 'UBER', 'UDR', 'UGP', 'UHS', 'UMC', 'UNH', 'UNM', 'UNP', 'UPS', 'URI', 'USB', 'UTZ', 'UVV',
+  'V', 'VAC', 'VALE', 'VEA', 'VEEV', 'VFC', 'VG', 'VGT', 'VICI', 'VIG', 'VIK', 'VIPS', 'VLO', 'VMC', 'VNO', 'VNQ', 'VO', 'VOO', 'VSCO', 'VST', 'VTI', 'VTR', 'VTV', 'VTEX', 'VUG', 'VWO', 'VZ',
+  'W', 'WAB', 'WAT', 'WBA', 'WBD', 'WCC', 'WCN', 'WEC', 'WELL', 'WEX', 'WFC', 'WHR', 'WIT', 'WM', 'WMB', 'WRB', 'WST', 'WTM', 'WU', 'WY',
+  'XLK', 'XLRE', 'XOM', 'XPO', 'XYL', 'XYZ',
+  'YETI', 'YMM', 'YOU', 'YPF', 'YUM', 'YUMC',
+  'ZBH', 'ZH', 'ZIP', 'ZTO', 'ZTS'
 ];
+
+// FxPro NASDAQ symbols - all .O suffix stocks available on FxPro MT5
+const FXPRO_NASDAQ_SYMBOLS = [
+  'AAPL', 'ABNB', 'ACGL', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AFRM', 'AKAM', 'ALGM', 'ALGN', 'ALKS', 'ALNY', 'AMAT', 'AMCX', 'AMD', 'AMGN', 'AMZN', 'ANGI', 'APP', 'APPN', 'ARGX', 'ARM', 'ARRY', 'ASML', 'AVGO', 'AVIR', 'AXON', 'AXSM',
+  'BANF', 'BANR', 'BATRA', 'BCPC', 'BCRX', 'BCYC', 'BIDU', 'BIIB', 'BILI', 'BKR', 'BL', 'BLDP', 'BLKB', 'BMBL', 'BMRN', 'BNTX', 'BOKF', 'BPOP', 'BRKR', 'BRZE', 'BSY', 'BYND', 'BZ',
+  'CACC', 'CAR', 'CBRL', 'CCCC', 'CDNS', 'CDW', 'CERT', 'CFLT', 'CGEM', 'CGC', 'CHKP', 'CHRW', 'CHTR', 'CIGI', 'CINF', 'CLBT', 'CLNE', 'CLOV', 'CME', 'CMCSA', 'CNDT', 'CNOB', 'COIN', 'COMM', 'COST', 'CPRT', 'CPB', 'CROX', 'CRSP', 'CRSR', 'CRUS', 'CRVL', 'CRWD', 'CSCO', 'CSGP', 'CSIQ', 'CSX', 'CTAS', 'CTSH', 'CVAC', 'CWST', 'CYBR',
+  'DASH', 'DDOG', 'DJT', 'DKNG', 'DLO', 'DLTR', 'DNUT', 'DOCU', 'DOO', 'DOX', 'DPZ', 'DRVN', 'DUOL', 'DXCM', 'DYN',
+  'EA', 'EBAY', 'EBC', 'ENPH', 'EQIX', 'ERAS', 'ESLT', 'EVCM', 'EVRG', 'EWBC', 'EXC', 'EXAS', 'EXEL',
+  'FA', 'FANG', 'FAST', 'FCEL', 'FFIV', 'FISV', 'FITB', 'FIVE', 'FIVN', 'FLEX', 'FLNC', 'FOLD', 'FOXA', 'FROG', 'FSLR', 'FSV', 'FTNT',
+  'GDRX', 'GEN', 'GEVO', 'GFS', 'GH', 'GILD', 'GLBE', 'GLPI', 'GNTX', 'GO', 'GOOGL', 'GPRE', 'GRPN', 'GT', 'GTLB', 'GTM',
+  'HAS', 'HBAN', 'HCM', 'HEPS', 'HIMX', 'HOLX', 'HON', 'HOOD', 'HRMY', 'HSIC', 'HST', 'HTHT',
+  'IAC', 'IART', 'IBIT', 'ICUI', 'IDXX', 'ILMN', 'INCY', 'INDI', 'INNV', 'INO', 'INTA', 'INTC', 'INTU', 'IPGP', 'IQ', 'IRBT', 'ISRG',
+  'JACK', 'JAMF', 'JAZZ', 'JBHT', 'JBLU', 'JD', 'JKHY',
+  'KDP', 'KHC', 'KLAC', 'KTOS', 'KYMR',
+  'LAMR', 'LCID', 'LECO', 'LFST', 'LI', 'LINE', 'LITE', 'LKQ', 'LNT', 'LRCX', 'LSCC', 'LSTR', 'LULU', 'LX', 'LYEL', 'LYFT', 'LZ',
+  'MAR', 'MARA', 'MASI', 'MAT', 'MCHP', 'MDLN', 'MDLZ', 'MELI', 'META', 'MIDD', 'MKTX', 'MLCO', 'MNDY', 'MNST', 'MNY', 'MOMO', 'MQ', 'MRNA', 'MRVI', 'MRVL', 'MSFT', 'MSTR', 'MTCH', 'MU', 'MVIS',
+  'NAVI', 'NBIS', 'NBIX', 'NCNO', 'NDAQ', 'NDSN', 'NFLX', 'NFE', 'NICE', 'NTES', 'NTAP', 'NTNX', 'NTRA', 'NTRS', 'NVAX', 'NVCR', 'NVDA', 'NWL', 'NWSA', 'NXPI',
+  'OCGN', 'ODFL', 'OKTA', 'OLED', 'OLLI', 'ON', 'OPEN', 'OPK', 'ORLY', 'OS', 'OTEX', 'OTLY',
+  'PAYO', 'PAX', 'PCAR', 'PCTY', 'PCVX', 'PDD', 'PECO', 'PENN', 'PEP', 'PFG', 'PLAY', 'PLTK', 'PLTR', 'PLUG', 'PNFP', 'PODD', 'PONY', 'POOL', 'PRVA', 'PSKY', 'PTC', 'PTEN', 'PTON', 'PYPL', 'PZZA',
+  'QCOM', 'QDEL', 'QLYS', 'QQQ', 'QRVO', 'QS',
+  'REG', 'REGN', 'RENT', 'RGEN', 'RGLD', 'RIOT', 'RIVN', 'RKLB', 'ROKU', 'ROP', 'ROST', 'RPRX', 'RUN', 'RVMD', 'RXT', 'RXRX',
+  'SAIL', 'SANA', 'SBAC', 'SBUX', 'SDGR', 'SEDG', 'SFD', 'SFIX', 'SFM', 'SHC', 'SHLS', 'SHOP', 'SIRI', 'SLM', 'SMCI', 'SNCY', 'SNPS', 'SNY', 'SOFI', 'SOUN', 'SPLK', 'SRPT', 'SSNC', 'STLD', 'STNE', 'STX', 'SWKS', 'SWIM', 'SYNA',
+  'TASK', 'TCOM', 'TEAM', 'TECH', 'TEM', 'TER', 'THRY', 'TLRY', 'TLT', 'TMUS', 'TNDM', 'TRIP', 'TRMB', 'TROW', 'TSCO', 'TSLA', 'TTD', 'TTAN', 'TTWO', 'TW', 'TXG', 'TXN',
+  'UAL', 'UCTT', 'UDMY', 'ULCC', 'ULTA', 'UPST', 'URBN', 'UTHR',
+  'VCIT', 'VFS', 'VICR', 'VIR', 'VITL', 'VLY', 'VNQI', 'VRSK', 'VRSN', 'VRTX', 'VTRS', 'VXUS',
+  'WAY', 'WB', 'WBD', 'WBTN', 'WDAY', 'WDC', 'WEN', 'WGS', 'WING', 'WIX', 'WKHS', 'WMG', 'WMT', 'WOOF', 'WRD', 'WTFC', 'WTW',
+  'XEL', 'XMTR', 'XRAY', 'XRX',
+  'Z', 'ZBRA', 'ZION', 'ZM', 'ZS'
+];
+
+// Pattern scanner watchlist - uses all FxPro symbols (NASDAQ + NYSE)
+const PATTERN_SCANNER_WATCHLIST = [...FXPRO_NASDAQ_SYMBOLS, ...FXPRO_NYSE_SYMBOLS];
 
 // Helper function to check if symbol is in pattern scanner watchlist
 function isInPatternScannerWatchlist(symbol: string): boolean {
@@ -172,6 +209,8 @@ interface EnhancedStockData {
   first15MinHigh?: number;
   first15MinLow?: number;
   first15MinClose?: number;
+  premarketHigh?: number;
+  premarketLow?: number;
 }
 
 interface MarketStatus {
@@ -201,6 +240,8 @@ interface GapUpStock {
 	first15MinHigh?: string;
 	first15MinLow?: string;
 	first15MinClose?: string;
+	premarketHigh?: string;
+	premarketLow?: string;
 }
 
 interface ScanResult {
@@ -223,6 +264,150 @@ interface ScanResult {
 // Polygon.io helper functions
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
 const POLYGON_BASE_URL = 'https://api.polygon.io';
+
+// US Market Holidays (fixed dates and observed dates)
+function getUSMarketHolidays(year: number): Set<string> {
+	const holidays = new Set<string>();
+	
+	// New Year's Day (Jan 1, or observed on nearest weekday)
+	const newYear = new Date(year, 0, 1);
+	holidays.add(getObservedDate(newYear));
+	
+	// Martin Luther King Jr. Day (3rd Monday of January)
+	holidays.add(getNthWeekdayOfMonth(year, 0, 1, 3));
+	
+	// Presidents Day (3rd Monday of February)
+	holidays.add(getNthWeekdayOfMonth(year, 1, 1, 3));
+	
+	// Good Friday (Friday before Easter Sunday) - varies each year
+	const easter = getEasterDate(year);
+	const goodFriday = new Date(easter);
+	goodFriday.setDate(easter.getDate() - 2);
+	holidays.add(goodFriday.toISOString().split('T')[0]);
+	
+	// Memorial Day (last Monday of May)
+	holidays.add(getLastWeekdayOfMonth(year, 4, 1));
+	
+	// Juneteenth (June 19, or observed)
+	const juneteenth = new Date(year, 5, 19);
+	holidays.add(getObservedDate(juneteenth));
+	
+	// Independence Day (July 4, or observed)
+	const july4 = new Date(year, 6, 4);
+	holidays.add(getObservedDate(july4));
+	
+	// Labor Day (1st Monday of September)
+	holidays.add(getNthWeekdayOfMonth(year, 8, 1, 1));
+	
+	// Thanksgiving (4th Thursday of November)
+	holidays.add(getNthWeekdayOfMonth(year, 10, 4, 4));
+	
+	// Christmas (Dec 25, or observed)
+	const christmas = new Date(year, 11, 25);
+	holidays.add(getObservedDate(christmas));
+	
+	return holidays;
+}
+
+function getObservedDate(date: Date): string {
+	const day = date.getDay();
+	if (day === 0) { // Sunday -> Monday
+		date.setDate(date.getDate() + 1);
+	} else if (day === 6) { // Saturday -> Friday
+		date.setDate(date.getDate() - 1);
+	}
+	return date.toISOString().split('T')[0];
+}
+
+function getNthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): string {
+	const firstDay = new Date(year, month, 1);
+	let count = 0;
+	for (let day = 1; day <= 31; day++) {
+		const d = new Date(year, month, day);
+		if (d.getMonth() !== month) break;
+		if (d.getDay() === weekday) {
+			count++;
+			if (count === n) return d.toISOString().split('T')[0];
+		}
+	}
+	return '';
+}
+
+function getLastWeekdayOfMonth(year: number, month: number, weekday: number): string {
+	const lastDay = new Date(year, month + 1, 0);
+	for (let day = lastDay.getDate(); day >= 1; day--) {
+		const d = new Date(year, month, day);
+		if (d.getDay() === weekday) return d.toISOString().split('T')[0];
+	}
+	return '';
+}
+
+function getEasterDate(year: number): Date {
+	// Anonymous Gregorian algorithm
+	const a = year % 19;
+	const b = Math.floor(year / 100);
+	const c = year % 100;
+	const d = Math.floor(b / 4);
+	const e = b % 4;
+	const f = Math.floor((b + 8) / 25);
+	const g = Math.floor((b - f + 1) / 3);
+	const h = (19 * a + b - d - g + 15) % 30;
+	const i = Math.floor(c / 4);
+	const k = c % 4;
+	const l = (32 + 2 * e + 2 * i - h - k) % 7;
+	const m = Math.floor((a + 11 * h + 22 * l) / 451);
+	const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+	const day = ((h + l - 7 * m + 114) % 31) + 1;
+	return new Date(year, month, day);
+}
+
+function isUSMarketHoliday(dateStr: string): boolean {
+	const date = new Date(dateStr);
+	const year = date.getFullYear();
+	const holidays = getUSMarketHolidays(year);
+	return holidays.has(dateStr);
+}
+
+function getPreviousTradingDay(fromDate: Date): string {
+	const date = new Date(fromDate);
+	date.setDate(date.getDate() - 1);
+	
+	// Keep going back until we find a valid trading day
+	for (let i = 0; i < 10; i++) {
+		const dateStr = date.toISOString().split('T')[0];
+		const dayOfWeek = date.getDay();
+		
+		if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isUSMarketHoliday(dateStr)) {
+			return dateStr;
+		}
+		date.setDate(date.getDate() - 1);
+	}
+	
+	return date.toISOString().split('T')[0];
+}
+
+function getMostRecentTradingDay(): { today: string; yesterday: string } {
+	const now = new Date();
+	let checkDate = new Date(now);
+	
+	// Find the most recent trading day
+	for (let i = 0; i < 10; i++) {
+		const dateStr = checkDate.toISOString().split('T')[0];
+		const dayOfWeek = checkDate.getDay();
+		
+		if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isUSMarketHoliday(dateStr)) {
+			const yesterday = getPreviousTradingDay(checkDate);
+			return { today: dateStr, yesterday };
+		}
+		checkDate.setDate(checkDate.getDate() - 1);
+	}
+	
+	// Fallback
+	return { 
+		today: checkDate.toISOString().split('T')[0], 
+		yesterday: getPreviousTradingDay(checkDate) 
+	};
+}
 
 // OpenAI configuration
 const openai = new OpenAI({
@@ -639,45 +824,65 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 		// Calculate gap percentage (opening gap)
 		const gapPercentage = calculateGapPercentage(openPrice, previousClose);
 		
-		// Calculate first 15 minutes high, low and close
-		let first15MinHigh = highPrice; // Default to day's high if we can't get intraday data
-		let first15MinLow = lowPrice; // Default to day's low if we can't get intraday data
-		let first15MinClose = currentPrice; // Default to current price if we can't get intraday data
+		// Calculate first 15 minutes high, low and close + premarket high/low
+		let first15MinHigh = highPrice;
+		let first15MinLow = lowPrice;
+		let first15MinClose = currentPrice;
+		let premarketHigh = 0;
+		let premarketLow = 0;
 		
 		try {
-			// Get the actual trading day's intraday data (not today if it's weekend)
-			// Use the same logic as the main scan to get the most recent trading day
 			const today = new Date();
 			const dayOfWeek = today.getDay();
 			
 			let mostRecentDay = new Date(today);
-			if (dayOfWeek === 0) { // Sunday
-				mostRecentDay.setDate(today.getDate() - 2); // Friday
-			} else if (dayOfWeek === 6) { // Saturday
-				mostRecentDay.setDate(today.getDate() - 1); // Friday
+			if (dayOfWeek === 0) {
+				mostRecentDay.setDate(today.getDate() - 2);
+			} else if (dayOfWeek === 6) {
+				mostRecentDay.setDate(today.getDate() - 1);
 			}
 			
 			const tradingDate = mostRecentDay.toISOString().split('T')[0];
 			const intradayBars = await getIntradayBars(symbol, 1, 'minute', tradingDate, tradingDate);
 			
 			if (intradayBars && intradayBars.length > 0) {
-				// Sort by timestamp to get chronological order
 				const sortedBars = intradayBars.sort((a, b) => a.t - b.t);
 				
-				// Find market open time (9:30 AM EST = 14:30 UTC)
-				// Take first 15 bars (15 minutes) after market open
-				const first15Minutes = sortedBars.slice(0, 15);
+				// Separate premarket (4:00-9:30 AM EST = 9:00-14:30 UTC) and market hours bars
+				const premarketBars = sortedBars.filter(bar => {
+					const date = new Date(bar.t);
+					const hours = date.getUTCHours();
+					const minutes = date.getUTCMinutes();
+					const totalMinutes = hours * 60 + minutes;
+					return totalMinutes >= 9 * 60 && totalMinutes < 14 * 60 + 30;
+				});
 				
+				const marketBars = sortedBars.filter(bar => {
+					const date = new Date(bar.t);
+					const hours = date.getUTCHours();
+					const minutes = date.getUTCMinutes();
+					const totalMinutes = hours * 60 + minutes;
+					return totalMinutes >= 14 * 60 + 30 && totalMinutes < 21 * 60;
+				});
+				
+				// Calculate premarket high/low
+				if (premarketBars.length > 0) {
+					premarketHigh = Math.max(...premarketBars.map(bar => bar.h));
+					premarketLow = Math.min(...premarketBars.map(bar => bar.l));
+					console.log(`${symbol}: Premarket high: $${premarketHigh.toFixed(2)}, low: $${premarketLow.toFixed(2)} from ${premarketBars.length} bars`);
+				}
+				
+				// Calculate first 15 minutes of market hours
+				const first15Minutes = marketBars.slice(0, 15);
 				if (first15Minutes.length > 0) {
 					first15MinHigh = Math.max(...first15Minutes.map(bar => bar.h));
 					first15MinLow = Math.min(...first15Minutes.map(bar => bar.l));
-					// The close price of the 15th minute (last bar in the first 15 minutes)
 					first15MinClose = first15Minutes[first15Minutes.length - 1].c;
 					console.log(`${symbol}: First 15min high: $${first15MinHigh.toFixed(2)}, low: $${first15MinLow.toFixed(2)}, close: $${first15MinClose.toFixed(2)} from ${first15Minutes.length} bars`);
 				}
 			}
 		} catch (error) {
-			console.warn(`Could not get first 15min data for ${symbol}, using defaults: ${error}`);
+			console.warn(`Could not get intraday data for ${symbol}, using defaults: ${error}`);
 		}
 		
 		// Get company details including exchange info
@@ -713,7 +918,9 @@ async function getEnhancedStockDataFromGrouped(todayBar: GroupedDailyBar, yester
 			currency: 'USD',
 			first15MinHigh,
 			first15MinLow,
-			first15MinClose
+			first15MinClose,
+			premarketHigh: premarketHigh > 0 ? premarketHigh : undefined,
+			premarketLow: premarketLow > 0 ? premarketLow : undefined
 		};
 
 		return enhancedData;
@@ -942,33 +1149,10 @@ export const scanGapUps = async (req: Request, res: Response) => {
 	try {
 		console.log('Starting market-wide Polygon gap up scan...');
 		
-		// Get the most recent trading dates - handle weekends and holidays properly
-		const today = new Date();
-		const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, 6=Saturday
-		
-		let mostRecentDay = new Date(today);
-		let previousDay = new Date(today);
-		
-		if (dayOfWeek === 0) { // Sunday
-			// Most recent trading day is Friday, previous is Thursday
-			mostRecentDay.setDate(today.getDate() - 2); // Friday
-			previousDay.setDate(today.getDate() - 3); // Thursday
-		} else if (dayOfWeek === 1) { // Monday
-			// Most recent trading day is TODAY (Monday), previous is Friday
-			mostRecentDay = new Date(today); // Today (Monday)
-			previousDay.setDate(today.getDate() - 3); // Friday
-		} else if (dayOfWeek === 6) { // Saturday
-			// Most recent trading day is Friday, previous is Thursday
-			mostRecentDay.setDate(today.getDate() - 1); // Friday
-			previousDay.setDate(today.getDate() - 2); // Thursday
-		} else { // Tuesday-Friday
-			// Most recent trading day is TODAY, previous is yesterday
-			mostRecentDay = new Date(today); // Today
-			previousDay.setDate(today.getDate() - 1); // Yesterday
-		}
-		
-		let todayStr = mostRecentDay.toISOString().split('T')[0];
-		let yesterdayStr = previousDay.toISOString().split('T')[0];
+		// Get the most recent trading dates - handles weekends AND holidays
+		const tradingDays = getMostRecentTradingDay();
+		let todayStr = tradingDays.today;
+		let yesterdayStr = tradingDays.yesterday;
 		
 		console.log(`Scanning market data: Most Recent Trading Day=${todayStr}, Previous Trading Day=${yesterdayStr}`);
 
@@ -982,23 +1166,11 @@ export const scanGapUps = async (req: Request, res: Response) => {
 		]);
 
 		if (!todayData || todayData.length === 0) {
-			console.log(`No market data for ${todayStr}. Falling back to previous day analysis.`);
-			// If today's data isn't available, shift back to the most recent available trading day
-			const fallbackToday = new Date(mostRecentDay);
-			fallbackToday.setDate(fallbackToday.getDate() - 1);
+			console.log(`No market data for ${todayStr}. Falling back to previous trading day...`);
 			
-			// For fallback yesterday, we need to skip weekends properly
-			const fallbackYesterday = new Date(fallbackToday);
-			const fallbackDayOfWeek = fallbackToday.getDay();
-			
-			if (fallbackDayOfWeek === 1) { // Monday
-				fallbackYesterday.setDate(fallbackToday.getDate() - 3); // Friday
-			} else {
-				fallbackYesterday.setDate(fallbackToday.getDate() - 1); // Previous day
-			}
-			
-			const fallbackTodayStr = fallbackToday.toISOString().split('T')[0];
-			const fallbackYesterdayStr = fallbackYesterday.toISOString().split('T')[0];
+			// Use holiday-aware fallback - go back one more trading day
+			const fallbackTodayStr = getPreviousTradingDay(new Date(todayStr));
+			const fallbackYesterdayStr = getPreviousTradingDay(new Date(fallbackTodayStr));
 			
 			console.log(`Trying fallback dates: ${fallbackTodayStr} vs ${fallbackYesterdayStr}`);
 			
@@ -1208,11 +1380,13 @@ export const scanGapUps = async (req: Request, res: Response) => {
 									companyName: stockData.companyName,
 									exchange: stockData.exchange,
 									analysis: analysis,
-									suitable: true, // All displayed stocks are suitable
+									suitable: true,
 									isBlueChip: isBlueChip,
 									first15MinHigh: stockData.first15MinHigh ? `$${stockData.first15MinHigh.toFixed(2)}` : undefined,
 									first15MinLow: stockData.first15MinLow ? `$${stockData.first15MinLow.toFixed(2)}` : undefined,
-									first15MinClose: stockData.first15MinClose ? `$${stockData.first15MinClose.toFixed(2)}` : undefined
+									first15MinClose: stockData.first15MinClose ? `$${stockData.first15MinClose.toFixed(2)}` : undefined,
+									premarketHigh: stockData.premarketHigh ? `$${stockData.premarketHigh.toFixed(2)}` : undefined,
+									premarketLow: stockData.premarketLow ? `$${stockData.premarketLow.toFixed(2)}` : undefined
 								};
 								
 								gapUpStocks.push(gapUpStock);
@@ -1344,33 +1518,10 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 	try {
 		console.log('Starting market-wide Polygon gap down scan...');
 		
-		// Get the most recent trading dates - handle weekends and holidays properly
-		const today = new Date();
-		const dayOfWeek = today.getDay(); // 0=Sunday, 1=Monday, 6=Saturday
-		
-		let mostRecentDay = new Date(today);
-		let previousDay = new Date(today);
-		
-		if (dayOfWeek === 0) { // Sunday
-			// Most recent trading day is Friday, previous is Thursday
-			mostRecentDay.setDate(today.getDate() - 2); // Friday
-			previousDay.setDate(today.getDate() - 3); // Thursday
-		} else if (dayOfWeek === 1) { // Monday
-			// Most recent trading day is TODAY (Monday), previous is Friday
-			mostRecentDay = new Date(today); // Today (Monday)
-			previousDay.setDate(today.getDate() - 3); // Friday
-		} else if (dayOfWeek === 6) { // Saturday
-			// Most recent trading day is Friday, previous is Thursday
-			mostRecentDay.setDate(today.getDate() - 1); // Friday
-			previousDay.setDate(today.getDate() - 2); // Thursday
-		} else { // Tuesday-Friday
-			// Most recent trading day is TODAY, previous is yesterday
-			mostRecentDay = new Date(today); // Today
-			previousDay.setDate(today.getDate() - 1); // Yesterday
-		}
-		
-		let todayStr = mostRecentDay.toISOString().split('T')[0];
-		let yesterdayStr = previousDay.toISOString().split('T')[0];
+		// Get the most recent trading dates - handles weekends AND holidays
+		const tradingDays = getMostRecentTradingDay();
+		let todayStr = tradingDays.today;
+		let yesterdayStr = tradingDays.yesterday;
 		
 		console.log(`Scanning market data: Most Recent Trading Day=${todayStr}, Previous Trading Day=${yesterdayStr}`);
 
@@ -1384,23 +1535,11 @@ export const scanGapDowns = async (req: Request, res: Response) => {
 		]);
 
 		if (!todayData || todayData.length === 0) {
-			console.log(`No market data for ${todayStr}. Falling back to previous day analysis.`);
-			// If today's data isn't available, shift back to the most recent available trading day
-			const fallbackToday = new Date(mostRecentDay);
-			fallbackToday.setDate(fallbackToday.getDate() - 1);
+			console.log(`No market data for ${todayStr}. Falling back to previous trading day...`);
 			
-			// For fallback yesterday, we need to skip weekends properly
-			const fallbackYesterday = new Date(fallbackToday);
-			const fallbackDayOfWeek = fallbackToday.getDay();
-			
-			if (fallbackDayOfWeek === 1) { // Monday
-				fallbackYesterday.setDate(fallbackToday.getDate() - 3); // Friday
-			} else {
-				fallbackYesterday.setDate(fallbackToday.getDate() - 1); // Previous day
-			}
-			
-			const fallbackTodayStr = fallbackToday.toISOString().split('T')[0];
-			const fallbackYesterdayStr = fallbackYesterday.toISOString().split('T')[0];
+			// Use holiday-aware fallback - go back one more trading day
+			const fallbackTodayStr = getPreviousTradingDay(new Date(todayStr));
+			const fallbackYesterdayStr = getPreviousTradingDay(new Date(fallbackTodayStr));
 			
 			console.log(`Trying fallback dates: ${fallbackTodayStr} vs ${fallbackYesterdayStr}`);
 			

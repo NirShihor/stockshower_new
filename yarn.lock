@@ -2623,6 +2623,20 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@stoqey/ib@npm:^1.5.3":
+  version: 1.5.3
+  resolution: "@stoqey/ib@npm:1.5.3"
+  dependencies:
+    colors: "npm:^1.4.0"
+    command-buffer: "npm:^0.1.0"
+    dotenv: "npm:^16.4.7"
+    eventemitter3: "npm:^5.0.1"
+    function-rate-limit: "npm:^1.1.0"
+    rxjs: "npm:^7.8.1"
+  checksum: 10c0/470e9170edffc7b0c0b1c2093acb6d0bb14855360eb933474b5c798369256a43ed2629a65869e0f3adf94bd207fd49e93ee1ee431d99f028e0a56116dd8f00a8
+  languageName: node
+  linkType: hard
+
 "@surma/rollup-plugin-off-main-thread@npm:^2.2.3":
   version: 2.2.3
   resolution: "@surma/rollup-plugin-off-main-thread@npm:2.2.3"
@@ -5172,12 +5186,26 @@ __metadata:
   languageName: node
   linkType: hard
 
+"colors@npm:^1.4.0":
+  version: 1.4.0
+  resolution: "colors@npm:1.4.0"
+  checksum: 10c0/9af357c019da3c5a098a301cf64e3799d27549d8f185d86f79af23069e4f4303110d115da98483519331f6fb71c8568d5688fa1c6523600044fd4a54e97c4efb
+  languageName: node
+  linkType: hard
+
 "combined-stream@npm:^1.0.8":
   version: 1.0.8
   resolution: "combined-stream@npm:1.0.8"
   dependencies:
     delayed-stream: "npm:~1.0.0"
   checksum: 10c0/0dbb829577e1b1e839fa82b40c07ffaf7de8a09b935cadd355a73652ae70a88b4320db322f6634a4ad93424292fa80973ac6480986247f1734a1137debf271d5
+  languageName: node
+  linkType: hard
+
+"command-buffer@npm:^0.1.0":
+  version: 0.1.0
+  resolution: "command-buffer@npm:0.1.0"
+  checksum: 10c0/329be9f44beed792f0aa97e4d0887c3080f485d861cb048b5bb1c5fd1d2ce9355173017e0a182b2167a639c4fc98fda09191c63c1207c1808a60c68a5e93bfc2
   languageName: node
   linkType: hard
 
@@ -6232,7 +6260,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"dotenv@npm:^16.5.0":
+"dotenv@npm:^16.4.7, dotenv@npm:^16.5.0":
   version: 16.6.1
   resolution: "dotenv@npm:16.6.1"
   checksum: 10c0/15ce56608326ea0d1d9414a5c8ee6dcf0fffc79d2c16422b4ac2268e7e2d76ff5a572d37ffe747c377de12005f14b3cc22361e79fc7f1061cce81f77d2c973dc
@@ -7147,6 +7175,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"eventemitter3@npm:^5.0.1":
+  version: 5.0.1
+  resolution: "eventemitter3@npm:5.0.1"
+  checksum: 10c0/4ba5c00c506e6c786b4d6262cfbce90ddc14c10d4667e5c83ae993c9de88aa856033994dd2b35b83e8dc1170e224e66a319fa80adc4c32adcd2379bbc75da814
+  languageName: node
+  linkType: hard
+
 "events@npm:^3.2.0":
   version: 3.3.0
   resolution: "events@npm:3.3.0"
@@ -7650,6 +7685,13 @@ __metadata:
   version: 1.1.2
   resolution: "function-bind@npm:1.1.2"
   checksum: 10c0/d8680ee1e5fcd4c197e4ac33b2b4dce03c71f4d91717292785703db200f5c21f977c568d28061226f9b5900cbcd2c84463646134fd5337e7925e0942bc3f46d5
+  languageName: node
+  linkType: hard
+
+"function-rate-limit@npm:^1.1.0":
+  version: 1.1.0
+  resolution: "function-rate-limit@npm:1.1.0"
+  checksum: 10c0/2c81149d63d7e770b69469fe4547ae8f8d90ffa85a3397e7143d3e018aee660ff0fc907c5bb65da6b96658758e6272c607d7d9aa55d433943814fa63add98281
   languageName: node
   linkType: hard
 
@@ -13290,6 +13332,7 @@ __metadata:
   resolution: "server@workspace:server"
   dependencies:
     "@anthropic-ai/sdk": "npm:^0.71.2"
+    "@stoqey/ib": "npm:^1.5.3"
     "@types/cors": "npm:^2.8.19"
     "@types/express": "npm:^5.0.3"
     "@types/mongoose": "npm:^5.11.97"

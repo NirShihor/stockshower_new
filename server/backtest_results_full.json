@@ -57,10 +57,10 @@
   },
   "trades": [
     {
-      "id": "BT_TSLA-1767183940721-hefuymlpx_1767183940722",
+      "id": "BT_TSLA-1767351132062-gtvsemucc_1767351132062",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183940721-hefuymlpx",
+        "id": "TSLA-1767351132062-gtvsemucc",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-04T14:15:00.000Z",
@@ -133,10 +133,10 @@
       "pnlPercent": -1.5747020263309481
     },
     {
-      "id": "BT_CRM-1767183944999-eaxmxbpbm_1767183944999",
+      "id": "BT_CRM-1767351136261-b9uk3ak6p_1767351136261",
       "symbol": "CRM",
       "signal": {
-        "id": "CRM-1767183944999-eaxmxbpbm",
+        "id": "CRM-1767351136261-b9uk3ak6p",
         "symbol": "CRM",
         "timeframe": "5m",
         "time": "2024-01-05T17:55:00.000Z",
@@ -207,10 +207,10 @@
       "pnlPercent": -1.587700643413489
     },
     {
-      "id": "BT_AAPL-1767183941016-s12l63fdp_1767183941016",
+      "id": "BT_AAPL-1767351132362-uw8ab46qx_1767351132362",
       "symbol": "AAPL",
       "signal": {
-        "id": "AAPL-1767183941016-s12l63fdp",
+        "id": "AAPL-1767351132362-uw8ab46qx",
         "symbol": "AAPL",
         "timeframe": "5m",
         "time": "2024-01-04T15:40:00.000Z",
@@ -282,10 +282,10 @@
       "pnlPercent": -1.5444418668875832
     },
     {
-      "id": "BT_ADBE-1767183941553-w11ubnp23_1767183941553",
+      "id": "BT_ADBE-1767351132893-5e362rsqn_1767351132893",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767183941553-w11ubnp23",
+        "id": "ADBE-1767351132893-5e362rsqn",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-01-04T18:00:00.000Z",
@@ -358,10 +358,10 @@
       "pnlPercent": -1.585499780374224
     },
     {
-      "id": "BT_TSLA-1767183945077-a980ol140_1767183945077",
+      "id": "BT_TSLA-1767351136335-q5j27pouq_1767351136336",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183945077-a980ol140",
+        "id": "TSLA-1767351136335-q5j27pouq",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-05T18:10:00.000Z",
@@ -434,10 +434,10 @@
       "pnlPercent": -1.6231133985825212
     },
     {
-      "id": "BT_TSLA-1767183952986-87xab1kg6_1767183952986",
+      "id": "BT_TSLA-1767351144043-o5lx6j1ey_1767351144043",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183952986-87xab1kg6",
+        "id": "TSLA-1767351144043-o5lx6j1ey",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-10T14:50:00.000Z",
@@ -511,10 +511,10 @@
       "pnlPercent": -1.649838980647165
     },
     {
-      "id": "BT_INTC-1767183956404-ia6kcwxmu_1767183956404",
+      "id": "BT_INTC-1767351147447-1l44ruda0_1767351147447",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767183956404-ia6kcwxmu",
+        "id": "INTC-1767351147447-1l44ruda0",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-01-11T15:15:00.000Z",
@@ -586,10 +586,10 @@
       "pnlPercent": -1.7232361081541379
     },
     {
-      "id": "BT_JPM-1767183953137-9y3ah15nt_1767183953137",
+      "id": "BT_JPM-1767351144196-vcoolb1mt_1767351144196",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767183953137-9y3ah15nt",
+        "id": "JPM-1767351144196-vcoolb1mt",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-01-10T15:35:00.000Z",
@@ -662,10 +662,10 @@
       "pnlPercent": 2.240787438758034
     },
     {
-      "id": "BT_JPM-1767183956332-z4nzu8gsi_1767183956332",
+      "id": "BT_JPM-1767351147378-ij9cj1a2h_1767351147378",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767183956332-z4nzu8gsi",
+        "id": "JPM-1767351147378-ij9cj1a2h",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-01-11T15:00:00.000Z",
@@ -740,10 +740,10 @@
       "pnlPercent": 2.213640607457302
     },
     {
-      "id": "BT_MMM-1767183956595-nodg07162_1767183956595",
+      "id": "BT_MMM-1767351147635-5wcq3j6je_1767351147635",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767183956595-nodg07162",
+        "id": "MMM-1767351147635-5wcq3j6je",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-01-11T16:00:00.000Z",
@@ -815,10 +815,10 @@
       "pnlPercent": -1.7205887419713597
     },
     {
-      "id": "BT_TSLA-1767183960627-vxr3aahqj_1767183960627",
+      "id": "BT_TSLA-1767351151567-87udufor1_1767351151567",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183960627-vxr3aahqj",
+        "id": "TSLA-1767351151567-87udufor1",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-12T17:45:00.000Z",
@@ -889,10 +889,10 @@
       "pnlPercent": 2.224772093448547
     },
     {
-      "id": "BT_BA-1767183960165-z9isnnkhf_1767183960165",
+      "id": "BT_BA-1767351151123-ww211f7zj_1767351151123",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767183960165-z9isnnkhf",
+        "id": "BA-1767351151123-ww211f7zj",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-01-12T16:05:00.000Z",
@@ -963,10 +963,10 @@
       "pnlPercent": 2.224544071783771
     },
     {
-      "id": "BT_TSLA-1767183968496-36os2oa6w_1767183968496",
+      "id": "BT_TSLA-1767351159190-4sswo8e0n_1767351159190",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183968496-36os2oa6w",
+        "id": "TSLA-1767351159190-4sswo8e0n",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-18T15:10:00.000Z",
@@ -1039,10 +1039,10 @@
       "pnlPercent": 2.078099611431497
     },
     {
-      "id": "BT_JPM-1767183968557-1o02sxvwt_1767183968557",
+      "id": "BT_JPM-1767351159251-9e3pwujfi_1767351159251",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767183968557-1o02sxvwt",
+        "id": "JPM-1767351159251-9e3pwujfi",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-01-18T15:30:00.000Z",
@@ -1115,10 +1115,10 @@
       "pnlPercent": -1.671411523625849
     },
     {
-      "id": "BT_TSLA-1767183972199-kr1t4c8dp_1767183972199",
+      "id": "BT_TSLA-1767351162769-j1tzd594h_1767351162769",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183972199-kr1t4c8dp",
+        "id": "TSLA-1767351162769-j1tzd594h",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-19T16:15:00.000Z",
@@ -1190,10 +1190,10 @@
       "pnlPercent": -1.5799099645243473
     },
     {
-      "id": "BT_PG-1767183968718-rwiwjd5hc_1767183968718",
+      "id": "BT_PG-1767351159406-ht3u92cb8_1767351159406",
       "symbol": "PG",
       "signal": {
-        "id": "PG-1767183968718-rwiwjd5hc",
+        "id": "PG-1767351159406-ht3u92cb8",
         "symbol": "PG",
         "timeframe": "5m",
         "time": "2024-01-18T16:10:00.000Z",
@@ -1265,10 +1265,10 @@
       "pnlPercent": -1.735838589352319
     },
     {
-      "id": "BT_AMZN-1767183978476-itqy9q20c_1767183978476",
+      "id": "BT_AMZN-1767351168893-1snmc5nfq_1767351168893",
       "symbol": "AMZN",
       "signal": {
-        "id": "AMZN-1767183978476-itqy9q20c",
+        "id": "AMZN-1767351168893-1snmc5nfq",
         "symbol": "AMZN",
         "timeframe": "5m",
         "time": "2024-01-23T17:20:00.000Z",
@@ -1340,10 +1340,10 @@
       "pnlPercent": -1.6996420233463105
     },
     {
-      "id": "BT_MMM-1767183981308-a1qb0jwl9_1767183981308",
+      "id": "BT_MMM-1767351171642-p04ekvrx7_1767351171642",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767183981308-a1qb0jwl9",
+        "id": "MMM-1767351171642-p04ekvrx7",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-01-24T16:00:00.000Z",
@@ -1414,10 +1414,10 @@
       "pnlPercent": 2.1810240595918233
     },
     {
-      "id": "BT_TSLA-1767183984329-d1xxpj660_1767183984330",
+      "id": "BT_TSLA-1767351174524-unrjxdppd_1767351174524",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183984329-d1xxpj660",
+        "id": "TSLA-1767351174524-unrjxdppd",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-25T13:35:00.000Z",
@@ -1486,10 +1486,10 @@
       "pnlPercent": -2.082401903754638
     },
     {
-      "id": "BT_UNH-1767183984838-zohtkm0jj_1767183984838",
+      "id": "BT_UNH-1767351174997-i5yll5gcz_1767351174997",
       "symbol": "UNH",
       "signal": {
-        "id": "UNH-1767183984838-zohtkm0jj",
+        "id": "UNH-1767351174997-i5yll5gcz",
         "symbol": "UNH",
         "timeframe": "5m",
         "time": "2024-01-25T15:40:00.000Z",
@@ -1563,10 +1563,10 @@
       "pnlPercent": -1.5538064414334383
     },
     {
-      "id": "BT_TMO-1767183985209-1w64eczwh_1767183985209",
+      "id": "BT_TMO-1767351175383-s23asino5_1767351175383",
       "symbol": "TMO",
       "signal": {
-        "id": "TMO-1767183985209-1w64eczwh",
+        "id": "TMO-1767351175383-s23asino5",
         "symbol": "TMO",
         "timeframe": "5m",
         "time": "2024-01-25T17:00:00.000Z",
@@ -1639,10 +1639,10 @@
       "pnlPercent": -1.9441022736148255
     },
     {
-      "id": "BT_BA-1767183984702-lj9di3bqf_1767183984702",
+      "id": "BT_BA-1767351174861-92uhowl4y_1767351174861",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767183984702-lj9di3bqf",
+        "id": "BA-1767351174861-92uhowl4y",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-01-25T15:10:00.000Z",
@@ -1713,10 +1713,10 @@
       "pnlPercent": -1.961468542921517
     },
     {
-      "id": "BT_TSLA-1767183988709-p5x415jko_1767183988709",
+      "id": "BT_TSLA-1767351178785-0m0glsv8p_1767351178785",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767183988709-p5x415jko",
+        "id": "TSLA-1767351178785-0m0glsv8p",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-01-26T16:20:00.000Z",
@@ -1788,10 +1788,10 @@
       "pnlPercent": -1.87237047126122
     },
     {
-      "id": "BT_INTC-1767183988518-x7gxzaicf_1767183988518",
+      "id": "BT_INTC-1767351178585-fdfe53adj_1767351178585",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767183988518-x7gxzaicf",
+        "id": "INTC-1767351178585-fdfe53adj",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-01-26T15:40:00.000Z",
@@ -1864,10 +1864,10 @@
       "pnlPercent": 2.2801594169893
     },
     {
-      "id": "BT_MA-1767183984634-l59teizfe_1767183984634",
+      "id": "BT_MA-1767351174796-meuh42hrr_1767351174796",
       "symbol": "MA",
       "signal": {
-        "id": "MA-1767183984634-l59teizfe",
+        "id": "MA-1767351174796-meuh42hrr",
         "symbol": "MA",
         "timeframe": "5m",
         "time": "2024-01-25T14:55:00.000Z",
@@ -1941,10 +1941,10 @@
       "pnlPercent": -1.6238010478391387
     },
     {
-      "id": "BT_META-1767183997341-7b23w8tfa_1767183997341",
+      "id": "BT_META-1767351187115-glm1er0fx_1767351187115",
       "symbol": "META",
       "signal": {
-        "id": "META-1767183997341-7b23w8tfa",
+        "id": "META-1767351187115-glm1er0fx",
         "symbol": "META",
         "timeframe": "5m",
         "time": "2024-01-31T14:15:00.000Z",
@@ -2016,10 +2016,10 @@
       "pnlPercent": -1.5774016821420422
     },
     {
-      "id": "BT_NFLX-1767183997214-h2tvsh0sc_1767183997214",
+      "id": "BT_NFLX-1767351186994-tijls1g99_1767351186994",
       "symbol": "NFLX",
       "signal": {
-        "id": "NFLX-1767183997214-h2tvsh0sc",
+        "id": "NFLX-1767351186994-tijls1g99",
         "symbol": "NFLX",
         "timeframe": "5m",
         "time": "2024-01-31T13:30:00.000Z",
@@ -2091,10 +2091,10 @@
       "pnlPercent": -1.744692867227838
     },
     {
-      "id": "BT_NVDA-1767183997693-ou7l8zbqj_1767183997693",
+      "id": "BT_NVDA-1767351187456-bybxci7rp_1767351187456",
       "symbol": "NVDA",
       "signal": {
-        "id": "NVDA-1767183997693-ou7l8zbqj",
+        "id": "NVDA-1767351187456-bybxci7rp",
         "symbol": "NVDA",
         "timeframe": "5m",
         "time": "2024-01-31T15:45:00.000Z",
@@ -2166,10 +2166,10 @@
       "pnlPercent": -1.5714036243822025
     },
     {
-      "id": "BT_AAPL-1767184000920-fa1f8hp1b_1767184000921",
+      "id": "BT_AAPL-1767351190627-4cya57nol_1767351190627",
       "symbol": "AAPL",
       "signal": {
-        "id": "AAPL-1767184000920-fa1f8hp1b",
+        "id": "AAPL-1767351190627-4cya57nol",
         "symbol": "AAPL",
         "timeframe": "5m",
         "time": "2024-02-01T14:40:00.000Z",
@@ -2244,10 +2244,10 @@
       "pnlPercent": -1.5588853940090353
     },
     {
-      "id": "BT_ADBE-1767183997479-w4vp6iog5_1767183997479",
+      "id": "BT_ADBE-1767351187250-dn8oezmn7_1767351187250",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767183997479-w4vp6iog5",
+        "id": "ADBE-1767351187250-dn8oezmn7",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-01-31T14:55:00.000Z",
@@ -2319,10 +2319,10 @@
       "pnlPercent": -1.5876712417141132
     },
     {
-      "id": "BT_GOOGL-1767184001757-mu6dukqye_1767184001757",
+      "id": "BT_GOOGL-1767351191454-4rcollscg_1767351191454",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767184001757-mu6dukqye",
+        "id": "GOOGL-1767351191454-4rcollscg",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-02-01T17:45:00.000Z",
@@ -2395,10 +2395,10 @@
       "pnlPercent": -1.9365346394094363
     },
     {
-      "id": "BT_MSFT-1767183997788-zvu7up3jl_1767183997788",
+      "id": "BT_MSFT-1767351187548-ubzocv2vg_1767351187548",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767183997788-zvu7up3jl",
+        "id": "MSFT-1767351187548-ubzocv2vg",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-01-31T16:10:00.000Z",
@@ -2470,10 +2470,10 @@
       "pnlPercent": -1.8715394720535592
     },
     {
-      "id": "BT_GOOGL-1767183997553-w00put5gb_1767183997553",
+      "id": "BT_GOOGL-1767351187321-bj77g1c80_1767351187321",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767183997553-w00put5gb",
+        "id": "GOOGL-1767351187321-bj77g1c80",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-01-31T15:10:00.000Z",
@@ -2544,10 +2544,10 @@
       "pnlPercent": 2.0140146571207955
     },
     {
-      "id": "BT_TSLA-1767184004676-ipl1yrjjk_1767184004676",
+      "id": "BT_TSLA-1767351194246-sniwhx8yt_1767351194246",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767184004676-ipl1yrjjk",
+        "id": "TSLA-1767351194246-sniwhx8yt",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-02-02T14:30:00.000Z",
@@ -2623,10 +2623,10 @@
       "pnlPercent": -1.7471139543886325
     },
     {
-      "id": "BT_MMM-1767183997525-kxq9su48y_1767183997525",
+      "id": "BT_MMM-1767351187293-maghvswzj_1767351187293",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767183997525-kxq9su48y",
+        "id": "MMM-1767351187293-maghvswzj",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-01-31T15:05:00.000Z",
@@ -2700,10 +2700,10 @@
       "pnlPercent": 2.2456124008368628
     },
     {
-      "id": "BT_MSFT-1767184029284-2bunm1t74_1767184029284",
+      "id": "BT_MSFT-1767351218067-nj80vt0yl_1767351218067",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184029284-2bunm1t74",
+        "id": "MSFT-1767351218067-nj80vt0yl",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-02-14T15:05:00.000Z",
@@ -2777,10 +2777,10 @@
       "pnlPercent": -1.6190330003129207
     },
     {
-      "id": "BT_GOOGL-1767184029321-nf5zhr9fb_1767184029321",
+      "id": "BT_GOOGL-1767351218106-8afvegi53_1767351218106",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767184029321-nf5zhr9fb",
+        "id": "GOOGL-1767351218106-8afvegi53",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-02-14T15:15:00.000Z",
@@ -2853,10 +2853,10 @@
       "pnlPercent": 2.1867319495207207
     },
     {
-      "id": "BT_BA-1767184029792-p4a75pdl3_1767184029792",
+      "id": "BT_BA-1767351218575-hzlhb8i79_1767351218575",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184029792-p4a75pdl3",
+        "id": "BA-1767351218575-hzlhb8i79",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-02-14T17:20:00.000Z",
@@ -2929,10 +2929,10 @@
       "pnlPercent": -1.6024889064194798
     },
     {
-      "id": "BT_AAPL-1767184032773-3w6ft85dj_1767184032773",
+      "id": "BT_AAPL-1767351221470-4c52yfv4n_1767351221470",
       "symbol": "AAPL",
       "signal": {
-        "id": "AAPL-1767184032773-3w6ft85dj",
+        "id": "AAPL-1767351221470-4c52yfv4n",
         "symbol": "AAPL",
         "timeframe": "5m",
         "time": "2024-02-15T15:35:00.000Z",
@@ -3004,10 +3004,10 @@
       "pnlPercent": -1.6790183508955263
     },
     {
-      "id": "BT_ADBE-1767184032955-lheythm00_1767184032955",
+      "id": "BT_ADBE-1767351221647-vz07lgp2o_1767351221647",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184032955-lheythm00",
+        "id": "ADBE-1767351221647-vz07lgp2o",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-02-15T16:20:00.000Z",
@@ -3078,10 +3078,10 @@
       "pnlPercent": 2.2312215661276213
     },
     {
-      "id": "BT_ADBE-1767183968498-dod1tedwv_1767183968498",
+      "id": "BT_ADBE-1767351159192-40tu3qw9r_1767351159192",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767183968498-dod1tedwv",
+        "id": "ADBE-1767351159192-40tu3qw9r",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-01-18T15:15:00.000Z",
@@ -3154,10 +3154,10 @@
       "pnlPercent": 2.0868369533540276
     },
     {
-      "id": "BT_ADBE-1767184036634-d8x0vyrxz_1767184036634",
+      "id": "BT_ADBE-1767351225232-mmrg7etwx_1767351225232",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184036634-d8x0vyrxz",
+        "id": "ADBE-1767351225232-mmrg7etwx",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-02-16T16:45:00.000Z",
@@ -3228,10 +3228,10 @@
       "pnlPercent": 2.185029995714911
     },
     {
-      "id": "BT_GOOGL-1767184036195-k7jmheecl_1767184036195",
+      "id": "BT_GOOGL-1767351224792-20rtkbouq_1767351224792",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767184036195-k7jmheecl",
+        "id": "GOOGL-1767351224792-20rtkbouq",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-02-16T15:00:00.000Z",
@@ -3305,10 +3305,10 @@
       "pnlPercent": -1.5387749307970644
     },
     {
-      "id": "BT_GOOGL-1767184032668-bkgr5lwqp_1767184032668",
+      "id": "BT_GOOGL-1767351221367-lpztuwegu_1767351221367",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767184032668-bkgr5lwqp",
+        "id": "GOOGL-1767351221367-lpztuwegu",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-02-15T15:10:00.000Z",
@@ -3380,10 +3380,10 @@
       "pnlPercent": -1.5298141008103228
     },
     {
-      "id": "BT_AMZN-1767184032712-z2k72nn4w_1767184032712",
+      "id": "BT_AMZN-1767351221411-aw69h4330_1767351221411",
       "symbol": "AMZN",
       "signal": {
-        "id": "AMZN-1767184032712-z2k72nn4w",
+        "id": "AMZN-1767351221411-aw69h4330",
         "symbol": "AMZN",
         "timeframe": "5m",
         "time": "2024-02-15T15:20:00.000Z",
@@ -3456,10 +3456,10 @@
       "pnlPercent": -2.2519319792158603
     },
     {
-      "id": "BT_AAPL-1767184042574-hq4q3erez_1767184042574",
+      "id": "BT_AAPL-1767351230804-l5z6y4xeh_1767351230804",
       "symbol": "AAPL",
       "signal": {
-        "id": "AAPL-1767184042574-hq4q3erez",
+        "id": "AAPL-1767351230804-l5z6y4xeh",
         "symbol": "AAPL",
         "timeframe": "5m",
         "time": "2024-02-21T17:40:00.000Z",
@@ -3533,10 +3533,10 @@
       "pnlPercent": -1.5700038612168337
     },
     {
-      "id": "BT_MSFT-1767184036324-q5fvc0lq3_1767184036324",
+      "id": "BT_MSFT-1767351224917-k00cz5qcw_1767351224917",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184036324-q5fvc0lq3",
+        "id": "MSFT-1767351224917-k00cz5qcw",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-02-16T15:30:00.000Z",
@@ -3608,10 +3608,10 @@
       "pnlPercent": -1.5904330406825793
     },
     {
-      "id": "BT_MSFT-1767184032689-emu43nzjt_1767184032689",
+      "id": "BT_MSFT-1767351221387-sa7f95ftp_1767351221387",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184032689-emu43nzjt",
+        "id": "MSFT-1767351221387-sa7f95ftp",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-02-15T15:15:00.000Z",
@@ -3684,10 +3684,10 @@
       "pnlPercent": -1.6188381947181727
     },
     {
-      "id": "BT_MMM-1767184032470-941vrm93a_1767184032470",
+      "id": "BT_MMM-1767351221172-u3te00pgx_1767351221173",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767184032470-941vrm93a",
+        "id": "MMM-1767351221172-u3te00pgx",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-02-15T14:15:00.000Z",
@@ -3757,10 +3757,10 @@
       "pnlPercent": -1.6603249201822303
     },
     {
-      "id": "BT_INTC-1767184048588-5zcvrexfa_1767184048588",
+      "id": "BT_INTC-1767351236610-443spsmbd_1767351236610",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767184048588-5zcvrexfa",
+        "id": "INTC-1767351236610-443spsmbd",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-02-23T15:20:00.000Z",
@@ -3834,10 +3834,10 @@
       "pnlPercent": -1.5952718773913348
     },
     {
-      "id": "BT_AAPL-1767184029264-ngauiknjk_1767184029264",
+      "id": "BT_AAPL-1767351218048-bn8sptvfy_1767351218048",
       "symbol": "AAPL",
       "signal": {
-        "id": "AAPL-1767184029264-ngauiknjk",
+        "id": "AAPL-1767351218048-bn8sptvfy",
         "symbol": "AAPL",
         "timeframe": "5m",
         "time": "2024-02-14T15:00:00.000Z",
@@ -3911,10 +3911,10 @@
       "pnlPercent": 2.1146190933815494
     },
     {
-      "id": "BT_INTC-1767184045098-6fb6utias_1767184045098",
+      "id": "BT_INTC-1767351233270-rdjwwtjas_1767351233270",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767184045098-6fb6utias",
+        "id": "INTC-1767351233270-rdjwwtjas",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-02-22T15:15:00.000Z",
@@ -3985,10 +3985,10 @@
       "pnlPercent": 2.1872351301115103
     },
     {
-      "id": "BT_BA-1767184045273-tmhtqwkq0_1767184045273",
+      "id": "BT_BA-1767351233438-zqi6pan6v_1767351233438",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184045273-tmhtqwkq0",
+        "id": "BA-1767351233438-zqi6pan6v",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-02-22T16:00:00.000Z",
@@ -4061,10 +4061,10 @@
       "pnlPercent": -1.5635505183346614
     },
     {
-      "id": "BT_INTC-1767184057856-pzl0t205l_1767184057856",
+      "id": "BT_INTC-1767351245558-l8gfmkwu4_1767351245558",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767184057856-pzl0t205l",
+        "id": "INTC-1767351245558-l8gfmkwu4",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-02-28T17:50:00.000Z",
@@ -4136,10 +4136,10 @@
       "pnlPercent": -1.5903116821317973
     },
     {
-      "id": "BT_GOOGL-1767184057664-p1ytyv3u6_1767184057664",
+      "id": "BT_GOOGL-1767351245371-elx0pa5ux_1767351245371",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767184057664-p1ytyv3u6",
+        "id": "GOOGL-1767351245371-elx0pa5ux",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-02-28T17:00:00.000Z",
@@ -4208,10 +4208,10 @@
       "pnlPercent": -1.6800500588928229
     },
     {
-      "id": "BT_MSFT-1767184054888-fxqbjo87b_1767184054888",
+      "id": "BT_MSFT-1767351242662-t62mk0kpy_1767351242663",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184054888-fxqbjo87b",
+        "id": "MSFT-1767351242662-t62mk0kpy",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-02-27T17:30:00.000Z",
@@ -4281,10 +4281,10 @@
       "pnlPercent": -1.544751760780928
     },
     {
-      "id": "BT_UNH-1767184061176-onob48vcg_1767184061176",
+      "id": "BT_UNH-1767351248820-4d8f5xz8n_1767351248820",
       "symbol": "UNH",
       "signal": {
-        "id": "UNH-1767184061176-onob48vcg",
+        "id": "UNH-1767351248820-4d8f5xz8n",
         "symbol": "UNH",
         "timeframe": "5m",
         "time": "2024-02-29T17:30:00.000Z",
@@ -4356,10 +4356,10 @@
       "pnlPercent": 2.225302237222359
     },
     {
-      "id": "BT_TSLA-1767184064185-gwr1qnp0d_1767184064185",
+      "id": "BT_TSLA-1767351251789-1emnlmoo0_1767351251789",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767184064185-gwr1qnp0d",
+        "id": "TSLA-1767351251789-1emnlmoo0",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-03-01T15:35:00.000Z",
@@ -4432,10 +4432,10 @@
       "pnlPercent": -1.5609366059328385
     },
     {
-      "id": "BT_AAPL-1767184061045-yceo6agts_1767184061045",
+      "id": "BT_AAPL-1767351248693-4lmwginwm_1767351248693",
       "symbol": "AAPL",
       "signal": {
-        "id": "AAPL-1767184061045-yceo6agts",
+        "id": "AAPL-1767351248693-4lmwginwm",
         "symbol": "AAPL",
         "timeframe": "5m",
         "time": "2024-02-29T17:00:00.000Z",
@@ -4508,10 +4508,10 @@
       "pnlPercent": 2.2414880257820733
     },
     {
-      "id": "BT_MRK-1767184057480-srrhv1042_1767184057480",
+      "id": "BT_MRK-1767351245183-wblo0vf02_1767351245183",
       "symbol": "MRK",
       "signal": {
-        "id": "MRK-1767184057480-srrhv1042",
+        "id": "MRK-1767351245183-wblo0vf02",
         "symbol": "MRK",
         "timeframe": "5m",
         "time": "2024-02-28T16:15:00.000Z",
@@ -4585,10 +4585,10 @@
       "pnlPercent": 2.2065059481247364
     },
     {
-      "id": "BT_GOOGL-1767184054974-c0i0t5np8_1767184054974",
+      "id": "BT_GOOGL-1767351242753-ei5rzxr8o_1767351242753",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767184054974-c0i0t5np8",
+        "id": "GOOGL-1767351242753-ei5rzxr8o",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-02-27T17:55:00.000Z",
@@ -4658,10 +4658,10 @@
       "pnlPercent": 1.9890064289888834
     },
     {
-      "id": "BT_MSFT-1767184073053-vl7fwtv6z_1767184073053",
+      "id": "BT_MSFT-1767351260488-v3j4wo5sq_1767351260488",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184073053-vl7fwtv6z",
+        "id": "MSFT-1767351260488-v3j4wo5sq",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-03-06T15:30:00.000Z",
@@ -4734,10 +4734,10 @@
       "pnlPercent": -1.5586468136590905
     },
     {
-      "id": "BT_AMZN-1767184073056-ug48x899u_1767184073056",
+      "id": "BT_AMZN-1767351260490-y4k6xm3re_1767351260490",
       "symbol": "AMZN",
       "signal": {
-        "id": "AMZN-1767184073056-ug48x899u",
+        "id": "AMZN-1767351260490-y4k6xm3re",
         "symbol": "AMZN",
         "timeframe": "5m",
         "time": "2024-03-06T15:30:00.000Z",
@@ -4811,10 +4811,10 @@
       "pnlPercent": -1.5814208342936196
     },
     {
-      "id": "BT_UNH-1767184073525-805nlw17s_1767184073526",
+      "id": "BT_UNH-1767351260949-bqnrpmxr9_1767351260949",
       "symbol": "UNH",
       "signal": {
-        "id": "UNH-1767184073525-805nlw17s",
+        "id": "UNH-1767351260949-bqnrpmxr9",
         "symbol": "UNH",
         "timeframe": "5m",
         "time": "2024-03-06T17:30:00.000Z",
@@ -4889,10 +4889,10 @@
       "pnlPercent": -1.5678739622481144
     },
     {
-      "id": "BT_GOOGL-1767184072939-qk5iylcz6_1767184072939",
+      "id": "BT_GOOGL-1767351260376-7d9ix2msd_1767351260376",
       "symbol": "GOOGL",
       "signal": {
-        "id": "GOOGL-1767184072939-qk5iylcz6",
+        "id": "GOOGL-1767351260376-7d9ix2msd",
         "symbol": "GOOGL",
         "timeframe": "5m",
         "time": "2024-03-06T15:00:00.000Z",
@@ -4967,10 +4967,10 @@
       "pnlPercent": -1.5388335358444785
     },
     {
-      "id": "BT_MMM-1767184021053-sf5gew5fm_1767184021053",
+      "id": "BT_MMM-1767351209976-ij0o4qp41_1767351209976",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767184021053-sf5gew5fm",
+        "id": "MMM-1767351209976-ij0o4qp41",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-02-09T16:45:00.000Z",
@@ -5039,10 +5039,10 @@
       "pnlPercent": -1.67625400047643
     },
     {
-      "id": "BT_AAPL-1767184072994-9fdjaol5n_1767184072994",
+      "id": "BT_AAPL-1767351260430-mn4ain069_1767351260430",
       "symbol": "AAPL",
       "signal": {
-        "id": "AAPL-1767184072994-9fdjaol5n",
+        "id": "AAPL-1767351260430-mn4ain069",
         "symbol": "AAPL",
         "timeframe": "5m",
         "time": "2024-03-06T15:15:00.000Z",
@@ -5115,10 +5115,10 @@
       "pnlPercent": -1.5495543208416893
     },
     {
-      "id": "BT_TSLA-1767184089126-q7hsju470_1767184089126",
+      "id": "BT_TSLA-1767351276038-fpb7xjjw7_1767351276038",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767184089126-q7hsju470",
+        "id": "TSLA-1767351276038-fpb7xjjw7",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-03-13T14:15:00.000Z",
@@ -5187,10 +5187,10 @@
       "pnlPercent": 2.192167056134394
     },
     {
-      "id": "BT_TSLA-1767184093097-7fjj4iu19_1767184093097",
+      "id": "BT_TSLA-1767351279902-ij60gqfb0_1767351279902",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767184093097-7fjj4iu19",
+        "id": "TSLA-1767351279902-ij60gqfb0",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-03-14T16:30:00.000Z",
@@ -5262,10 +5262,10 @@
       "pnlPercent": -1.7901992228458679
     },
     {
-      "id": "BT_CRM-1767184092451-90vu74tz8_1767184092451",
+      "id": "BT_CRM-1767351279269-1oju0z8o5_1767351279270",
       "symbol": "CRM",
       "signal": {
-        "id": "CRM-1767184092451-90vu74tz8",
+        "id": "CRM-1767351279269-1oju0z8o5",
         "symbol": "CRM",
         "timeframe": "5m",
         "time": "2024-03-14T14:05:00.000Z",
@@ -5334,10 +5334,10 @@
       "pnlPercent": 2.2453081412602662
     },
     {
-      "id": "BT_ADBE-1767184095964-b2bsfmihn_1767184095964",
+      "id": "BT_ADBE-1767351282665-l2rsutggb_1767351282665",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184095964-b2bsfmihn",
+        "id": "ADBE-1767351282665-l2rsutggb",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-03-15T13:40:00.000Z",
@@ -5409,10 +5409,10 @@
       "pnlPercent": 2.028587230326362
     },
     {
-      "id": "BT_MRK-1767184093524-5u7kl555r_1767184093524",
+      "id": "BT_MRK-1767351280308-d9ov75s0u_1767351280308",
       "symbol": "MRK",
       "signal": {
-        "id": "MRK-1767184093524-5u7kl555r",
+        "id": "MRK-1767351280308-d9ov75s0u",
         "symbol": "MRK",
         "timeframe": "5m",
         "time": "2024-03-14T18:05:00.000Z",
@@ -5485,10 +5485,10 @@
       "pnlPercent": -1.6029375989336039
     },
     {
-      "id": "BT_TSLA-1767184096731-5ghbzoln5_1767184096731",
+      "id": "BT_TSLA-1767351283421-jsxbztplx_1767351283421",
       "symbol": "TSLA",
       "signal": {
-        "id": "TSLA-1767184096731-5ghbzoln5",
+        "id": "TSLA-1767351283421-jsxbztplx",
         "symbol": "TSLA",
         "timeframe": "5m",
         "time": "2024-03-15T16:30:00.000Z",
@@ -5561,10 +5561,10 @@
       "pnlPercent": -1.6364179104477719
     },
     {
-      "id": "BT_BA-1767184086692-itgnvr7iz_1767184086692",
+      "id": "BT_BA-1767351273650-ha3w2zjf1_1767351273650",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184086692-itgnvr7iz",
+        "id": "BA-1767351273650-ha3w2zjf1",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-03-12T16:45:00.000Z",
@@ -5636,10 +5636,10 @@
       "pnlPercent": 2.2270651758931086
     },
     {
-      "id": "BT_BA-1767184089690-rm4dsjywv_1767184089690",
+      "id": "BT_BA-1767351276581-apg0u1wq2_1767351276581",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184089690-rm4dsjywv",
+        "id": "BA-1767351276581-apg0u1wq2",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-03-13T16:40:00.000Z",
@@ -5712,10 +5712,10 @@
       "pnlPercent": 2.2301332605133775
     },
     {
-      "id": "BT_META-1767184096134-tx2z2oz3a_1767184096134",
+      "id": "BT_META-1767351282835-zerymxw9y_1767351282835",
       "symbol": "META",
       "signal": {
-        "id": "META-1767184096134-tx2z2oz3a",
+        "id": "META-1767351282835-zerymxw9y",
         "symbol": "META",
         "timeframe": "5m",
         "time": "2024-03-15T14:20:00.000Z",
@@ -5786,10 +5786,10 @@
       "pnlPercent": -1.5539666011517588
     },
     {
-      "id": "BT_BA-1767184093436-j8d4zteza_1767184093436",
+      "id": "BT_BA-1767351280224-e62u99kzc_1767351280224",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184093436-j8d4zteza",
+        "id": "BA-1767351280224-e62u99kzc",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-03-14T17:45:00.000Z",
@@ -5860,10 +5860,10 @@
       "pnlPercent": 2.2235323300810257
     },
     {
-      "id": "BT_MRK-1767184089973-0d4qs87mg_1767184089973",
+      "id": "BT_MRK-1767351276857-tdmnhwm0x_1767351276857",
       "symbol": "MRK",
       "signal": {
-        "id": "MRK-1767184089973-0d4qs87mg",
+        "id": "MRK-1767351276857-tdmnhwm0x",
         "symbol": "MRK",
         "timeframe": "5m",
         "time": "2024-03-13T17:50:00.000Z",
@@ -5936,10 +5936,10 @@
       "pnlPercent": -1.602854080791434
     },
     {
-      "id": "BT_INTC-1767184105390-xlsom7j5p_1767184105390",
+      "id": "BT_INTC-1767351291565-0ca6n98u3_1767351291565",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767184105390-xlsom7j5p",
+        "id": "INTC-1767351291565-0ca6n98u3",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-03-20T13:50:00.000Z",
@@ -6013,10 +6013,10 @@
       "pnlPercent": -2.2468550649631567
     },
     {
-      "id": "BT_ADBE-1767184113688-kjizcdu07_1767184113688",
+      "id": "BT_ADBE-1767351298837-9mb6egyww_1767351298837",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184113688-kjizcdu07",
+        "id": "ADBE-1767351298837-9mb6egyww",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-03-22T17:20:00.000Z",
@@ -6088,10 +6088,10 @@
       "pnlPercent": -1.6702941735053909
     },
     {
-      "id": "BT_TMO-1767184092643-g9kcrxngi_1767184092644",
+      "id": "BT_TMO-1767351279458-2vjx4n28e_1767351279458",
       "symbol": "TMO",
       "signal": {
-        "id": "TMO-1767184092643-g9kcrxngi",
+        "id": "TMO-1767351279458-2vjx4n28e",
         "symbol": "TMO",
         "timeframe": "5m",
         "time": "2024-03-14T14:50:00.000Z",
@@ -6160,10 +6160,10 @@
       "pnlPercent": 2.2336152067814323
     },
     {
-      "id": "BT_NFLX-1767184121277-pzzws3btm_1767184121277",
+      "id": "BT_NFLX-1767351306199-qolq8vzu7_1767351306199",
       "symbol": "NFLX",
       "signal": {
-        "id": "NFLX-1767184121277-pzzws3btm",
+        "id": "NFLX-1767351306199-qolq8vzu7",
         "symbol": "NFLX",
         "timeframe": "5m",
         "time": "2024-03-27T16:45:00.000Z",
@@ -6233,10 +6233,10 @@
       "pnlPercent": 2.2413698007916443
     },
     {
-      "id": "BT_MSFT-1767184120955-ad6fx2lk6_1767184120955",
+      "id": "BT_MSFT-1767351305884-fnrhankk1_1767351305884",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184120955-ad6fx2lk6",
+        "id": "MSFT-1767351305884-fnrhankk1",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-03-27T15:10:00.000Z",
@@ -6309,10 +6309,10 @@
       "pnlPercent": -1.69698287345385
     },
     {
-      "id": "BT_META-1767184123409-46tmxektr_1767184123409",
+      "id": "BT_META-1767351308263-0hvr4do1m_1767351308263",
       "symbol": "META",
       "signal": {
-        "id": "META-1767184123409-46tmxektr",
+        "id": "META-1767351308263-0hvr4do1m",
         "symbol": "META",
         "timeframe": "5m",
         "time": "2024-03-28T13:40:00.000Z",
@@ -6385,10 +6385,10 @@
       "pnlPercent": -1.7462996489931608
     },
     {
-      "id": "BT_META-1767184120976-yp2e147o8_1767184120976",
+      "id": "BT_META-1767351305904-btbh776w0_1767351305904",
       "symbol": "META",
       "signal": {
-        "id": "META-1767184120976-yp2e147o8",
+        "id": "META-1767351305904-btbh776w0",
         "symbol": "META",
         "timeframe": "5m",
         "time": "2024-03-27T15:20:00.000Z",
@@ -6457,10 +6457,10 @@
       "pnlPercent": -1.564971512442771
     },
     {
-      "id": "BT_INTC-1767184129020-25h5akw1x_1767184129020",
+      "id": "BT_INTC-1767351313395-0z9utnvly_1767351313395",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767184129020-25h5akw1x",
+        "id": "INTC-1767351313395-0z9utnvly",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-04-02T16:25:00.000Z",
@@ -6531,10 +6531,10 @@
       "pnlPercent": 2.2532445464982667
     },
     {
-      "id": "BT_INTC-1767184134340-jkfdysuj7_1767184134340",
+      "id": "BT_INTC-1767351318493-7am78p6i0_1767351318493",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767184134340-jkfdysuj7",
+        "id": "INTC-1767351318493-7am78p6i0",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-04-04T15:25:00.000Z",
@@ -6607,10 +6607,10 @@
       "pnlPercent": 2.282550136172322
     },
     {
-      "id": "BT_MMM-1767184134981-wguosbqzv_1767184134981",
+      "id": "BT_MMM-1767351319145-tyaeyni3w_1767351319145",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767184134981-wguosbqzv",
+        "id": "MMM-1767351319145-tyaeyni3w",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-04-04T18:05:00.000Z",
@@ -6681,10 +6681,10 @@
       "pnlPercent": 2.2366974069653853
     },
     {
-      "id": "BT_MRK-1767184134177-3n5bvv7a3_1767184134177",
+      "id": "BT_MRK-1767351318332-f8crcpy1t_1767351318333",
       "symbol": "MRK",
       "signal": {
-        "id": "MRK-1767184134177-3n5bvv7a3",
+        "id": "MRK-1767351318332-f8crcpy1t",
         "symbol": "MRK",
         "timeframe": "5m",
         "time": "2024-04-04T14:45:00.000Z",
@@ -6757,10 +6757,10 @@
       "pnlPercent": 2.1949829615861254
     },
     {
-      "id": "BT_ADBE-1767184136921-5lf959sbj_1767184136921",
+      "id": "BT_ADBE-1767351321052-jnuzcp2ip_1767351321052",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184136921-5lf959sbj",
+        "id": "ADBE-1767351321052-jnuzcp2ip",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-04-05T13:50:00.000Z",
@@ -6831,10 +6831,10 @@
       "pnlPercent": -1.5996453023178918
     },
     {
-      "id": "BT_META-1767184142406-05e1wj3v2_1767184142406",
+      "id": "BT_META-1767351326399-4by6ad8il_1767351326399",
       "symbol": "META",
       "signal": {
-        "id": "META-1767184142406-05e1wj3v2",
+        "id": "META-1767351326399-4by6ad8il",
         "symbol": "META",
         "timeframe": "5m",
         "time": "2024-04-09T18:05:00.000Z",
@@ -6904,10 +6904,10 @@
       "pnlPercent": -1.9416196078431345
     },
     {
-      "id": "BT_INTC-1767184144081-vm71zicnv_1767184144081",
+      "id": "BT_INTC-1767351328022-tumhqdbqw_1767351328022",
       "symbol": "INTC",
       "signal": {
-        "id": "INTC-1767184144081-vm71zicnv",
+        "id": "INTC-1767351328022-tumhqdbqw",
         "symbol": "INTC",
         "timeframe": "5m",
         "time": "2024-04-10T13:55:00.000Z",
@@ -6980,10 +6980,10 @@
       "pnlPercent": 2.2503220696937594
     },
     {
-      "id": "BT_MSFT-1767184144051-36yuyru9j_1767184144051",
+      "id": "BT_MSFT-1767351327994-jyg25qeeg_1767351327994",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184144051-36yuyru9j",
+        "id": "MSFT-1767351327994-jyg25qeeg",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-04-10T13:45:00.000Z",
@@ -7061,10 +7061,10 @@
       "pnlPercent": -1.6259307194518322
     },
     {
-      "id": "BT_NFLX-1767184144027-kes8k66p9_1767184144027",
+      "id": "BT_NFLX-1767351327972-cy1p4rjnm_1767351327972",
       "symbol": "NFLX",
       "signal": {
-        "id": "NFLX-1767184144027-kes8k66p9",
+        "id": "NFLX-1767351327972-cy1p4rjnm",
         "symbol": "NFLX",
         "timeframe": "5m",
         "time": "2024-04-10T13:40:00.000Z",
@@ -7136,10 +7136,10 @@
       "pnlPercent": -1.6088118230457935
     },
     {
-      "id": "BT_BA-1767184144018-36nh8dntr_1767184144018",
+      "id": "BT_BA-1767351327961-8yazbrbj0_1767351327961",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184144018-36nh8dntr",
+        "id": "BA-1767351327961-8yazbrbj0",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-04-10T13:35:00.000Z",
@@ -7215,10 +7215,10 @@
       "pnlPercent": 2.1468463857134665
     },
     {
-      "id": "BT_JPM-1767184144073-zkpdqm7b4_1767184144073",
+      "id": "BT_JPM-1767351328015-uexs3ymds_1767351328015",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767184144073-zkpdqm7b4",
+        "id": "JPM-1767351328015-uexs3ymds",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-04-10T13:55:00.000Z",
@@ -7291,10 +7291,10 @@
       "pnlPercent": 2.2297791216112297
     },
     {
-      "id": "BT_UNH-1767184144864-ywp0dp93x_1767184144864",
+      "id": "BT_UNH-1767351328771-53a18w1pe_1767351328771",
       "symbol": "UNH",
       "signal": {
-        "id": "UNH-1767184144864-ywp0dp93x",
+        "id": "UNH-1767351328771-53a18w1pe",
         "symbol": "UNH",
         "timeframe": "5m",
         "time": "2024-04-10T17:45:00.000Z",
@@ -7366,10 +7366,10 @@
       "pnlPercent": 2.084644097995537
     },
     {
-      "id": "BT_CRM-1767184149526-1076ax87r_1767184149526",
+      "id": "BT_CRM-1767351333344-844itceul_1767351333344",
       "symbol": "CRM",
       "signal": {
-        "id": "CRM-1767184149526-1076ax87r",
+        "id": "CRM-1767351333344-844itceul",
         "symbol": "CRM",
         "timeframe": "5m",
         "time": "2024-04-12T14:10:00.000Z",
@@ -7444,10 +7444,10 @@
       "pnlPercent": 2.2116613531703866
     },
     {
-      "id": "BT_ADBE-1767184149633-nl80b4b4n_1767184149633",
+      "id": "BT_ADBE-1767351333448-j8ybqh13r_1767351333448",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184149633-nl80b4b4n",
+        "id": "ADBE-1767351333448-j8ybqh13r",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-04-12T14:45:00.000Z",
@@ -7520,10 +7520,10 @@
       "pnlPercent": -1.5812267834018896
     },
     {
-      "id": "BT_JPM-1767184149671-f8bbsmz5g_1767184149671",
+      "id": "BT_JPM-1767351333484-7tchaeaci_1767351333484",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767184149671-f8bbsmz5g",
+        "id": "JPM-1767351333484-7tchaeaci",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-04-12T14:55:00.000Z",
@@ -7594,10 +7594,10 @@
       "pnlPercent": -1.7070105777054663
     },
     {
-      "id": "BT_BA-1767184146720-1ke2x6qhy_1767184146720",
+      "id": "BT_BA-1767351330575-ofaezkp5y_1767351330575",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184146720-1ke2x6qhy",
+        "id": "BA-1767351330575-ofaezkp5y",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-04-11T13:50:00.000Z",
@@ -7671,10 +7671,10 @@
       "pnlPercent": 2.1260730487379274
     },
     {
-      "id": "BT_BA-1767184149573-961hm0f5i_1767184149573",
+      "id": "BT_BA-1767351333389-kijwsjgs8_1767351333389",
       "symbol": "BA",
       "signal": {
-        "id": "BA-1767184149573-961hm0f5i",
+        "id": "BA-1767351333389-kijwsjgs8",
         "symbol": "BA",
         "timeframe": "5m",
         "time": "2024-04-12T14:25:00.000Z",
@@ -7747,10 +7747,10 @@
       "pnlPercent": 2.2165299530583495
     },
     {
-      "id": "BT_UNH-1767184147026-0dsjqb2j8_1767184147026",
+      "id": "BT_UNH-1767351330875-4am2ax9rx_1767351330875",
       "symbol": "UNH",
       "signal": {
-        "id": "UNH-1767184147026-0dsjqb2j8",
+        "id": "UNH-1767351330875-4am2ax9rx",
         "symbol": "UNH",
         "timeframe": "5m",
         "time": "2024-04-11T15:15:00.000Z",
@@ -7822,10 +7822,10 @@
       "pnlPercent": -1.6423528616493974
     },
     {
-      "id": "BT_META-1767184154669-x4tetwj22_1767184154669",
+      "id": "BT_META-1767351338421-f6191ds9h_1767351338421",
       "symbol": "META",
       "signal": {
-        "id": "META-1767184154669-x4tetwj22",
+        "id": "META-1767351338421-f6191ds9h",
         "symbol": "META",
         "timeframe": "5m",
         "time": "2024-04-16T18:30:00.000Z",
@@ -7898,10 +7898,10 @@
       "pnlPercent": 2.1892255663171425
     },
     {
-      "id": "BT_MMM-1767184156122-iabvg35jx_1767184156122",
+      "id": "BT_MMM-1767351339851-6kpj2otfb_1767351339851",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767184156122-iabvg35jx",
+        "id": "MMM-1767351339851-6kpj2otfb",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-04-17T16:00:00.000Z",
@@ -7975,10 +7975,10 @@
       "pnlPercent": -1.5562511052166157
     },
     {
-      "id": "BT_JPM-1767184155986-xttgu8hw2_1767184155986",
+      "id": "BT_JPM-1767351339717-1lhz8w70e_1767351339717",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767184155986-xttgu8hw2",
+        "id": "JPM-1767351339717-1lhz8w70e",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-04-17T15:15:00.000Z",
@@ -8052,10 +8052,10 @@
       "pnlPercent": -1.5652929741738444
     },
     {
-      "id": "BT_MA-1767184149695-crq13qgbk_1767184149695",
+      "id": "BT_MA-1767351333507-srfp7t7aq_1767351333507",
       "symbol": "MA",
       "signal": {
-        "id": "MA-1767184149695-crq13qgbk",
+        "id": "MA-1767351333507-srfp7t7aq",
         "symbol": "MA",
         "timeframe": "5m",
         "time": "2024-04-12T15:00:00.000Z",
@@ -8128,10 +8128,10 @@
       "pnlPercent": 2.2406745529101246
     },
     {
-      "id": "BT_NFLX-1767184158750-728mb5037_1767184158750",
+      "id": "BT_NFLX-1767351342323-vhkaxk56k_1767351342323",
       "symbol": "NFLX",
       "signal": {
-        "id": "NFLX-1767184158750-728mb5037",
+        "id": "NFLX-1767351342323-vhkaxk56k",
         "symbol": "NFLX",
         "timeframe": "5m",
         "time": "2024-04-18T17:35:00.000Z",
@@ -8205,10 +8205,10 @@
       "pnlPercent": -5.125438308490375
     },
     {
-      "id": "BT_MSFT-1767184156204-u7squhvex_1767184156204",
+      "id": "BT_MSFT-1767351339932-5nbshrc8l_1767351339932",
       "symbol": "MSFT",
       "signal": {
-        "id": "MSFT-1767184156204-u7squhvex",
+        "id": "MSFT-1767351339932-5nbshrc8l",
         "symbol": "MSFT",
         "timeframe": "5m",
         "time": "2024-04-17T16:25:00.000Z",
@@ -8279,10 +8279,10 @@
       "pnlPercent": 2.2231837469148514
     },
     {
-      "id": "BT_PG-1767184149519-moa9zahxf_1767184149519",
+      "id": "BT_PG-1767351333338-jrk3xxj8d_1767351333338",
       "symbol": "PG",
       "signal": {
-        "id": "PG-1767184149519-moa9zahxf",
+        "id": "PG-1767351333338-jrk3xxj8d",
         "symbol": "PG",
         "timeframe": "5m",
         "time": "2024-04-12T14:10:00.000Z",
@@ -8356,10 +8356,10 @@
       "pnlPercent": -1.7405970724191133
     },
     {
-      "id": "BT_CRM-1767184158794-ueb9u3l7o_1767184158794",
+      "id": "BT_CRM-1767351342367-vt0c3yatq_1767351342367",
       "symbol": "CRM",
       "signal": {
-        "id": "CRM-1767184158794-ueb9u3l7o",
+        "id": "CRM-1767351342367-vt0c3yatq",
         "symbol": "CRM",
         "timeframe": "5m",
         "time": "2024-04-18T17:45:00.000Z",
@@ -8428,10 +8428,10 @@
       "pnlPercent": -3.043583815028912
     },
     {
-      "id": "BT_TMO-1767184158959-0ciromz8k_1767184158959",
+      "id": "BT_TMO-1767351342501-h1dxgis7p_1767351342501",
       "symbol": "TMO",
       "signal": {
-        "id": "TMO-1767184158959-0ciromz8k",
+        "id": "TMO-1767351342501-h1dxgis7p",
         "symbol": "TMO",
         "timeframe": "5m",
         "time": "2024-04-18T18:25:00.000Z",
@@ -8502,10 +8502,10 @@
       "pnlPercent": -1.8969931443394452
     },
     {
-      "id": "BT_MA-1767184161203-rzawl3qzg_1767184161203",
+      "id": "BT_MA-1767351344701-s0zw10n61_1767351344701",
       "symbol": "MA",
       "signal": {
-        "id": "MA-1767184161203-rzawl3qzg",
+        "id": "MA-1767351344701-s0zw10n61",
         "symbol": "MA",
         "timeframe": "5m",
         "time": "2024-04-19T16:35:00.000Z",
@@ -8576,10 +8576,10 @@
       "pnlPercent": -1.5428430809975804
     },
     {
-      "id": "BT_UNH-1767184166875-5g30xzm28_1767184166875",
+      "id": "BT_UNH-1767351350326-gc47girt8_1767351350327",
       "symbol": "UNH",
       "signal": {
-        "id": "UNH-1767184166875-5g30xzm28",
+        "id": "UNH-1767351350326-gc47girt8",
         "symbol": "UNH",
         "timeframe": "5m",
         "time": "2024-04-24T13:50:00.000Z",
@@ -8650,10 +8650,10 @@
       "pnlPercent": -1.546392768079811
     },
     {
-      "id": "BT_ADBE-1767184176027-x3cu55kk0_1767184176027",
+      "id": "BT_ADBE-1767351359365-0hfbltndd_1767351359365",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184176027-x3cu55kk0",
+        "id": "ADBE-1767351359365-0hfbltndd",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-05-01T14:00:00.000Z",
@@ -8725,10 +8725,10 @@
       "pnlPercent": -1.6264526199406084
     },
     {
-      "id": "BT_JPM-1767184177757-68t3ehoz2_1767184177757",
+      "id": "BT_JPM-1767351361016-i4kfd7bq3_1767351361016",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767184177757-68t3ehoz2",
+        "id": "JPM-1767351361016-i4kfd7bq3",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-05-02T15:40:00.000Z",
@@ -8800,10 +8800,10 @@
       "pnlPercent": -1.629344693383817
     },
     {
-      "id": "BT_TMO-1767184177587-n8ilovnkw_1767184177587",
+      "id": "BT_TMO-1767351360852-8bdvyyzi5_1767351360852",
       "symbol": "TMO",
       "signal": {
-        "id": "TMO-1767184177587-n8ilovnkw",
+        "id": "TMO-1767351360852-8bdvyyzi5",
         "symbol": "TMO",
         "timeframe": "5m",
         "time": "2024-05-02T14:35:00.000Z",
@@ -8875,10 +8875,10 @@
       "pnlPercent": -2.0524429428636797
     },
     {
-      "id": "BT_MRK-1767184177488-fw9n1auqy_1767184177488",
+      "id": "BT_MRK-1767351360768-s4ia4hxoe_1767351360768",
       "symbol": "MRK",
       "signal": {
-        "id": "MRK-1767184177488-fw9n1auqy",
+        "id": "MRK-1767351360768-s4ia4hxoe",
         "symbol": "MRK",
         "timeframe": "5m",
         "time": "2024-05-02T14:05:00.000Z",
@@ -8951,10 +8951,10 @@
       "pnlPercent": -1.5371555278923188
     },
     {
-      "id": "BT_ADBE-1767184184498-c02xwr8g7_1767184184498",
+      "id": "BT_ADBE-1767351367705-4jpz7vfaz_1767351367705",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184184498-c02xwr8g7",
+        "id": "ADBE-1767351367705-4jpz7vfaz",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-05-09T14:40:00.000Z",
@@ -9025,10 +9025,10 @@
       "pnlPercent": 2.1337092049346156
     },
     {
-      "id": "BT_NFLX-1767184191956-kglxsauvb_1767184191956",
+      "id": "BT_NFLX-1767351374876-imsd7olcr_1767351374876",
       "symbol": "NFLX",
       "signal": {
-        "id": "NFLX-1767184191956-kglxsauvb",
+        "id": "NFLX-1767351374876-imsd7olcr",
         "symbol": "NFLX",
         "timeframe": "5m",
         "time": "2024-05-16T16:35:00.000Z",
@@ -9102,10 +9102,10 @@
       "pnlPercent": -1.9496656118487645
     },
     {
-      "id": "BT_MMM-1767184196872-7hw1r8l87_1767184196872",
+      "id": "BT_MMM-1767351379698-2beaxxncn_1767351379698",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767184196872-7hw1r8l87",
+        "id": "MMM-1767351379698-2beaxxncn",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-05-22T14:50:00.000Z",
@@ -9178,10 +9178,10 @@
       "pnlPercent": 2.236822706218587
     },
     {
-      "id": "BT_CRM-1767184197303-qhwnmznmv_1767184197303",
+      "id": "BT_CRM-1767351380121-xga6eijnp_1767351380121",
       "symbol": "CRM",
       "signal": {
-        "id": "CRM-1767184197303-qhwnmznmv",
+        "id": "CRM-1767351380121-xga6eijnp",
         "symbol": "CRM",
         "timeframe": "5m",
         "time": "2024-05-22T17:50:00.000Z",
@@ -9255,10 +9255,10 @@
       "pnlPercent": 2.2180626941541735
     },
     {
-      "id": "BT_CRM-1767184198872-bqe6ov9cz_1767184198872",
+      "id": "BT_CRM-1767351381611-pci1javro_1767351381611",
       "symbol": "CRM",
       "signal": {
-        "id": "CRM-1767184198872-bqe6ov9cz",
+        "id": "CRM-1767351381611-pci1javro",
         "symbol": "CRM",
         "timeframe": "5m",
         "time": "2024-05-23T18:25:00.000Z",
@@ -9331,10 +9331,10 @@
       "pnlPercent": 2.218862754051286
     },
     {
-      "id": "BT_TMO-1767184198844-xf2bt04av_1767184198844",
+      "id": "BT_TMO-1767351381584-t9h36hc57_1767351381584",
       "symbol": "TMO",
       "signal": {
-        "id": "TMO-1767184198844-xf2bt04av",
+        "id": "TMO-1767351381584-t9h36hc57",
         "symbol": "TMO",
         "timeframe": "5m",
         "time": "2024-05-23T18:15:00.000Z",
@@ -9407,10 +9407,10 @@
       "pnlPercent": 2.2258394352616113
     },
     {
-      "id": "BT_MMM-1767184198867-xe34xuf59_1767184198867",
+      "id": "BT_MMM-1767351381605-xe4roeaf4_1767351381605",
       "symbol": "MMM",
       "signal": {
-        "id": "MMM-1767184198867-xe34xuf59",
+        "id": "MMM-1767351381605-xe4roeaf4",
         "symbol": "MMM",
         "timeframe": "5m",
         "time": "2024-05-23T18:25:00.000Z",
@@ -9483,10 +9483,10 @@
       "pnlPercent": 2.2339726303078926
     },
     {
-      "id": "BT_CRM-1767184199585-vo9go2mh1_1767184199585",
+      "id": "BT_CRM-1767351382302-khqjrqmox_1767351382302",
       "symbol": "CRM",
       "signal": {
-        "id": "CRM-1767184199585-vo9go2mh1",
+        "id": "CRM-1767351382302-khqjrqmox",
         "symbol": "CRM",
         "timeframe": "5m",
         "time": "2024-05-24T13:50:00.000Z",
@@ -9557,10 +9557,10 @@
       "pnlPercent": 2.2407405495113255
     },
     {
-      "id": "BT_ADBE-1767184204037-2pnap4cvq_1767184204037",
+      "id": "BT_ADBE-1767351386515-e3opqhoq6_1767351386515",
       "symbol": "ADBE",
       "signal": {
-        "id": "ADBE-1767184204037-2pnap4cvq",
+        "id": "ADBE-1767351386515-e3opqhoq6",
         "symbol": "ADBE",
         "timeframe": "5m",
         "time": "2024-05-30T15:00:00.000Z",
@@ -9631,10 +9631,10 @@
       "pnlPercent": 2.175638585463411
     },
     {
-      "id": "BT_MA-1767184205712-3bpye1avy_1767184205712",
+      "id": "BT_MA-1767351388171-pux9haj8b_1767351388171",
       "symbol": "MA",
       "signal": {
-        "id": "MA-1767184205712-3bpye1avy",
+        "id": "MA-1767351388171-pux9haj8b",
         "symbol": "MA",
         "timeframe": "5m",
         "time": "2024-05-31T14:50:00.000Z",
@@ -9705,10 +9705,10 @@
       "pnlPercent": -1.7025642891248318
     },
     {
-      "id": "BT_JPM-1767184211150-dwlltrkd5_1767184211150",
+      "id": "BT_JPM-1767351393350-v78mwmlw6_1767351393350",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767184211150-dwlltrkd5",
+        "id": "JPM-1767351393350-v78mwmlw6",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-06-06T15:55:00.000Z",
@@ -9778,10 +9778,10 @@
       "pnlPercent": -1.6122281005188803
     },
     {
-      "id": "BT_JPM-1767184209643-nvbmp3i4a_1767184209643",
+      "id": "BT_JPM-1767351391934-4hvfkwjfb_1767351391934",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767184209643-nvbmp3i4a",
+        "id": "JPM-1767351391934-4hvfkwjfb",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-06-05T14:30:00.000Z",
@@ -9851,10 +9851,10 @@
       "pnlPercent": 2.2409124400706704
     },
     {
-      "id": "BT_MA-1767184216747-m3eq4kvuf_1767184216747",
+      "id": "BT_MA-1767351398759-8xr1y5xvh_1767351398759",
       "symbol": "MA",
       "signal": {
-        "id": "MA-1767184216747-m3eq4kvuf",
+        "id": "MA-1767351398759-8xr1y5xvh",
         "symbol": "MA",
         "timeframe": "5m",
         "time": "2024-06-13T16:15:00.000Z",
@@ -9924,10 +9924,10 @@
       "pnlPercent": -1.6536873720136531
     },
     {
-      "id": "BT_UNH-1767184221827-z5lxiqul6_1767184221827",
+      "id": "BT_UNH-1767351403492-e9nkz9f11_1767351403492",
       "symbol": "UNH",
       "signal": {
-        "id": "UNH-1767184221827-z5lxiqul6",
+        "id": "UNH-1767351403492-e9nkz9f11",
         "symbol": "UNH",
         "timeframe": "5m",
         "time": "2024-06-21T15:35:00.000Z",
@@ -10000,10 +10000,10 @@
       "pnlPercent": -1.778268378451503
     },
     {
-      "id": "BT_MA-1767184224529-fq5vyrg4r_1767184224529",
+      "id": "BT_MA-1767351406101-0jhf69mpm_1767351406101",
       "symbol": "MA",
       "signal": {
-        "id": "MA-1767184224529-fq5vyrg4r",
+        "id": "MA-1767351406101-0jhf69mpm",
         "symbol": "MA",
         "timeframe": "5m",
         "time": "2024-06-27T15:10:00.000Z",
@@ -10072,10 +10072,10 @@
       "pnlPercent": 2.237795116701422
     },
     {
-      "id": "BT_TMO-1767184225284-4eithgt39_1767184225284",
+      "id": "BT_TMO-1767351406834-brohkkt6s_1767351406834",
       "symbol": "TMO",
       "signal": {
-        "id": "TMO-1767184225284-4eithgt39",
+        "id": "TMO-1767351406834-brohkkt6s",
         "symbol": "TMO",
         "timeframe": "5m",
         "time": "2024-06-28T17:25:00.000Z",
@@ -10149,10 +10149,10 @@
       "pnlPercent": 2.2405332169421834
     },
     {
-      "id": "BT_JPM-1767184215341-wqwcjiavu_1767184215341",
+      "id": "BT_JPM-1767351397425-ujzqhmjye_1767351397425",
       "symbol": "JPM",
       "signal": {
-        "id": "JPM-1767184215341-wqwcjiavu",
+        "id": "JPM-1767351397425-ujzqhmjye",
         "symbol": "JPM",
         "timeframe": "5m",
         "time": "2024-06-12T15:05:00.000Z",
