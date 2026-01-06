@@ -65,7 +65,9 @@ async function main() {
       console.log(`⏰ Waiting for premarket (${Math.floor(waitMinutes / 60)}h ${waitMinutes % 60}m)...`);
     } else if (totalMinutes >= tradingWindowEnd) {
       console.log('⏰ Trading window has ended for today.');
-      console.log('   Gap & Go trades in first 30 minutes only (9:30-10:00 AM EST)');
+      console.log('   Checking for open positions to close...\n');
+      await executor.closeStalePositions();
+      console.log('\n   Gap & Go trades in first 30 minutes only (9:30-10:00 AM EST)');
       console.log('   Run this script again tomorrow before market open.');
       process.exit(0);
     } else if (totalMinutes >= marketOpen) {

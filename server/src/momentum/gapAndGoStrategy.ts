@@ -85,6 +85,17 @@ function isPremarket(timestamp: number): boolean {
   return totalMinutes >= 9 * 60 && totalMinutes < 14 * 60 + 30;
 }
 
+function isPremarketBeforeCutoff(timestamp: number): boolean {
+  const date = new Date(timestamp);
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const totalMinutes = hours * 60 + minutes;
+  
+  // Premarket up to 9:25 AM EST = 14:25 UTC (5 mins before open)
+  // This simulates what you'd see when making trading decisions
+  return totalMinutes >= 9 * 60 && totalMinutes < 14 * 60 + 25;
+}
+
 function isMarketOpen(timestamp: number): boolean {
   const date = new Date(timestamp);
   const hours = date.getUTCHours();
@@ -119,14 +130,15 @@ export async function analyzeGapAndGoSetup(
   }
   
   // Separate premarket and market hours bars
-  const premarketBars = bars.filter(b => isPremarket(b.t));
+  // Use premarket data only up to 9:25 AM to simulate realistic conditions
+  const premarketBars = bars.filter(b => isPremarketBeforeCutoff(b.t));
   const marketBars = bars.filter(b => isMarketOpen(b.t));
   
   if (premarketBars.length === 0 || marketBars.length === 0) {
     return null;
   }
   
-  // Calculate premarket high/low
+  // Calculate premarket high/low (only from data available before 9:25 AM)
   const premarketHigh = Math.max(...premarketBars.map(b => b.h));
   const premarketLow = Math.min(...premarketBars.map(b => b.l));
   const premarketVolume = premarketBars.reduce((sum, b) => sum + b.v, 0);
@@ -226,7 +238,8 @@ export async function analyzeGapAndGoSetup(
 
 export async function simulateGapAndGoTrade(
   candidate: GapAndGoCandidate,
-  positionSize: number = 10000
+  positionSize: number = 10000,
+  delayedEntry: boolean = false
 ): Promise<GapAndGoTrade | null> {
   
   const bars = await getIntradayBars(candidate.symbol, candidate.date, 1, 'minute');
@@ -241,14 +254,42 @@ export async function simulateGapAndGoTrade(
     return null;
   }
   
-  // Entry strategy: MARKET ORDER at open (matches live trading)
-  // Live trading uses market orders for immediate entry, not waiting for breakout
-  const firstBar = marketBars[0];
-  const entryPrice = firstBar.o; // Enter at market open price
+  let entryPrice: number;
+  let entryBarIndex: number;
+  const openPrice = marketBars[0].o;
   const stopLoss = candidate.premarketLow;
+  
+  if (delayedEntry) {
+    // Wait 15 minutes, then check if price held above open
+    if (marketBars.length < 15) {
+      return null;
+    }
+    
+    const bar15 = marketBars[14]; // 15th minute bar (index 14)
+    const closeAt15 = bar15.c;
+    
+    // Only enter if price at 15 min is ABOVE open price (momentum confirmed)
+    if (closeAt15 <= openPrice) {
+      return null; // Gap faded, skip this trade
+    }
+    
+    // Also check price hasn't already hit stop
+    const lowFirst15 = Math.min(...marketBars.slice(0, 15).map(b => b.l));
+    if (lowFirst15 <= stopLoss) {
+      return null; // Would have been stopped out already
+    }
+    
+    entryPrice = closeAt15;
+    entryBarIndex = 15;
+  } else {
+    // Original: Enter at market open
+    entryPrice = openPrice;
+    entryBarIndex = 1;
+  }
+  
   const risk = entryPrice - stopLoss;
   
-  // Skip if risk is negative or too small (price opened below premarket low)
+  // Skip if risk is negative or too small
   if (risk <= 0) {
     return null;
   }
@@ -268,10 +309,12 @@ export async function simulateGapAndGoTrade(
   
   const actualPositionSize = shares * entryPrice;
   
+  const entryBar = marketBars[entryBarIndex - 1] || marketBars[0];
+  
   let trade: GapAndGoTrade = {
     symbol: candidate.symbol,
     date: candidate.date,
-    entryTime: new Date(firstBar.t).toISOString(),
+    entryTime: new Date(entryBar.t).toISOString(),
     entryPrice: entryPrice,
     stopLoss,
     target1,
@@ -281,8 +324,8 @@ export async function simulateGapAndGoTrade(
     status: 'filled'
   };
   
-  // Now simulate exit - start from second bar since we entered on first
-  for (let i = 1; i < marketBars.length; i++) {
+  // Now simulate exit - start from bar after entry
+  for (let i = entryBarIndex; i < marketBars.length; i++) {
     const bar = marketBars[i];
     
     // Check stop loss first (worst case)
@@ -335,6 +378,7 @@ export interface BacktestConfig {
   maxPrice: number;
   maxFloat?: number;
   largeCapsOnly?: boolean;
+  delayedEntry?: boolean;
 }
 
 const LARGE_CAP_STOCKS = new Set([
@@ -370,17 +414,17 @@ export interface BacktestResult {
   monthlyPerformance: { month: string; trades: number; pnl: number; winRate: number }[];
 }
 
-async function getGroupedDaily(date: string): Promise<Map<string, { c: number }>> {
+async function getGroupedDaily(date: string): Promise<Map<string, { o: number; c: number }>> {
   try {
     const data = await makePolygonRequest(`/v2/aggs/grouped/locale/us/market/stocks/${date}`, {
       adjusted: 'true',
       include_otc: 'false'
     });
     
-    const map = new Map<string, { c: number }>();
+    const map = new Map<string, { o: number; c: number }>();
     if (data.results) {
       for (const bar of data.results) {
-        map.set(bar.T, { c: bar.c });
+        map.set(bar.T, { o: bar.o, c: bar.c });
       }
     }
     return map;
@@ -420,6 +464,20 @@ function getTradingDays(startDate: string, endDate: string): string[] {
   return days;
 }
 
+async function getPremarketLastPrice(symbol: string, date: string): Promise<number | null> {
+  try {
+    const bars = await getIntradayBars(symbol, date, 1, 'minute');
+    if (!bars || bars.length === 0) return null;
+    
+    const premarketBars = bars.filter(b => isPremarketBeforeCutoff(b.t));
+    if (premarketBars.length === 0) return null;
+    
+    return premarketBars[premarketBars.length - 1].c;
+  } catch {
+    return null;
+  }
+}
+
 export async function backtestGapAndGo(config: BacktestConfig): Promise<BacktestResult> {
   console.log('\n=== GAP AND GO BACKTEST ===');
   console.log('Config:', config);
@@ -428,7 +486,7 @@ export async function backtestGapAndGo(config: BacktestConfig): Promise<Backtest
   console.log(`Testing ${tradingDays.length} trading days`);
   
   const allTrades: GapAndGoTrade[] = [];
-  let previousDayData: Map<string, { c: number }> = new Map();
+  let previousDayData: Map<string, { o: number; c: number }> = new Map();
   
   for (let i = 1; i < tradingDays.length; i++) {
     const today = tradingDays[i];
@@ -441,7 +499,8 @@ export async function backtestGapAndGo(config: BacktestConfig): Promise<Backtest
       previousDayData = await getGroupedDaily(yesterday);
     }
     
-    // Get today's grouped daily to find gap candidates
+    // Get today's grouped daily - we use this to know which symbols traded
+    // but we calculate gap from PREMARKET data, not the official open
     const todayData = await getGroupedDaily(today);
     
     if (todayData.size === 0) {
@@ -450,26 +509,46 @@ export async function backtestGapAndGo(config: BacktestConfig): Promise<Backtest
       continue;
     }
     
-    // Find gap candidates
-    const candidates: { symbol: string; gapPercent: number; price: number; prevClose: number }[] = [];
+    // Find gap candidates - but we need to check premarket prices
+    // In live trading, scanner shows gaps based on premarket last price vs prev close
+    const candidates: { symbol: string; gapPercent: number; premarketPrice: number; prevClose: number }[] = [];
     
+    // First pass: quick filter using grouped daily open as approximation
+    const potentialGappers: { symbol: string; prevClose: number }[] = [];
     for (const [symbol, bar] of todayData) {
       const prevBar = previousDayData.get(symbol);
       if (!prevBar) continue;
       
-      // Large cap filter if enabled
       if (config.largeCapsOnly && !LARGE_CAP_STOCKS.has(symbol)) {
         continue;
       }
       
-      const gapPercent = ((bar.c - prevBar.c) / prevBar.c) * 100; // Using close as proxy for open in grouped
+      // Quick check: does it look like it might have gapped?
+      const roughGap = ((bar.o - prevBar.c) / prevBar.c) * 100;
+      if (roughGap >= config.minGapPercent * 0.7 && 
+          roughGap <= config.maxGapPercent * 1.3 &&
+          bar.o >= config.minPrice * 0.8 &&
+          bar.o <= config.maxPrice * 1.2) {
+        potentialGappers.push({ symbol, prevClose: prevBar.c });
+      }
+    }
+    
+    // Second pass: for potential gappers, get actual premarket price
+    for (const { symbol, prevClose } of potentialGappers.slice(0, 20)) {
+      const premarketPrice = await getPremarketLastPrice(symbol, today);
+      if (!premarketPrice) continue;
+      
+      // Calculate gap from premarket last price (what scanner would show at 9:25 AM)
+      const gapPercent = ((premarketPrice - prevClose) / prevClose) * 100;
       
       if (gapPercent >= config.minGapPercent && 
           gapPercent <= config.maxGapPercent &&
-          bar.c >= config.minPrice &&
-          bar.c <= config.maxPrice) {
-        candidates.push({ symbol, gapPercent, price: bar.c, prevClose: prevBar.c });
+          premarketPrice >= config.minPrice &&
+          premarketPrice <= config.maxPrice) {
+        candidates.push({ symbol, gapPercent, premarketPrice, prevClose });
       }
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
     // Sort by gap percent and take top candidates
@@ -500,7 +579,7 @@ export async function backtestGapAndGo(config: BacktestConfig): Promise<Backtest
         }
         
         // Simulate the trade
-        const trade = await simulateGapAndGoTrade(setup, config.positionSize);
+        const trade = await simulateGapAndGoTrade(setup, config.positionSize, config.delayedEntry || false);
         
         if (trade && trade.status === 'closed') {
           allTrades.push(trade);

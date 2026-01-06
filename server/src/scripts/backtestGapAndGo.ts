@@ -23,6 +23,7 @@ async function main() {
   const toArg = args.find(a => a.startsWith('--to='))?.split('=')[1];
   const minGapArg = args.find(a => a.startsWith('--min-gap='))?.split('=')[1];
   const largeCapsOnly = args.includes('--large-caps');
+  const delayedEntry = args.includes('--delayed-entry');
   
   // Default to last month if not specified
   const endDate = toArg || new Date().toISOString().split('T')[0];
@@ -43,11 +44,16 @@ async function main() {
     minPrice: largeCapsOnly ? 20 : 1,      // Higher min price for large caps
     maxPrice: largeCapsOnly ? 500 : 20,    // Higher max price for large caps
     maxFloat: largeCapsOnly ? undefined : 50000000, // No float filter for large caps
-    largeCapsOnly
+    largeCapsOnly,
+    delayedEntry
   };
   
   if (largeCapsOnly) {
     console.log('🏢 LARGE CAPS ONLY MODE (FxPro compatible stocks)\n');
+  }
+  
+  if (delayedEntry) {
+    console.log('⏱️  DELAYED ENTRY MODE (wait 15 min, enter if price > open)\n');
   }
   
   console.log(`Period: ${config.startDate} to ${config.endDate}\n`);

@@ -336,17 +336,17 @@ export interface DaySniperBacktestResult {
   monthlyPerformance: { month: string; trades: number; pnl: number; winRate: number }[];
 }
 
-async function getGroupedDaily(date: string): Promise<Map<string, { c: number; h: number }>> {
+async function getGroupedDaily(date: string): Promise<Map<string, { o: number; c: number; h: number }>> {
   try {
     const data = await makePolygonRequest(`/v2/aggs/grouped/locale/us/market/stocks/${date}`, {
       adjusted: 'true',
       include_otc: 'false'
     });
     
-    const map = new Map<string, { c: number; h: number }>();
+    const map = new Map<string, { o: number; c: number; h: number }>();
     if (data.results) {
       for (const bar of data.results) {
-        map.set(bar.T, { c: bar.c, h: bar.h });
+        map.set(bar.T, { o: bar.o, c: bar.c, h: bar.h });
       }
     }
     return map;
@@ -418,7 +418,7 @@ export async function backtestDaySniper(config: DaySniperBacktestConfig): Promis
   console.log(`Testing ${tradingDays.length} trading days`);
   
   const allTrades: DaySniperTrade[] = [];
-  let previousDayData: Map<string, { c: number; h: number }> = new Map();
+  let previousDayData: Map<string, { o: number; c: number; h: number }> = new Map();
   
   const high20DayCache = new Map<string, number>();
   
@@ -440,7 +440,8 @@ export async function backtestDaySniper(config: DaySniperBacktestConfig): Promis
       continue;
     }
     
-    const candidates: { symbol: string; gapPercent: number; price: number; prevClose: number }[] = [];
+    // Find gap candidates using OPEN price (what we'd see at market open)
+    const candidates: { symbol: string; gapPercent: number; openPrice: number; prevClose: number }[] = [];
     
     for (const [symbol, bar] of todayData) {
       if (!LARGE_CAP_STOCKS.has(symbol)) {
@@ -450,13 +451,14 @@ export async function backtestDaySniper(config: DaySniperBacktestConfig): Promis
       const prevBar = previousDayData.get(symbol);
       if (!prevBar) continue;
       
-      const gapPercent = ((bar.c - prevBar.c) / prevBar.c) * 100;
+      // Use OPEN price to calculate gap - this is what we'd see at market open
+      const gapPercent = ((bar.o - prevBar.c) / prevBar.c) * 100;
       
       if (gapPercent >= config.minGapPercent && 
           gapPercent <= config.maxGapPercent &&
-          bar.c >= config.minPrice &&
-          bar.c <= config.maxPrice) {
-        candidates.push({ symbol, gapPercent, price: bar.c, prevClose: prevBar.c });
+          bar.o >= config.minPrice &&
+          bar.o <= config.maxPrice) {
+        candidates.push({ symbol, gapPercent, openPrice: bar.o, prevClose: prevBar.c });
       }
     }
     
