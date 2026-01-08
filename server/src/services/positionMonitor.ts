@@ -55,6 +55,32 @@ class PositionMonitorService {
         );
       }
       
+      // Clean up trades with invalid position IDs
+      const invalidPositionTrades = await Trade.find({
+        status: { $in: ['placed', 'filled', 'partial'] },
+        $or: [
+          { mt5PositionId: 'N/A' },
+          { mt5PositionId: 'undefined' },
+          { mt5PositionId: null },
+          { mt5PositionId: '' }
+        ]
+      });
+      
+      console.log(`Found ${invalidPositionTrades.length} trades with invalid position IDs to clean up`);
+      
+      for (const trade of invalidPositionTrades) {
+        console.log(`🧹 Cleaning up invalid position trade ${trade._id} (${trade.symbol})`);
+        
+        await Trade.findByIdAndUpdate(
+          trade._id,
+          {
+            status: 'cancelled',
+            cancelReason: 'invalid_position_id',
+            cancelTime: new Date()
+          }
+        );
+      }
+      
       console.log('✅ Stuck trades cleanup completed');
     } catch (error) {
       console.error('Error during stuck trades cleanup:', error);

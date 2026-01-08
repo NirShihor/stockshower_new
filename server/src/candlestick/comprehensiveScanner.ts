@@ -396,3 +396,8 @@ export class ComprehensiveScanner {
 
 // Export singleton instance
 export const comprehensiveScanner = new ComprehensiveScanner();
+
+// Export accessor for candle history (used by AI Top Trades service)
+export function getCandleHistoryMap(): Map<string, CandleHistory> {
+  return historyBySymbol;
+}

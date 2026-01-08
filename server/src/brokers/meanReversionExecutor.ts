@@ -56,8 +56,8 @@ const LARGE_CAP_SYMBOLS = [
 
 const DEFAULT_CONFIG: MeanReversionConfig = {
   targetMarginGBP: 250,
-  maxDailyTrades: 3,
-  minDropPercent: 2,
+  maxDailyTrades: 5,
+  minDropPercent: 1,
   maxDropPercent: 8,
   stopLossPercent: 1,
   minPrice: 20,
@@ -216,8 +216,8 @@ export class MeanReversionExecutor {
             const volume = marketBars.reduce((sum: number, b: any) => sum + b.v, 0);
             
             let score = 0;
-            if (dropFromOpen >= 3) score += 30;
-            else if (dropFromOpen >= 2.5) score += 25;
+            if (dropFromOpen >= 2) score += 30;
+            else if (dropFromOpen >= 1.5) score += 25;
             else score += 20;
             
             if (distanceFromVwap >= 2) score += 25;
@@ -263,7 +263,7 @@ export class MeanReversionExecutor {
     
     const entryPrice = candidate.currentPrice;
     const stopLoss = entryPrice * (1 - this.config.stopLossPercent / 100);
-    const takeProfit = candidate.vwap;
+    const takeProfit = candidate.openPrice;
 
     console.log(`\n🚀 Executing Mean Reversion LONG trade for ${candidate.symbol}`);
     console.log(`   MT5 Symbol: ${mt5Symbol}`);
@@ -272,7 +272,7 @@ export class MeanReversionExecutor {
     console.log(`   VWAP: $${candidate.vwap.toFixed(2)}`);
     console.log(`   Entry: $${entryPrice.toFixed(2)}`);
     console.log(`   Stop: $${stopLoss.toFixed(2)} (-${this.config.stopLossPercent}%)`);
-    console.log(`   Target: $${takeProfit.toFixed(2)} (VWAP)`);
+    console.log(`   Target: $${takeProfit.toFixed(2)} (EOD/Open)`)
 
     const signal = {
       id: `mr-${Date.now()}`,

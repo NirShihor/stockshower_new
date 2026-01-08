@@ -91,6 +91,13 @@ const Navigation: React.FC = () => {
         >
           Circuit Breaker
         </Link>
+        <Link 
+          to="/ai-top-trades" 
+          className={`nav-link ${location.pathname === '/ai-top-trades' ? 'active' : ''}`}
+          onClick={closeMenu}
+        >
+          AI Top Trades
+        </Link>
       </div>
       
       {/* Overlay for mobile */}

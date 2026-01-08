@@ -214,16 +214,14 @@ export function subscribeSymbols(symbols: string[], granularity: 'AM' | 'A' = 'A
   
   const topics = symbols.map(s => `${granularity}.${s.toUpperCase()}`);
   
-  // Allow up to 50 symbols - Polygon Basic plan supports this
-  const limitedTopics = topics.slice(0, 50);
-  console.log(`Subscribing to ${limitedTopics.length} symbols (from ${topics.length} requested)`);
+  console.log(`Subscribing to ${topics.length} symbols`);
   
-  limitedTopics.forEach(t => desiredSubscriptions.add(t));
+  topics.forEach(t => desiredSubscriptions.add(t));
   
   if (isConnected && wsClient) {
     wsClient.send(JSON.stringify({
       action: 'subscribe',
-      params: limitedTopics.join(',')
+      params: topics.join(',')
     }));
   }
 }

@@ -30,6 +30,9 @@ import { detectEngulfingPatterns } from './src/candlestick/patterns/engulfing.js
 import { aggregate1MinTo5Min, clearAggregator } from './src/candlestick/aggregator.js';
 import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
 import { startTrainingScheduler, stopTrainingScheduler } from './src/services/trainingScheduler.js';
+import aiTopTradesRoutes from './src/routes/aiTopTrades.js';
+import { setCandleHistoryAccessor, startAiTopTradesService, stopAiTopTradesService } from './src/services/aiTopTradesService.js';
+import { getCandleHistoryMap } from './src/candlestick/comprehensiveScanner.js';
 
   // Load environment variables
   dotenv.config();
@@ -62,6 +65,7 @@ app.use('/api/circuit-breaker', circuitBreakerStatusRoutes);
 app.use('/api/test', testCircuitBreakerRoutes);
 app.use('/api/backtest', backtestRoutes);
 app.use('/api/position-management', positionManagementRoutes);
+app.use('/api/ai-top-trades', aiTopTradesRoutes);
 
 // Signals endpoint
 app.get('/api/signals', (req: Request, res: Response) => {
@@ -158,6 +162,11 @@ if (process.env.NODE_ENV === 'production') {
       
       // Start daily training insights regeneration scheduler (21:10 UK time)
       startTrainingScheduler();
+      
+      // Setup AI Top Trades service
+      setCandleHistoryAccessor(getCandleHistoryMap);
+      startAiTopTradesService();
+      console.log('AI Top Trades service initialized - scans every 15 min (3pm-7:30pm UK)');
     });
   };
 
@@ -184,6 +193,7 @@ process.on('SIGINT', () => {
   clearAggregator(); // Clean up aggregator timers
   positionMonitor.stop(); // Stop position monitoring
   stopTrainingScheduler(); // Stop training scheduler
+  stopAiTopTradesService(); // Stop AI Top Trades service
   
   // Force exit after 5 seconds if graceful shutdown fails
   setTimeout(() => {
