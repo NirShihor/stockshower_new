@@ -1,9 +1,9 @@
 {
-  "directionAccuracy": 41.88034188034188,
+  "directionAccuracy": 41.17647058823529,
   "averageMfe": 0.43,
   "averageMae": 0.58,
-  "optimalStopPercent": 0.839226488733374,
-  "optimalTargetPercent": 1.2241853278287387,
+  "optimalStopPercent": 0.8698692399735246,
+  "optimalTargetPercent": 1.2866877368919913,
   "patternRankings": [
     {
       "pattern": "Tweezer Bottom",
@@ -546,6 +546,26 @@
       }
     },
     {
+      "pattern": "swing_short",
+      "directionAccuracy": 0,
+      "winRate": 0,
+      "avgPnlPercent": -0.48299535120535997,
+      "count": 2,
+      "recommendation": "avoid",
+      "avgMfe": 0.4,
+      "avgHoldMinutes": 0,
+      "byVolume": {
+        "high": {
+          "winRate": 0,
+          "count": 0
+        },
+        "low": {
+          "winRate": 0,
+          "count": 2
+        }
+      }
+    },
+    {
       "pattern": "Dark Cloud Cover",
       "directionAccuracy": 0,
       "winRate": 0,
@@ -637,32 +657,40 @@
     }
   ],
   "keyInsights": [
-    "Overall win rate is poor (41.9%) - be very selective",
+    "Overall win rate is poor (41.2%) - be very selective",
     "Counter-trend trades surprisingly better by 38%",
-    "Best time: midday (62%), Worst: close (25%)",
+    "Best time: midday (62%), Worst: premarket (0%)",
     "DOUBLE candle patterns perform best (66% win rate)",
     "Winners held avg 101min, losers 113min",
     "Heed warnings! \"Pattern formed on weak volume ...\" only 0% win rate",
-    "Optimal stop: 0.84%, target: 1.22%",
+    "Optimal stop: 0.87%, target: 1.29%",
     "Best patterns: Tweezer Bottom, Inverted Tweezer Top, Reversal Three White Soldiers",
     "Consider inverting: Morning Star, VwapBounce Bullish, 🔄 VwapBounce Long",
     "Inverted trades: 45% win rate (132 trades)",
     "Skipped trades would have had 42% win rate - reconsider skipping"
   ],
   "patternsToPrefer": [
-    "Tweezer Top"
+    "Tweezer Bottom",
+    "Inverted Tweezer Top",
+    "Reversal Three White Soldiers",
+    "Reversal Three Inside Down",
+    "Reversal Tweezer Top",
+    "Reversal Tweezer Bottom",
+    "Reversal Bearish Marubozu",
+    "Tweezer Top",
+    "Inverted Three Inside Down",
+    "🔄 VwapBounce Bullish"
   ],
   "patternsToAvoid": [
-    "Morning Star",
+    "Inverted Bearish Engulfing",
     "Bullish Engulfing",
-    "Three White Soldiers",
-    "Hammer",
-    "Bearish Engulfing",
-    "Shooting Star",
-    "Dark Cloud Cover"
+    "🔄 Momentum Bullish"
   ],
-  "patternsToInvert": [],
-
+  "patternsToInvert": [
+    "Morning Star",
+    "VwapBounce Bullish",
+    "🔄 VwapBounce Long"
+  ],
   "symbolPerformance": [
     {
       "symbol": "MRK",
@@ -920,6 +948,12 @@
       "winRate": 25,
       "count": 32,
       "avgPnlPercent": -0.33103519128189896
+    },
+    {
+      "period": "premarket",
+      "winRate": 0,
+      "count": 2,
+      "avgPnlPercent": -0.48299535120535997
     }
   ],
   "patternClassPerformance": [
@@ -979,9 +1013,9 @@
       "avgPnlPercent": 0.12445642649914872
     },
     "lowVolume": {
-      "winRate": 38.70967741935484,
-      "count": 62,
-      "avgPnlPercent": -0.0747407856814083
+      "winRate": 37.5,
+      "count": 64,
+      "avgPnlPercent": -0.08749874085403184
     }
   },
   "trendAlignmentPerformance": {
@@ -997,10 +1031,10 @@
     }
   },
   "slippageStats": {
-    "avgSlippagePercent": 0.20968664352869845,
+    "avgSlippagePercent": 0.2076729887343158,
     "maxSlippagePercent": 1.5866639887527598,
     "slippageByOrderType": {
-      "market": 0.20968664352869845,
+      "market": 0.2076729887343158,
       "stop": 0
     }
   },
@@ -1029,8 +1063,8 @@
       {
         "min": 85,
         "max": 100,
-        "winRate": 38.095238095238095,
-        "count": 21
+        "winRate": 34.78260869565217,
+        "count": 23
       },
       {
         "min": 75,
@@ -1075,10 +1109,10 @@
     "inversionAccuracy": 45.45454545454545,
     "skipAccuracy": 57.52688172043011
   },
-  "generatedAt": "2025-12-29T21:10:00.712Z",
-  "totalTradesAnalyzed": 117,
+  "generatedAt": "2026-01-11T21:10:01.527Z",
+  "totalTradesAnalyzed": 119,
   "dataDateRange": {
-    "from": "2025-11-04",
+    "from": "1970-01-01",
     "to": "2025-12-18"
   }
 }

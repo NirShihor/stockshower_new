@@ -7,6 +7,11 @@ export interface GapAndGoTradeConfig {
   maxDailyTrades: number;
   minScore: number;
   riskPercent: number;
+  targetRatio: number;
+  useTrailingStop: boolean;
+  trailingStopTrigger: number;
+  usePartialExit: boolean;
+  partialExitTimeUTC: number;
 }
 
 export interface ActiveTrade {
@@ -15,18 +20,29 @@ export interface ActiveTrade {
   stopOrderId?: number;
   targetOrderId?: number;
   entryPrice?: number;
-  stopLoss: number;
+  initialStopLoss: number;
+  currentStopLoss: number;
   target: number;
   quantity: number;
+  remainingQuantity: number;
+  risk: number;
+  highSinceEntry: number;
+  trailingStopActive: boolean;
+  partialExitDone: boolean;
   status: 'pending_entry' | 'filled' | 'closed';
   pnl?: number;
 }
 
 const DEFAULT_CONFIG: GapAndGoTradeConfig = {
-  positionSize: 10000,
-  maxDailyTrades: 5,
+  positionSize: 100,
+  maxDailyTrades: 1,
   minScore: 50,
-  riskPercent: 2
+  riskPercent: 2,
+  targetRatio: 1.5,
+  useTrailingStop: true,
+  trailingStopTrigger: 1.0,
+  usePartialExit: false,
+  partialExitTimeUTC: 16 * 60 + 30,
 };
 
 export class GapAndGoExecutor {
@@ -38,6 +54,7 @@ export class GapAndGoExecutor {
   private isRunning: boolean = false;
   private scanInterval: NodeJS.Timeout | null = null;
   private hasClosedStalePositions: boolean = false;
+  private hasClosedEOD: boolean = false;
 
   constructor(ib: InteractiveBrokersClient, config: Partial<GapAndGoTradeConfig> = {}) {
     this.ib = ib;
@@ -134,14 +151,13 @@ export class GapAndGoExecutor {
   }
 
   private async placeExitOrders(symbol: string, trade: ActiveTrade, fillPrice: number): Promise<void> {
-    // Round prices to valid tick sizes
-    const stopPrice = this.roundToTick(trade.stopLoss);
+    const stopPrice = this.roundToTick(trade.currentStopLoss);
     const targetPrice = this.roundToTick(trade.target);
 
     const stopOrderId = await this.ib.placeStopOrder(
       symbol,
       'SELL',
-      trade.quantity,
+      trade.remainingQuantity,
       stopPrice
     );
     trade.stopOrderId = stopOrderId;
@@ -149,21 +165,85 @@ export class GapAndGoExecutor {
     const targetOrderId = await this.ib.placeLimitOrder(
       symbol,
       'SELL',
-      trade.quantity,
+      trade.remainingQuantity,
       targetPrice
     );
     trade.targetOrderId = targetOrderId;
 
     console.log(`📊 Exit orders placed for ${symbol}:`);
     console.log(`   Stop: $${stopPrice} (ID: ${stopOrderId})`);
-    console.log(`   Target: $${targetPrice} (ID: ${targetOrderId})`);
+    console.log(`   Target: $${targetPrice} (R:R ${this.config.targetRatio}:1) (ID: ${targetOrderId})`);
+  }
+
+  async updateTrailingStop(symbol: string, currentPrice: number): Promise<void> {
+    const trade = this.activeTrades.get(symbol);
+    if (!trade || trade.status !== 'filled' || !trade.entryPrice) return;
+
+    if (currentPrice > trade.highSinceEntry) {
+      trade.highSinceEntry = currentPrice;
+    }
+
+    const trailingTriggerPrice = trade.entryPrice + (trade.risk * this.config.trailingStopTrigger);
+
+    if (this.config.useTrailingStop && !trade.trailingStopActive && trade.highSinceEntry >= trailingTriggerPrice) {
+      trade.trailingStopActive = true;
+      trade.currentStopLoss = trade.entryPrice;
+      console.log(`📈 Trailing stop activated for ${symbol} - stop moved to breakeven $${trade.entryPrice.toFixed(2)}`);
+      await this.updateStopOrder(symbol, trade);
+    }
+
+    if (trade.trailingStopActive) {
+      const trailStop = trade.highSinceEntry - (trade.risk * 0.5);
+      if (trailStop > trade.currentStopLoss) {
+        trade.currentStopLoss = trailStop;
+        console.log(`📈 Trailing stop updated for ${symbol} to $${trailStop.toFixed(2)}`);
+        await this.updateStopOrder(symbol, trade);
+      }
+    }
+  }
+
+  private async updateStopOrder(symbol: string, trade: ActiveTrade): Promise<void> {
+    if (trade.stopOrderId) {
+      this.ib.cancelOrder(trade.stopOrderId);
+    }
+    const stopPrice = this.roundToTick(trade.currentStopLoss);
+    const stopOrderId = await this.ib.placeStopOrder(
+      symbol,
+      'SELL',
+      trade.remainingQuantity,
+      stopPrice
+    );
+    trade.stopOrderId = stopOrderId;
+  }
+
+  async checkPartialExit(symbol: string, currentPrice: number): Promise<void> {
+    const trade = this.activeTrades.get(symbol);
+    if (!trade || trade.status !== 'filled' || !trade.entryPrice) return;
+    if (!this.config.usePartialExit || trade.partialExitDone) return;
+
+    const now = new Date();
+    const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+    if (currentMinutes >= this.config.partialExitTimeUTC && currentPrice > trade.entryPrice) {
+      const sharesToSell = Math.floor(trade.remainingQuantity * 0.5);
+      if (sharesToSell > 0) {
+        console.log(`⏰ Partial exit for ${symbol}: selling ${sharesToSell} shares at $${currentPrice.toFixed(2)}`);
+        await this.ib.placeMarketOrder(symbol, 'SELL', sharesToSell);
+        trade.remainingQuantity -= sharesToSell;
+        trade.partialExitDone = true;
+        
+        if (trade.stopOrderId) this.ib.cancelOrder(trade.stopOrderId);
+        if (trade.targetOrderId) this.ib.cancelOrder(trade.targetOrderId);
+        await this.placeExitOrders(symbol, trade, trade.entryPrice);
+      }
+    }
   }
 
   private closeTrade(symbol: string, exitPrice: number, reason: string): void {
     const trade = this.activeTrades.get(symbol);
     if (!trade || !trade.entryPrice) return;
 
-    const pnl = (exitPrice - trade.entryPrice) * trade.quantity;
+    const pnl = (exitPrice - trade.entryPrice) * trade.remainingQuantity;
     trade.pnl = pnl;
     trade.status = 'closed';
     this.dailyPnL += pnl;
@@ -200,7 +280,7 @@ export class GapAndGoExecutor {
     const entryPrice = candidate.premarketHigh;
     const stopLoss = candidate.premarketLow;
     const risk = entryPrice - stopLoss;
-    const target = entryPrice + (risk * 2);
+    const target = entryPrice + (risk * this.config.targetRatio);
 
     const riskPerShare = entryPrice - stopLoss;
     const maxRiskDollars = this.config.positionSize * (this.config.riskPercent / 100);
@@ -230,9 +310,15 @@ export class GapAndGoExecutor {
     const trade: ActiveTrade = {
       symbol: candidate.symbol,
       entryOrderId: orderId,
-      stopLoss,
+      initialStopLoss: stopLoss,
+      currentStopLoss: stopLoss,
       target,
       quantity,
+      remainingQuantity: quantity,
+      risk,
+      highSinceEntry: entryPrice,
+      trailingStopActive: false,
+      partialExitDone: false,
       status: 'pending_entry'
     };
 
@@ -309,12 +395,16 @@ export class GapAndGoExecutor {
       const eodCloseTime = 20 * 60 + 58; // 3:58 PM EST - close 2 min before market close
 
       if (totalMinutes >= eodCloseTime && totalMinutes < marketClose) {
-        console.log('🔔 End of day - closing all positions');
-        this.closeAllPositions();
+        if (!this.hasClosedEOD) {
+          console.log('🔔 End of day - closing all positions');
+          this.closeAllPositions();
+          this.hasClosedEOD = true;
+        }
       } else if (totalMinutes >= marketOpen && totalMinutes < tradingWindow) {
         this.scanAndExecute();
+        this.monitorActiveTrades();
       } else if (totalMinutes >= tradingWindow && totalMinutes < eodCloseTime) {
-        console.log('⏰ Trading window closed (first 30 mins over) - monitoring positions');
+        this.monitorActiveTrades();
       }
     }, intervalMs);
   }
@@ -328,16 +418,38 @@ export class GapAndGoExecutor {
     console.log('🛑 Auto trading stopped');
   }
 
+  async monitorActiveTrades(): Promise<void> {
+    for (const [symbol, trade] of this.activeTrades) {
+      if (trade.status !== 'filled') continue;
+      
+      try {
+        const positions = this.ib.getPositions();
+        const position = positions.get(symbol);
+        if (position && position.marketValue && position.quantity) {
+          const currentPrice = position.marketValue / Math.abs(position.quantity);
+          await this.updateTrailingStop(symbol, currentPrice);
+          await this.checkPartialExit(symbol, currentPrice);
+        }
+      } catch (error) {
+        console.warn(`Error monitoring ${symbol}:`, error);
+      }
+    }
+  }
+
   closeAllPositions(): void {
     console.log('Closing all positions...');
     for (const [symbol, trade] of this.activeTrades) {
       if (trade.status === 'filled') {
-        this.ib.placeMarketOrder(symbol, 'SELL', trade.quantity);
+        console.log(`  Closing ${symbol}: ${trade.remainingQuantity} shares`);
+        this.ib.placeMarketOrder(symbol, 'SELL', trade.remainingQuantity);
       } else if (trade.status === 'pending_entry') {
+        console.log(`  Cancelling pending order for ${symbol}`);
         this.ib.cancelOrder(trade.entryOrderId);
       }
     }
     this.ib.cancelAllOrders();
+    this.activeTrades.clear();
+    console.log('All positions closed and orders cancelled');
   }
 
   getActiveTrades(): Map<string, ActiveTrade> {
@@ -354,6 +466,8 @@ export class GapAndGoExecutor {
   resetDailyStats(): void {
     this.dailyTradeCount = 0;
     this.dailyPnL = 0;
+    this.hasClosedEOD = false;
+    this.hasClosedStalePositions = false;
   }
 }
 

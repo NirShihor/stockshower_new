@@ -31,12 +31,13 @@ export interface GapAndGoTrade {
   target2?: number;
   exitTime?: string;
   exitPrice?: number;
-  exitReason?: 'target1' | 'target2' | 'stop_loss' | 'time_stop' | 'end_of_day';
+  exitReason?: 'target1' | 'target2' | 'stop_loss' | 'time_stop' | 'end_of_day' | 'trailing_stop' | 'partial_exit';
   pnl?: number;
   pnlPercent?: number;
   riskRewardRatio: string;
   positionSize: number;
   status: 'pending' | 'filled' | 'closed';
+  partialExitPnl?: number;
 }
 
 interface PolygonBar {
@@ -236,11 +237,32 @@ export async function analyzeGapAndGoSetup(
   };
 }
 
+export interface TradeExitConfig {
+  targetRatio: number;
+  useTrailingStop: boolean;
+  trailingStopTrigger: number;
+  usePartialExit: boolean;
+  partialExitTime: number;
+  partialExitPercent: number;
+}
+
+const DEFAULT_EXIT_CONFIG: TradeExitConfig = {
+  targetRatio: 1.5,
+  useTrailingStop: true,
+  trailingStopTrigger: 1.0,
+  usePartialExit: true,
+  partialExitTime: 16 * 60 + 30,
+  partialExitPercent: 0.5,
+};
+
 export async function simulateGapAndGoTrade(
   candidate: GapAndGoCandidate,
   positionSize: number = 10000,
-  delayedEntry: boolean = false
+  delayedEntry: boolean = false,
+  exitConfig: Partial<TradeExitConfig> = {}
 ): Promise<GapAndGoTrade | null> {
+  
+  const config = { ...DEFAULT_EXIT_CONFIG, ...exitConfig };
   
   const bars = await getIntradayBars(candidate.symbol, candidate.date, 1, 'minute');
   
@@ -257,50 +279,45 @@ export async function simulateGapAndGoTrade(
   let entryPrice: number;
   let entryBarIndex: number;
   const openPrice = marketBars[0].o;
-  const stopLoss = candidate.premarketLow;
+  const initialStopLoss = candidate.premarketLow;
   
   if (delayedEntry) {
-    // Wait 15 minutes, then check if price held above open
     if (marketBars.length < 15) {
       return null;
     }
     
-    const bar15 = marketBars[14]; // 15th minute bar (index 14)
+    const bar15 = marketBars[14];
     const closeAt15 = bar15.c;
     
-    // Only enter if price at 15 min is ABOVE open price (momentum confirmed)
     if (closeAt15 <= openPrice) {
-      return null; // Gap faded, skip this trade
+      return null;
     }
     
-    // Also check price hasn't already hit stop
     const lowFirst15 = Math.min(...marketBars.slice(0, 15).map(b => b.l));
-    if (lowFirst15 <= stopLoss) {
-      return null; // Would have been stopped out already
+    if (lowFirst15 <= initialStopLoss) {
+      return null;
     }
     
     entryPrice = closeAt15;
     entryBarIndex = 15;
   } else {
-    // Original: Enter at market open
     entryPrice = openPrice;
     entryBarIndex = 1;
   }
   
-  const risk = entryPrice - stopLoss;
+  const risk = entryPrice - initialStopLoss;
   
-  // Skip if risk is negative or too small
   if (risk <= 0) {
     return null;
   }
   
-  // Target: 2:1 risk/reward
-  const target1 = entryPrice + (risk * 2);
-  const target2 = entryPrice + (risk * 3);
+  const target1 = entryPrice + (risk * config.targetRatio);
+  const target2 = entryPrice + (risk * (config.targetRatio + 1));
+  const breakevenPrice = entryPrice;
+  const trailingTriggerPrice = entryPrice + (risk * config.trailingStopTrigger);
   
-  // Calculate position size based on risk
-  const riskPerShare = entryPrice - stopLoss;
-  const maxRiskDollars = positionSize * 0.02; // 2% risk
+  const riskPerShare = entryPrice - initialStopLoss;
+  const maxRiskDollars = positionSize * 0.02;
   const shares = Math.floor(maxRiskDollars / riskPerShare);
   
   if (shares < 1) {
@@ -308,7 +325,6 @@ export async function simulateGapAndGoTrade(
   }
   
   const actualPositionSize = shares * entryPrice;
-  
   const entryBar = marketBars[entryBarIndex - 1] || marketBars[0];
   
   let trade: GapAndGoTrade = {
@@ -316,28 +332,61 @@ export async function simulateGapAndGoTrade(
     date: candidate.date,
     entryTime: new Date(entryBar.t).toISOString(),
     entryPrice: entryPrice,
-    stopLoss,
+    stopLoss: initialStopLoss,
     target1,
     target2,
-    riskRewardRatio: '1:2',
+    riskRewardRatio: `1:${config.targetRatio}`,
     positionSize: actualPositionSize,
     status: 'filled'
   };
   
-  // Now simulate exit - start from bar after entry
+  let currentStop = initialStopLoss;
+  let trailingStopActive = false;
+  let highSinceEntry = entryPrice;
+  let remainingShares = shares;
+  let partialExitDone = false;
+  let partialPnl = 0;
+  
   for (let i = entryBarIndex; i < marketBars.length; i++) {
     const bar = marketBars[i];
+    const barTime = new Date(bar.t);
+    const barMinutes = barTime.getUTCHours() * 60 + barTime.getUTCMinutes();
     
-    // Check stop loss first (worst case)
-    if (bar.l <= stopLoss) {
+    if (bar.h > highSinceEntry) {
+      highSinceEntry = bar.h;
+    }
+    
+    if (config.useTrailingStop && !trailingStopActive && highSinceEntry >= trailingTriggerPrice) {
+      trailingStopActive = true;
+      currentStop = breakevenPrice;
+    }
+    
+    if (trailingStopActive) {
+      const trailStop = highSinceEntry - (risk * 0.5);
+      if (trailStop > currentStop) {
+        currentStop = trailStop;
+      }
+    }
+    
+    if (config.usePartialExit && !partialExitDone && barMinutes >= config.partialExitTime) {
+      if (bar.c > entryPrice) {
+        const sharesToSell = Math.floor(remainingShares * config.partialExitPercent);
+        if (sharesToSell > 0) {
+          partialPnl = (bar.c - entryPrice) * sharesToSell;
+          remainingShares -= sharesToSell;
+          partialExitDone = true;
+        }
+      }
+    }
+    
+    if (bar.l <= currentStop) {
       trade.exitTime = new Date(bar.t).toISOString();
-      trade.exitPrice = stopLoss;
-      trade.exitReason = 'stop_loss';
+      trade.exitPrice = currentStop;
+      trade.exitReason = trailingStopActive ? 'trailing_stop' : 'stop_loss';
       trade.status = 'closed';
       break;
     }
     
-    // Check target 1
     if (bar.h >= target1 && !trade.exitPrice) {
       trade.exitTime = new Date(bar.t).toISOString();
       trade.exitPrice = target1;
@@ -347,7 +396,6 @@ export async function simulateGapAndGoTrade(
     }
   }
   
-  // If still open at end of data, close at last price
   if (trade.status === 'filled') {
     const lastBar = marketBars[marketBars.length - 1];
     trade.exitTime = new Date(lastBar.t).toISOString();
@@ -356,11 +404,13 @@ export async function simulateGapAndGoTrade(
     trade.status = 'closed';
   }
   
-  // Calculate P&L
   if (trade.exitPrice && trade.status === 'closed') {
     const pnlPerShare = trade.exitPrice - trade.entryPrice;
-    trade.pnl = pnlPerShare * shares;
-    trade.pnlPercent = (pnlPerShare / trade.entryPrice) * 100;
+    trade.pnl = (pnlPerShare * remainingShares) + partialPnl;
+    trade.pnlPercent = (trade.pnl / actualPositionSize) * 100;
+    if (partialPnl > 0) {
+      trade.partialExitPnl = partialPnl;
+    }
   }
   
   return trade;

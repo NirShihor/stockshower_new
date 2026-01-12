@@ -8,6 +8,8 @@ export interface FxProGapTradeConfig {
   minGapPercent: number;
   maxGapPercent: number;
   riskRewardRatio: number;
+  useTrailingStop: boolean;
+  trailingStopTrigger: number;
 }
 
 export interface GapCandidate {
@@ -39,21 +41,25 @@ export interface ActiveGapTrade {
 }
 
 const DEFAULT_CONFIG: FxProGapTradeConfig = {
-  targetMarginGBP: 5,
-  maxDailyTrades: 3,
-  minGapPercent: 2.5,
-  maxGapPercent: 15,
-  riskRewardRatio: 2
+  targetMarginGBP: 1,
+  maxDailyTrades: 5,
+  minGapPercent: 5,
+  maxGapPercent: 100,
+  riskRewardRatio: 1.5,
+  useTrailingStop: true,
+  trailingStopTrigger: 1.0,
 };
 
 export class FxProGapExecutor {
   private config: FxProGapTradeConfig;
   private activeTrades: Map<string, ActiveGapTrade> = new Map();
+  private failedSymbols: Set<string> = new Set();
   private dailyTradeCount: number = 0;
   private dailyPnL: number = 0;
   private isRunning: boolean = false;
   private scanInterval: NodeJS.Timeout | null = null;
   private scannerBaseUrl: string;
+  private hasClosedEOD: boolean = false;
 
   constructor(config: Partial<FxProGapTradeConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -61,12 +67,13 @@ export class FxProGapExecutor {
   }
 
   private convertToMT5Symbol(symbol: string): string {
-    const nasdaqStocks = [
+    const nasdaqStocks = new Set([
       'AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AFRM', 'AKAM', 'ALGN', 'ALNY', 'AMAT', 'AMD', 'AMGN', 'AMZN',
-      'APP', 'ARGX', 'ARM', 'ASML', 'AVGO', 'AXON', 'BIDU', 'BIIB', 'BILI', 'BKR', 'BMRN', 'BNTX',
-      'CDNS', 'CDW', 'CHKP', 'CHRW', 'CHTR', 'CME', 'CMCSA', 'COIN', 'COST', 'CPRT', 'CRWD', 'CSCO', 'CSGP', 'CSX', 'CTAS', 'CTSH',
+      'ANSS', 'APP', 'ARGX', 'ARM', 'ASML', 'AVGO', 'AXON',
+      'BIDU', 'BIIB', 'BILI', 'BKR', 'BMRN', 'BNTX',
+      'CDNS', 'CDW', 'CEG', 'CHKP', 'CHRW', 'CHTR', 'CME', 'CMCSA', 'COIN', 'COST', 'CPRT', 'CRWD', 'CSCO', 'CSGP', 'CSX', 'CTAS', 'CTSH',
       'DASH', 'DDOG', 'DKNG', 'DLTR', 'DOCU', 'DXCM',
-      'EA', 'EBAY', 'ENPH', 'EQIX', 'EXAS',
+      'EA', 'EBAY', 'ENPH', 'EQIX', 'EXAS', 'EXC',
       'FANG', 'FAST', 'FISV', 'FTNT',
       'GEN', 'GFS', 'GILD', 'GOOG', 'GOOGL',
       'HBAN', 'HOLX', 'HON', 'HOOD',
@@ -80,16 +87,38 @@ export class FxProGapExecutor {
       'PANW', 'PAYX', 'PCAR', 'PDD', 'PEP', 'PLTR', 'PLUG', 'PYPL',
       'QCOM', 'QQQ',
       'REGN', 'RIOT', 'RIVN', 'RKLB', 'ROKU', 'ROP', 'ROST',
-      'SBUX', 'SEDG', 'SHOP', 'SMCI', 'SNPS', 'SOFI', 'SPLK', 'SSNC', 'STX', 'SWKS',
+      'SBUX', 'SEDG', 'SHOP', 'SIRI', 'SMCI', 'SNPS', 'SOFI', 'SPLK', 'SSNC', 'STX', 'SWKS',
       'TEAM', 'TER', 'TMUS', 'TSLA', 'TTD', 'TTWO', 'TXN',
       'UAL', 'ULTA',
       'VRSK', 'VRSN', 'VRTX',
-      'WDAY', 'WDC',
+      'WBA', 'WDAY', 'WDC',
       'XEL',
-      'ZM', 'ZS'
-    ];
+      'ZM', 'ZS',
+      'ACHR', 'AEHR', 'AIFF', 'AMBO', 'ATOM', 'AZTR',
+      'BEEM', 'BIRD', 'BREA',
+      'CCEL', 'CING', 'CNEY', 'CNFR',
+      'DAPP',
+      'ENSC', 'ESGL', 'ETHW',
+      'FCUV', 'FEIM',
+      'GRRR',
+      'ICLK', 'IMNN', 'INMB',
+      'JBDI', 'JG',
+      'KOSS',
+      'LAAC', 'LIXT', 'LPSN',
+      'MCRB', 'MIRA', 'MYTE',
+      'NITO', 'NXL', 'NUTX', 'NVDX',
+      'OSS',
+      'PHUN', 'PVL',
+      'RETL',
+      'SILV', 'SLGL', 'SNAL', 'SOAR', 'SSKN', 'SXTP', 'SYRS',
+      'TATT', 'TENX', 'TIVC', 'TKLF', 'TOP', 'TOVX', 'TSLT',
+      'VERO', 'VRAX', 'VTAK',
+      'WOLF', 'WW',
+      'XWEL',
+      'ZAPP', 'ZONE'
+    ]);
 
-    if (nasdaqStocks.includes(symbol)) {
+    if (nasdaqStocks.has(symbol)) {
       return `${symbol}.O`;
     }
     return `${symbol}.N`;
@@ -107,7 +136,7 @@ export class FxProGapExecutor {
 
   async scanForGaps(direction: 'up' | 'down' = 'up'): Promise<GapCandidate[]> {
     try {
-      const endpoint = direction === 'up' ? '/api/scan/gap-ups' : '/api/scan/gap-downs';
+      const endpoint = direction === 'up' ? '/api/analysis/scan-gap-ups' : '/api/analysis/scan-gap-downs';
       const response = await axios.post(`${this.scannerBaseUrl}${endpoint}`, {
         volatilityLevel: 'medium'
       });
@@ -152,6 +181,11 @@ export class FxProGapExecutor {
 
     if (this.activeTrades.has(candidate.symbol)) {
       console.log(`⏸️ Already have active trade for ${candidate.symbol}`);
+      return false;
+    }
+
+    if (this.failedSymbols.has(candidate.symbol)) {
+      console.log(`⏸️ Skipping ${candidate.symbol} - previously failed`);
       return false;
     }
 
@@ -225,11 +259,24 @@ export class FxProGapExecutor {
       },
       score: 75,
       notes: [`Gap ${direction} trade`, `Gap: ${candidate.gapPercentage.toFixed(2)}%`],
-      currentPrice: candidate.currentPrice
+      currentPrice: candidate.currentPrice,
+      gapData: {
+        gapPercentage: candidate.gapPercentage,
+        premarketHigh: candidate.premarketHigh,
+        premarketLow: candidate.premarketLow,
+        previousClose: candidate.previousClose,
+        openPrice: candidate.openPrice,
+        volume: candidate.volume,
+        companyName: candidate.companyName,
+        exchange: candidate.exchange,
+        riskRewardRatio: this.config.riskRewardRatio,
+        useTrailingStop: this.config.useTrailingStop,
+        trailingStopTrigger: this.config.trailingStopTrigger
+      }
     };
 
     try {
-      const result = await metaApiHandler.placeOrder(signal);
+      const result = await metaApiHandler.placeOrder(signal as any);
 
       if (result.success) {
         const trade: ActiveGapTrade = {
@@ -253,6 +300,7 @@ export class FxProGapExecutor {
         return true;
       } else {
         console.log(`❌ Order failed: ${result.error}`);
+        this.failedSymbols.add(candidate.symbol);
         return false;
       }
     } catch (error) {
@@ -319,12 +367,20 @@ export class FxProGapExecutor {
 
       const marketOpen = 14 * 60 + 30;
       const tradingWindow = 15 * 60;
+      const marketClose = 21 * 60;
+      const eodCloseTime = 20 * 60 + 58;
 
-      if (totalMinutes >= marketOpen && totalMinutes < tradingWindow) {
+      if (totalMinutes >= eodCloseTime && totalMinutes < marketClose) {
+        if (!this.hasClosedEOD) {
+          console.log('🔔 End of day - closing all positions');
+          this.closeAllPositions();
+          this.hasClosedEOD = true;
+        }
+      } else if (totalMinutes >= marketOpen && totalMinutes < tradingWindow) {
         this.scanAndExecute();
-      } else if (totalMinutes >= tradingWindow) {
-        console.log('⏰ Trading window closed (first 30 mins over)');
-        this.stopAutoTrading();
+        this.monitorTradesForTrailingStop();
+      } else if (totalMinutes >= tradingWindow && totalMinutes < eodCloseTime) {
+        this.monitorTradesForTrailingStop();
       }
     }, intervalMs);
   }
@@ -362,6 +418,38 @@ export class FxProGapExecutor {
     this.dailyTradeCount = 0;
     this.dailyPnL = 0;
     this.activeTrades.clear();
+    this.failedSymbols.clear();
+    this.hasClosedEOD = false;
+  }
+
+  async monitorTradesForTrailingStop(): Promise<void> {
+    if (!this.config.useTrailingStop) return;
+    
+    for (const [symbol, trade] of this.activeTrades) {
+      if (trade.status !== 'filled') continue;
+      
+      try {
+        const positions = await metaApiHandler.getPositions();
+        const position = positions.find((p: any) => p.symbol === trade.mt5Symbol);
+        
+        if (position && position.currentPrice) {
+          const currentPrice = position.currentPrice;
+          const risk = trade.entryPrice - trade.stopLoss;
+          const trailingTriggerPrice = trade.entryPrice + (risk * this.config.trailingStopTrigger);
+          
+          if (currentPrice >= trailingTriggerPrice) {
+            const newStop = currentPrice - (risk * 0.5);
+            if (newStop > trade.stopLoss) {
+              console.log(`📈 Trailing stop update for ${symbol}: $${trade.stopLoss.toFixed(2)} -> $${newStop.toFixed(2)}`);
+              await metaApiHandler.modifyPosition(position.id, newStop, trade.takeProfit);
+              trade.stopLoss = newStop;
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`Error monitoring ${symbol}:`, error);
+      }
+    }
   }
 }
 

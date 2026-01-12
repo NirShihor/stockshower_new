@@ -10,6 +10,16 @@ import { detectTripleCandlePatterns } from '../candlestick/patterns/tripleCandle
 import { buildTradePlan, buildConfirmationPlan } from '../candlestick/helpers/tradePlanning.js';
 import { Candle } from '../candlestick/types/index.js';
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
+import { getMarketContext, MarketContext } from './marketContextService.js';
+import { getSectorAnalysis, SectorAnalysis, getSectorStrength } from './sectorAnalysisService.js';
+import { getMultiTimeframeAnalysis, MultiTimeframeAnalysis } from './multiTimeframeService.js';
+import { getCachedStockProfile, StockProfile } from './stockProfileService.js';
+import { 
+  buildEnhancedSystemPrompt, 
+  buildEnhancedUserPrompt, 
+  EnhancedCandidate, 
+  AITradingContext 
+} from '../helpers/aiPromptBuilder.js';
 
 const client = new Anthropic();
 
@@ -242,6 +252,97 @@ Remember: Only select trades with genuine edge. Quality over quantity.`;
     console.error('[AI-TOP-TRADES] Error getting AI recommendation:', error);
     return [];
   }
+}
+
+async function getEnhancedAIRecommendation(
+  context: AITradingContext
+): Promise<TopTradeRecommendation[]> {
+  const systemPrompt = buildEnhancedSystemPrompt();
+  const userPrompt = buildEnhancedUserPrompt(context);
+
+  console.log(`[AI-TOP-TRADES] Sending enhanced context to AI (${context.candidates.length} candidates)`);
+
+  try {
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userPrompt }]
+    });
+
+    const content = response.content[0];
+    if (content.type !== 'text') {
+      throw new Error('Unexpected response type');
+    }
+
+    const jsonMatch = content.text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    
+    if (parsed.marketAssessment) {
+      console.log(`[AI-TOP-TRADES] AI Market Assessment: ${parsed.marketAssessment}`);
+      console.log(`[AI-TOP-TRADES] AI Trading Approach: ${parsed.tradingApproach}`);
+    }
+    
+    return parsed.recommendations || [];
+  } catch (error) {
+    console.error('[AI-TOP-TRADES] Error getting enhanced AI recommendation:', error);
+    return [];
+  }
+}
+
+async function buildEnhancedCandidates(
+  candidates: ComprehensiveSignal[],
+  date: string,
+  sectorAnalysis: SectorAnalysis | null,
+  intradayDataMap?: Map<string, Candle[]>
+): Promise<EnhancedCandidate[]> {
+  const enhancedCandidates: EnhancedCandidate[] = [];
+  
+  const uniqueSymbols = [...new Set(candidates.map(c => c.symbol))];
+  console.log(`[AI-TOP-TRADES] Building enhanced context for ${uniqueSymbols.length} unique symbols`);
+  
+  const mtfPromises = uniqueSymbols.map(async symbol => {
+    const intradayCandles = intradayDataMap?.get(symbol);
+    const mtf = await getMultiTimeframeAnalysis(symbol, date, intradayCandles);
+    return { symbol, mtf };
+  });
+  
+  const profilePromises = uniqueSymbols.map(async symbol => {
+    const profile = await getCachedStockProfile(symbol, date);
+    return { symbol, profile };
+  });
+  
+  const [mtfResults, profileResults] = await Promise.all([
+    Promise.all(mtfPromises),
+    Promise.all(profilePromises)
+  ]);
+  
+  const mtfMap = new Map<string, MultiTimeframeAnalysis | null>();
+  const profileMap = new Map<string, StockProfile | null>();
+  
+  for (const { symbol, mtf } of mtfResults) {
+    mtfMap.set(symbol, mtf);
+  }
+  for (const { symbol, profile } of profileResults) {
+    profileMap.set(symbol, profile);
+  }
+  
+  for (const signal of candidates) {
+    const sectorStrength = sectorAnalysis ? getSectorStrength(sectorAnalysis, signal.symbol) : null;
+    
+    enhancedCandidates.push({
+      signal,
+      mtfAnalysis: mtfMap.get(signal.symbol) || null,
+      stockProfile: profileMap.get(signal.symbol) || null,
+      sectorStrength
+    });
+  }
+  
+  return enhancedCandidates;
 }
 
 async function executeTopTrades(recommendations: TopTradeRecommendation[], candidates: ComprehensiveSignal[]): Promise<{ executed: string[]; skipped: string[] }> {
@@ -655,7 +756,28 @@ export async function runBacktest(
     };
   }
   
-  const recommendations = await getAITopTradesRecommendation(candidates);
+  console.log(`[AI-TOP-TRADES BACKTEST] Fetching market context and sector data...`);
+  const [marketContext, sectorAnalysis] = await Promise.all([
+    getMarketContext(date),
+    getMarketContext(date).then(mc => getSectorAnalysis(date, mc?.spy.changePercent || 0))
+  ]);
+  
+  console.log(`[AI-TOP-TRADES BACKTEST] Building enhanced candidates with MTF and profiles...`);
+  const enhancedCandidates = await buildEnhancedCandidates(
+    candidates,
+    date,
+    sectorAnalysis,
+    historicalData
+  );
+  
+  const aiContext: AITradingContext = {
+    marketContext,
+    sectorAnalysis,
+    candidates: enhancedCandidates,
+    timestamp: scanTimeUtc.toISOString()
+  };
+  
+  const recommendations = await getEnhancedAIRecommendation(aiContext);
   console.log(`[AI-TOP-TRADES BACKTEST] AI recommended ${recommendations.length} trades`);
   
   const hypotheticalOutcomes: HypotheticalOutcome[] = [];
@@ -894,6 +1016,105 @@ export async function runMultiMonthBacktest(
     scanTime: scanTimeUk,
     monthlyResults,
     overallSummary,
+    allTrades
+  };
+}
+
+interface FullDayBacktestResult {
+  date: string;
+  scanTimes: string[];
+  totalScans: number;
+  totalTrades: number;
+  winners: number;
+  losers: number;
+  winRate: number;
+  totalPnlPercent: number;
+  scanResults: Array<{
+    scanTime: string;
+    trades: number;
+    pnlPercent: number;
+  }>;
+  allTrades: Array<{
+    scanTime: string;
+    symbol: string;
+    direction: string;
+    entry: number;
+    stopLoss: number;
+    target: number;
+    exitPrice: number;
+    exitReason: string;
+    pnlPercent: number;
+  }>;
+}
+
+export async function runFullDayBacktest(date: string): Promise<FullDayBacktestResult> {
+  console.log(`[AI-TOP-TRADES BACKTEST] Running full day backtest for ${date}`);
+  
+  const scanTimes = [
+    '15:00', '15:15', '15:30', '15:45',
+    '16:00', '16:15', '16:30', '16:45',
+    '17:00', '17:15', '17:30', '17:45',
+    '18:00', '18:15', '18:30', '18:45',
+    '19:00', '19:15', '19:30'
+  ];
+  
+  const allTrades: FullDayBacktestResult['allTrades'] = [];
+  const scanResults: FullDayBacktestResult['scanResults'] = [];
+  
+  for (const scanTime of scanTimes) {
+    console.log(`[AI-TOP-TRADES BACKTEST] Running scan at ${scanTime}...`);
+    
+    try {
+      const result = await runBacktest(date, scanTime);
+      
+      const scanPnl = result.hypotheticalOutcomes?.reduce((sum, o) => sum + o.pnlPercent, 0) || 0;
+      
+      scanResults.push({
+        scanTime,
+        trades: result.hypotheticalOutcomes?.length || 0,
+        pnlPercent: Math.round(scanPnl * 100) / 100
+      });
+      
+      if (result.hypotheticalOutcomes) {
+        for (const outcome of result.hypotheticalOutcomes) {
+          allTrades.push({
+            scanTime,
+            symbol: outcome.symbol,
+            direction: outcome.direction,
+            entry: outcome.entry,
+            stopLoss: outcome.stopLoss,
+            target: outcome.target,
+            exitPrice: outcome.exitPrice,
+            exitReason: outcome.exitReason,
+            pnlPercent: outcome.pnlPercent
+          });
+        }
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+    } catch (error) {
+      console.error(`[AI-TOP-TRADES BACKTEST] Error at ${scanTime}:`, error);
+      scanResults.push({ scanTime, trades: 0, pnlPercent: 0 });
+    }
+  }
+  
+  const winners = allTrades.filter(t => t.pnlPercent > 0).length;
+  const losers = allTrades.filter(t => t.pnlPercent < 0).length;
+  const totalPnl = allTrades.reduce((sum, t) => sum + t.pnlPercent, 0);
+  
+  console.log(`[AI-TOP-TRADES BACKTEST] Full day complete: ${allTrades.length} trades, ${winners}W/${losers}L, P&L: ${totalPnl.toFixed(2)}%`);
+  
+  return {
+    date,
+    scanTimes,
+    totalScans: scanTimes.length,
+    totalTrades: allTrades.length,
+    winners,
+    losers,
+    winRate: allTrades.length > 0 ? Math.round((winners / allTrades.length) * 100) : 0,
+    totalPnlPercent: Math.round(totalPnl * 100) / 100,
+    scanResults,
     allTrades
   };
 }

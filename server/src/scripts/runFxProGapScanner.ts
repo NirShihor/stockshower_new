@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,20 +11,37 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 import { createFxProGapExecutor, FxProGapExecutor } from '../brokers/fxproGapExecutor.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
 
+async function connectMongoDB(): Promise<boolean> {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.warn('⚠️ No MONGODB_URI set - trades will not be saved to database');
+    return false;
+  }
+  try {
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+    console.log('✅ MongoDB connected');
+    return true;
+  } catch (error) {
+    console.warn('⚠️ MongoDB connection failed - trades will not be saved:', error);
+    return false;
+  }
+}
+
 async function main() {
+  await connectMongoDB();
   metaApiHandler.reinitialize();
   
   console.log('🚀 FxPro Gap Scanner Auto Trader\n');
-  console.log('   Strategy: Gap & Go (Warrior Trading style)');
+  console.log('   Strategy: Gap & Go (Optimized)');
   console.log('   Broker: FxPro via MetaAPI');
   console.log('   Entry: Break above premarket high');
   console.log('   Stop: Premarket low');
-  console.log('   Target: 2:1 R:R\n');
+  console.log('   Target: 1.5:1 R:R + Trailing Stop\n');
 
   const args = process.argv.slice(2);
-  const targetMargin = parseFloat(args.find(a => a.startsWith('--margin='))?.split('=')[1] || '5');
-  const maxTrades = parseInt(args.find(a => a.startsWith('--max-trades='))?.split('=')[1] || '3');
-  const minGap = parseFloat(args.find(a => a.startsWith('--min-gap='))?.split('=')[1] || '2.5');
+  const targetMargin = parseFloat(args.find(a => a.startsWith('--margin='))?.split('=')[1] || '1');
+  const maxTrades = parseInt(args.find(a => a.startsWith('--max-trades='))?.split('=')[1] || '5');
+  const minGap = parseFloat(args.find(a => a.startsWith('--min-gap='))?.split('=')[1] || '5');
   const dryRun = args.includes('--dry-run');
 
   if (dryRun) {
@@ -62,8 +80,10 @@ async function main() {
       targetMarginGBP: targetMargin,
       maxDailyTrades: maxTrades,
       minGapPercent: minGap,
-      maxGapPercent: 20,
-      riskRewardRatio: 2
+      maxGapPercent: 100,
+      riskRewardRatio: 1.5,
+      useTrailingStop: true,
+      trailingStopTrigger: 1.0
     });
 
     process.on('SIGINT', async () => {
@@ -78,6 +98,11 @@ async function main() {
       console.log('\nClosing all positions...');
       await executor.closeAllPositions();
       
+      if (mongoose.connection.readyState === 1) {
+        console.log('Disconnecting from MongoDB...');
+        await mongoose.disconnect();
+      }
+      
       process.exit(0);
     });
 
@@ -89,14 +114,14 @@ async function main() {
     const premarketStart = 9 * 60;
     const marketOpen = 14 * 60 + 30;
     const tradingWindowEnd = 15 * 60;
+    const eodCloseTime = 20 * 60 + 58;
 
     if (totalMinutes < premarketStart) {
       const waitMinutes = premarketStart - totalMinutes;
       console.log(`⏰ Waiting for premarket (${Math.floor(waitMinutes / 60)}h ${waitMinutes % 60}m)...`);
       console.log('   Premarket: 9:00 AM - 2:30 PM UTC (4:00 AM - 9:30 AM EST)');
-    } else if (totalMinutes >= tradingWindowEnd) {
-      console.log('⏰ Trading window has ended for today.');
-      console.log('   Gap & Go trades in first 30 minutes only (9:30-10:00 AM EST)');
+    } else if (totalMinutes >= eodCloseTime) {
+      console.log('⏰ Market closed for today.');
       console.log('   Run this script again tomorrow before market open.');
       process.exit(0);
     } else if (totalMinutes >= marketOpen) {

@@ -5,11 +5,22 @@ import {
   FlexibleTrade,
   FlexibleBacktestResult
 } from '../types/flexibleBacktestTypes.js';
+import {
+  getIntradayBars as getCachedIntradayBars,
+  getDailyData as getCachedDailyData,
+  CachedBar
+} from '../cache/dataCache.js';
 
 dotenv.config();
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || '';
 const POLYGON_BASE_URL = 'https://api.polygon.io';
+
+let USE_CACHE = true;
+
+export function setUseCache(value: boolean): void {
+  USE_CACHE = value;
+}
 
 export const LARGE_CAP_SYMBOLS = [
   'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'TSLA', 'BRK.B', 'UNH', 'JNJ',
@@ -40,6 +51,11 @@ async function makePolygonRequest(endpoint: string, params: Record<string, strin
 }
 
 async function getIntradayBars(symbol: string, date: string, multiplier: number = 5, timespan: string = 'minute'): Promise<PolygonBar[]> {
+  if (USE_CACHE) {
+    const cached = await getCachedIntradayBars(symbol, date, true);
+    return cached as PolygonBar[];
+  }
+  
   try {
     const data = await makePolygonRequest(
       `/v2/aggs/ticker/${symbol}/range/${multiplier}/${timespan}/${date}/${date}`,
@@ -51,7 +67,16 @@ async function getIntradayBars(symbol: string, date: string, multiplier: number 
   }
 }
 
-async function getGroupedDaily(date: string): Promise<Map<string, { o: number; h: number; l: number; c: number; v: number }>> {
+async function getGroupedDaily(date: string, symbols: string[] = LARGE_CAP_SYMBOLS): Promise<Map<string, { o: number; h: number; l: number; c: number; v: number }>> {
+  if (USE_CACHE) {
+    const cached = await getCachedDailyData(date, symbols, true);
+    const map = new Map<string, { o: number; h: number; l: number; c: number; v: number }>();
+    for (const [symbol, data] of cached) {
+      map.set(symbol, { o: data.o, h: data.h, l: data.l, c: data.c, v: data.v });
+    }
+    return map;
+  }
+  
   try {
     const data = await makePolygonRequest(`/v2/aggs/grouped/locale/us/market/stocks/${date}`, {
       adjusted: 'true',
@@ -512,7 +537,7 @@ export async function runFlexibleBacktest(config: FlexibleBacktestConfig): Promi
   const allTrades: FlexibleTrade[] = [];
   
   for (const day of tradingDays) {
-    const dailyData = await getGroupedDaily(day);
+    const dailyData = await getGroupedDaily(day, config.symbols);
     
     if (dailyData.size === 0) {
       continue;
@@ -552,7 +577,7 @@ export async function runFlexibleBacktest(config: FlexibleBacktestConfig): Promi
           console.log(`${day} ${emoji} ${trade.symbol} ${trade.direction.toUpperCase()}: $${trade.entryPrice.toFixed(2)} -> $${trade.exitPrice?.toFixed(2)} (${trade.exitReason}) = $${trade.pnl?.toFixed(2)}`);
         }
         
-        await new Promise(resolve => setTimeout(resolve, 50));
+        if (!USE_CACHE) await new Promise(resolve => setTimeout(resolve, 50));
       } catch {
         continue;
       }

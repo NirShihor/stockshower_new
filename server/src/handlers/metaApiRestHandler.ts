@@ -46,11 +46,44 @@ class MetaApiRestHandler {
   }
 
   private convertToMT5Symbol(symbol: string): string {
-    // Common NASDAQ stocks that need .O suffix
-    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'ADBE', 'PYPL', 'CSCO', 'PEP', 'ORCL', 'INTC', 'CMCSA', 'DLTR', 'CSX', 'MU', 'ISRG'];
-    
-    // Common NYSE stocks that need .N suffix  
-    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR', 'BSX', 'NKE', 'ABT', 'TMO', 'WFC'];
+    const nasdaqStocks = [
+      'AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AFRM', 'AKAM', 'ALGN', 'ALNY',
+      'AMAT', 'AMD', 'AMGN', 'AMZN', 'APP', 'ARGX', 'ARM', 'ASML', 'AVGO', 'AXON',
+      'BIDU', 'BIIB', 'BILI', 'BKR', 'BMRN', 'BNTX',
+      'CDNS', 'CDW', 'CHKP', 'CHRW', 'CHTR', 'CME', 'CMCSA', 'COIN', 'COST', 'CPRT',
+      'CRWD', 'CSCO', 'CSGP', 'CSX', 'CTAS', 'CTSH',
+      'DASH', 'DDOG', 'DKNG', 'DLTR', 'DOCU', 'DXCM',
+      'EA', 'EBAY', 'ENPH', 'EQIX', 'EXAS',
+      'FANG', 'FAST', 'FISV', 'FTNT',
+      'GEN', 'GFS', 'GILD', 'GOOG', 'GOOGL',
+      'HBAN', 'HOLX', 'HON', 'HOOD',
+      'IDXX', 'ILMN', 'INCY', 'INTC', 'INTU', 'ISRG',
+      'JD',
+      'KDP', 'KHC', 'KLAC',
+      'LCID', 'LRCX', 'LULU', 'LYFT',
+      'MAR', 'MARA', 'MCHP', 'MDLZ', 'MELI', 'META', 'MNST', 'MRNA', 'MRVL', 'MSFT',
+      'MSTR', 'MTCH', 'MU',
+      'NFLX', 'NTES', 'NTAP', 'NTNX', 'NVAX', 'NVDA', 'NXPI',
+      'ODFL', 'OKTA', 'ON', 'ORLY', 'ORCL',
+      'PANW', 'PAYX', 'PCAR', 'PDD', 'PEP', 'PLTR', 'PLUG', 'PYPL',
+      'QCOM',
+      'REGN', 'RIOT', 'RIVN', 'RKLB', 'ROKU', 'ROP', 'ROST',
+      'SBUX', 'SEDG', 'SHOP', 'SMCI', 'SNPS', 'SOFI', 'SPLK', 'SSNC', 'STX', 'SWKS',
+      'TEAM', 'TER', 'TMUS', 'TSLA', 'TTD', 'TTWO', 'TXN',
+      'UAL', 'ULTA',
+      'VRSK', 'VRSN', 'VRTX',
+      'WDAY', 'WDC',
+      'XEL',
+      'ZM', 'ZS'
+    ];
+
+    const nyseStocks = [
+      'JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO',
+      'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA',
+      'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR', 'BSX', 'NKE', 'ABT',
+      'TMO', 'WFC', 'GS', 'MS', 'AXP', 'LLY', 'ABBV', 'COP', 'SLB', 'OXY',
+      'UNP', 'DE', 'LMT', 'MCD'
+    ];
     
     if (nasdaqStocks.includes(symbol)) {
       return `${symbol}.O`;
@@ -58,8 +91,7 @@ class MetaApiRestHandler {
       return `${symbol}.N`;
     }
     
-    // For other symbols, return as-is
-    return symbol;
+    return `${symbol}.N`;
   }
 
   async checkStatus(): Promise<{ connected: boolean; error?: string; accountInfo?: any }> {
@@ -324,9 +356,18 @@ class MetaApiRestHandler {
       try {
         const quoteCheck = await this.checkSymbolQuotes(mt5Symbol);
         if (!quoteCheck.success) {
+          const errorMsg = `No quotes available for ${mt5Symbol}. ${quoteCheck.error}`;
+          await TradeService.saveFailedOrder(
+            signal,
+            mt5Symbol,
+            'QUOTE_CHECK_FAILED',
+            volume,
+            errorMsg,
+            signal.pattern?.name?.includes('Gap') ? 'gap' : 'pattern'
+          );
           return {
             success: false,
-            error: `No quotes available for ${mt5Symbol}. ${quoteCheck.error}`
+            error: errorMsg
           };
         }
         // Use the actual market price if available
@@ -400,74 +441,98 @@ class MetaApiRestHandler {
       let adjustedStopLoss = plan.stop;
       let adjustedTakeProfit = plan.targets[0];
       
+      const isSwingTrade = (signal as any).tradeType === 'swing';
+      const isGapAndGo = signal.pattern?.name?.includes('Gap') || false;
+      
       console.log(`[MetaApi] Order validation:
         Direction: ${plan.direction} (${actionType})
+        Trade Type: ${isSwingTrade ? 'SWING' : 'DAY'}
+        Is Gap and Go: ${isGapAndGo}
         Current Price: ${currentMarketPrice}
         Original Entry: ${plan.entry} -> Adjusted Entry: ${adjustedEntry}
         Original Stop: ${plan.stop}
         Original TP: ${plan.targets[0]}
       `);
       
-      // Use ATR-based stops - 3x ATR ensures stops are reachable within normal moves
-      // Fall back to 0.5% minimum if ATR not available
-      const atr = signal.context?.atr || 0;
-      const atrBasedStop = atr * 3;
-      const fallbackStop = adjustedEntry * 0.005; // 0.5% fallback
-      const minStopDistance = atrBasedStop > 0 ? Math.max(atrBasedStop, fallbackStop) : fallbackStop;
-      
-      console.log(`[MetaApi] Stop calculation: ATR=${atr.toFixed(4)}, 3xATR=${atrBasedStop.toFixed(4)}, minStop=${minStopDistance.toFixed(4)} (${((minStopDistance/adjustedEntry)*100).toFixed(2)}%)`)
-      
-      // Calculate original R:R ratio to preserve it when adjusting
-      const originalRisk = Math.abs(plan.entry - plan.stop);
-      const originalReward = Math.abs(plan.targets[0] - plan.entry);
-      const originalRRRatio = originalRisk > 0 ? originalReward / originalRisk : 1.5;
-      
-      if (isLong) {
-        // For long positions: SL below entry, TP above entry
-        if (adjustedStopLoss >= adjustedEntry) {
-          adjustedStopLoss = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry`);
-        } else if ((adjustedEntry - adjustedStopLoss) < minStopDistance) {
-          adjustedStopLoss = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
-        }
+      if (isSwingTrade || isGapAndGo) {
+        console.log(`[MetaApi] ${isGapAndGo ? 'GAP AND GO' : 'SWING TRADE'} - Using provided stops without ATR-based adjustments`);
         
-        // CRITICAL: Stop expanding targets proportionally! Keep them near origin or optimal target.
-        // If original target is already > 0.5% away, we keep it. If not, we use a 1.2RR minimum of the NEW stop.
-        const currentTargetDistance = adjustedTakeProfit - adjustedEntry;
-        if (currentTargetDistance < (adjustedEntry * 0.005)) {
-           // Use 1.2RR of the NEW stop (more conservative than original 2.0RR)
-           // because the new stop is already quite wide (3x ATR)
-           adjustedTakeProfit = adjustedEntry + (minStopDistance * 1.2);
-           console.log(`[MetaApi] Adjusted TP for long (was too close): ${adjustedTakeProfit}`);
-        }
-        
-        // Final sanity check: cap TP near historical optimal (~1.22%) if it's overextended (>3%)
-        const tpPercent = (adjustedTakeProfit - adjustedEntry) / adjustedEntry;
-        if (tpPercent > 0.03) {
-           adjustedTakeProfit = adjustedEntry * 1.0122;
-           console.log(`[MetaApi] Capping extreme long TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
+        if (isLong) {
+          if (adjustedStopLoss >= adjustedEntry) {
+            const swingStopDistance = adjustedEntry * 0.03;
+            adjustedStopLoss = adjustedEntry - swingStopDistance;
+            console.warn(`[MetaApi] Fixed invalid SL for swing long: ${adjustedStopLoss}`);
+          }
+          if (adjustedTakeProfit <= adjustedEntry) {
+            const swingTargetDistance = adjustedEntry * 0.05;
+            adjustedTakeProfit = adjustedEntry + swingTargetDistance;
+            console.warn(`[MetaApi] Fixed invalid TP for swing long: ${adjustedTakeProfit}`);
+          }
+        } else {
+          if (adjustedStopLoss <= adjustedEntry) {
+            const swingStopDistance = adjustedEntry * 0.03;
+            adjustedStopLoss = adjustedEntry + swingStopDistance;
+            console.warn(`[MetaApi] Fixed invalid SL for swing short: ${adjustedStopLoss}`);
+          }
+          if (adjustedTakeProfit >= adjustedEntry) {
+            const swingTargetDistance = adjustedEntry * 0.05;
+            adjustedTakeProfit = adjustedEntry - swingTargetDistance;
+            console.warn(`[MetaApi] Fixed invalid TP for swing short: ${adjustedTakeProfit}`);
+          }
         }
       } else {
-        // For short positions: SL above entry, TP below entry
-        if (adjustedStopLoss <= adjustedEntry) {
-          adjustedStopLoss = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry`);
-        } else if ((adjustedStopLoss - adjustedEntry) < minStopDistance) {
-          adjustedStopLoss = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
-        }
+        // DAY TRADING LOGIC - use ATR-based stops with tighter parameters
+        const atr = signal.context?.atr || 0;
+        const atrBasedStop = atr * 3;
+        const fallbackStop = adjustedEntry * 0.005;
+        const minStopDistance = atrBasedStop > 0 ? Math.max(atrBasedStop, fallbackStop) : fallbackStop;
         
-        const currentTargetDistance = adjustedEntry - adjustedTakeProfit;
-        if (currentTargetDistance < (adjustedEntry * 0.005)) {
-           adjustedTakeProfit = adjustedEntry - (minStopDistance * 1.2);
-           console.log(`[MetaApi] Adjusted TP for short (was too close): ${adjustedTakeProfit}`);
-        }
+        console.log(`[MetaApi] Stop calculation: ATR=${atr.toFixed(4)}, 3xATR=${atrBasedStop.toFixed(4)}, minStop=${minStopDistance.toFixed(4)} (${((minStopDistance/adjustedEntry)*100).toFixed(2)}%)`)
         
-        const tpPercent = (adjustedEntry - adjustedTakeProfit) / adjustedEntry;
-        if (tpPercent > 0.03) {
-           adjustedTakeProfit = adjustedEntry * (1 - 0.0122);
-           console.log(`[MetaApi] Capping extreme short TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
+        const originalRisk = Math.abs(plan.entry - plan.stop);
+        const originalReward = Math.abs(plan.targets[0] - plan.entry);
+        const originalRRRatio = originalRisk > 0 ? originalReward / originalRisk : 1.5;
+        
+        if (isLong) {
+          if (adjustedStopLoss >= adjustedEntry) {
+            adjustedStopLoss = adjustedEntry - minStopDistance;
+            console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry`);
+          } else if ((adjustedEntry - adjustedStopLoss) < minStopDistance) {
+            adjustedStopLoss = adjustedEntry - minStopDistance;
+            console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
+          }
+          
+          const currentTargetDistance = adjustedTakeProfit - adjustedEntry;
+          if (currentTargetDistance < (adjustedEntry * 0.005)) {
+             adjustedTakeProfit = adjustedEntry + (minStopDistance * 1.2);
+             console.log(`[MetaApi] Adjusted TP for long (was too close): ${adjustedTakeProfit}`);
+          }
+          
+          const tpPercent = (adjustedTakeProfit - adjustedEntry) / adjustedEntry;
+          if (tpPercent > 0.03) {
+             adjustedTakeProfit = adjustedEntry * 1.0122;
+             console.log(`[MetaApi] Capping extreme long TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
+          }
+        } else {
+          if (adjustedStopLoss <= adjustedEntry) {
+            adjustedStopLoss = adjustedEntry + minStopDistance;
+            console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry`);
+          } else if ((adjustedStopLoss - adjustedEntry) < minStopDistance) {
+            adjustedStopLoss = adjustedEntry + minStopDistance;
+            console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
+          }
+          
+          const currentTargetDistance = adjustedEntry - adjustedTakeProfit;
+          if (currentTargetDistance < (adjustedEntry * 0.005)) {
+             adjustedTakeProfit = adjustedEntry - (minStopDistance * 1.2);
+             console.log(`[MetaApi] Adjusted TP for short (was too close): ${adjustedTakeProfit}`);
+          }
+          
+          const tpPercent = (adjustedEntry - adjustedTakeProfit) / adjustedEntry;
+          if (tpPercent > 0.03) {
+             adjustedTakeProfit = adjustedEntry * (1 - 0.0122);
+             console.log(`[MetaApi] Capping extreme short TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
+          }
         }
       }
       
@@ -580,9 +645,25 @@ class MetaApiRestHandler {
       
       // Check if the trade was actually successful
       if (response.data.stringCode && response.data.stringCode !== 'TRADE_RETCODE_DONE') {
+        const errorMsg = `${response.data.stringCode}: ${response.data.message}`;
+        
+        // Save failed order for analysis if no trade record exists
+        if (!tradeId) {
+          await TradeService.saveFailedOrder(
+            signal,
+            mt5Symbol,
+            actionType,
+            volume,
+            errorMsg,
+            signal.pattern?.name?.includes('Gap') ? 'gap' : 'pattern'
+          );
+        } else {
+          await TradeService.updateTradeWithOrderResult(tradeId, { success: false, error: errorMsg });
+        }
+        
         return {
           success: false,
-          error: `${response.data.stringCode}: ${response.data.message}`
+          error: errorMsg
         };
       }
       

@@ -33,6 +33,7 @@ import { startTrainingScheduler, stopTrainingScheduler } from './src/services/tr
 import aiTopTradesRoutes from './src/routes/aiTopTrades.js';
 import { setCandleHistoryAccessor, startAiTopTradesService, stopAiTopTradesService } from './src/services/aiTopTradesService.js';
 import { getCandleHistoryMap } from './src/candlestick/comprehensiveScanner.js';
+import { startSwingExecutor, stopSwingExecutor } from './src/services/swingTradeExecutor.js';
 
   // Load environment variables
   dotenv.config();
@@ -167,6 +168,10 @@ if (process.env.NODE_ENV === 'production') {
       setCandleHistoryAccessor(getCandleHistoryMap);
       startAiTopTradesService();
       console.log('AI Top Trades service initialized - scans every 15 min (3pm-7:30pm UK)');
+      
+      // Start swing trade executor (auto-runs daily at 20:30 UTC)
+      startSwingExecutor();
+      console.log('Swing trade executor started - will scan daily at 20:30 UTC');
     });
   };
 
@@ -194,6 +199,7 @@ process.on('SIGINT', () => {
   positionMonitor.stop(); // Stop position monitoring
   stopTrainingScheduler(); // Stop training scheduler
   stopAiTopTradesService(); // Stop AI Top Trades service
+  stopSwingExecutor(); // Stop swing trade executor
   
   // Force exit after 5 seconds if graceful shutdown fails
   setTimeout(() => {
@@ -216,6 +222,7 @@ process.on('SIGTERM', () => {
   shutdownPolygon();
   stopMockDataFeed();
   stopMockSignalFeed();
+  stopSwingExecutor(); // Stop swing trade executor
   
   // Force exit after 5 seconds if graceful shutdown fails
   setTimeout(() => {

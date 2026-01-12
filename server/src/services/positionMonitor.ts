@@ -401,10 +401,12 @@ class PositionMonitorService {
       const utcMinutes = now.getUTCMinutes();
       const totalMinutes = utcHours * 60 + utcMinutes;
       
+      const isSwingTrade = trade.tradeType === 'swing';
+      
       const marketCloseMinutes = 21 * 60; // 4 PM EST = 21:00 UTC
       const isAfterMarketClose = totalMinutes >= marketCloseMinutes;
       
-      if (isAfterMarketClose) {
+      if (isAfterMarketClose && !isSwingTrade) {
         console.log(`🔔 End of day closure: ${trade._id} (${trade.symbol}) - market closed at 21:00 UTC`);
         
         try {
@@ -427,18 +429,40 @@ class PositionMonitorService {
         return;
       }
       
-      // Use filled time if available, otherwise signal time
       const openTime = trade.filledTime || trade.signalTime;
       if (!openTime) return;
 
       const hoursOpen = (Date.now() - openTime.getTime()) / (1000 * 60 * 60);
-      const maxHours = 6; // Close positions after 6 hours if still open
+      const daysOpen = hoursOpen / 24;
+      
+      if (isSwingTrade) {
+        const maxDays = trade.expectedHoldDays || 5;
+        if (daysOpen >= maxDays) {
+          console.log(`⏰ Swing trade ${trade._id} (${trade.symbol}) open for ${daysOpen.toFixed(1)} days - max hold reached`);
+          
+          try {
+            if (trade.mt5PositionId) {
+              await metaApiHandler.closePosition(trade.mt5PositionId);
+            }
+          } catch (error) {
+            console.error(`Failed to close swing trade via MetaAPI:`, error);
+          }
 
+          trade.status = 'closed';
+          trade.exitReason = 'max_hold_time';
+          trade.closedTime = new Date();
+          
+          await trade.save();
+          console.log(`🔄 Swing trade ${trade._id} closed after ${maxDays} day hold period`);
+        }
+        return;
+      }
+
+      const maxHours = 6;
       if (hoursOpen > maxHours) {
         console.log(`⏰ Position ${trade._id} (${trade.symbol}) open for ${hoursOpen.toFixed(1)} hours - forcing closure`);
         
         try {
-          // Try to close via MetaAPI first
           if (trade.mt5PositionId) {
             await metaApiHandler.closePosition(trade.mt5PositionId);
           }
@@ -446,15 +470,13 @@ class PositionMonitorService {
           console.error(`Failed to close via MetaAPI, using database closure:`, error);
         }
 
-        // Mark as closed in database regardless
         trade.status = 'closed';
         trade.exitReason = 'timeout';
         trade.closedTime = new Date();
         trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
         
-        // Mark as break-even since we're force closing
-        trade.pnlAmount = -1; // Small loss for forced closure
-        trade.pnlPercent = -0.2; // 0.2% loss
+        trade.pnlAmount = -1;
+        trade.pnlPercent = -0.2;
         
         await trade.save();
         console.log(`🔄 Trade ${trade._id} force-closed due to timeout`);
