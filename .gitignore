@@ -48,3 +48,6 @@ temp/
 # Trade reports
 trade_reports/
 
+# Data cache
+server/api/data_cache/
+
