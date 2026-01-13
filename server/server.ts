@@ -164,14 +164,17 @@ if (process.env.NODE_ENV === 'production') {
       // Start daily training insights regeneration scheduler (21:10 UK time)
       startTrainingScheduler();
       
+      // DISABLED: AI Top Trades and Swing Executor - only CAN SLIM is active now
       // Setup AI Top Trades service
-      setCandleHistoryAccessor(getCandleHistoryMap);
-      startAiTopTradesService();
-      console.log('AI Top Trades service initialized - scans every 15 min (3pm-7:30pm UK)');
+      // setCandleHistoryAccessor(getCandleHistoryMap);
+      // startAiTopTradesService();
+      // console.log('AI Top Trades service initialized - scans every 15 min (3pm-7:30pm UK)');
       
       // Start swing trade executor (auto-runs daily at 20:30 UTC)
-      startSwingExecutor();
-      console.log('Swing trade executor started - will scan daily at 20:30 UTC');
+      // startSwingExecutor();
+      // console.log('Swing trade executor started - will scan daily at 20:30 UTC');
+      
+      console.log('Only CAN SLIM trading is active - run manually with: npx tsx src/scripts/runCanslim.ts');
     });
   };
 

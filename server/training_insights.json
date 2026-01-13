@@ -1,9 +1,9 @@
 {
-  "directionAccuracy": 41.17647058823529,
+  "directionAccuracy": 40.833333333333336,
   "averageMfe": 0.43,
   "averageMae": 0.58,
-  "optimalStopPercent": 0.8698692399735246,
-  "optimalTargetPercent": 1.2866877368919913,
+  "optimalStopPercent": 0.8843647227859567,
+  "optimalTargetPercent": 1.318200472490517,
   "patternRankings": [
     {
       "pattern": "Tweezer Bottom",
@@ -549,8 +549,8 @@
       "pattern": "swing_short",
       "directionAccuracy": 0,
       "winRate": 0,
-      "avgPnlPercent": -0.48299535120535997,
-      "count": 2,
+      "avgPnlPercent": -0.33280425326159757,
+      "count": 3,
       "recommendation": "avoid",
       "avgMfe": 0.4,
       "avgHoldMinutes": 0,
@@ -561,7 +561,7 @@
         },
         "low": {
           "winRate": 0,
-          "count": 2
+          "count": 3
         }
       }
     },
@@ -657,13 +657,13 @@
     }
   ],
   "keyInsights": [
-    "Overall win rate is poor (41.2%) - be very selective",
+    "Overall win rate is poor (40.8%) - be very selective",
     "Counter-trend trades surprisingly better by 38%",
     "Best time: midday (62%), Worst: premarket (0%)",
     "DOUBLE candle patterns perform best (66% win rate)",
     "Winners held avg 101min, losers 113min",
     "Heed warnings! \"Pattern formed on weak volume ...\" only 0% win rate",
-    "Optimal stop: 0.87%, target: 1.29%",
+    "Optimal stop: 0.88%, target: 1.32%",
     "Best patterns: Tweezer Bottom, Inverted Tweezer Top, Reversal Three White Soldiers",
     "Consider inverting: Morning Star, VwapBounce Bullish, 🔄 VwapBounce Long",
     "Inverted trades: 45% win rate (132 trades)",
@@ -952,8 +952,8 @@
     {
       "period": "premarket",
       "winRate": 0,
-      "count": 2,
-      "avgPnlPercent": -0.48299535120535997
+      "count": 3,
+      "avgPnlPercent": -0.33280425326159757
     }
   ],
   "patternClassPerformance": [
@@ -1013,9 +1013,9 @@
       "avgPnlPercent": 0.12445642649914872
     },
     "lowVolume": {
-      "winRate": 37.5,
-      "count": 64,
-      "avgPnlPercent": -0.08749874085403184
+      "winRate": 36.92307692307693,
+      "count": 65,
+      "avgPnlPercent": -0.08665140726203242
     }
   },
   "trendAlignmentPerformance": {
@@ -1031,10 +1031,10 @@
     }
   },
   "slippageStats": {
-    "avgSlippagePercent": 0.2076729887343158,
+    "avgSlippagePercent": 0.20671978396726529,
     "maxSlippagePercent": 1.5866639887527598,
     "slippageByOrderType": {
-      "market": 0.2076729887343158,
+      "market": 0.20671978396726529,
       "stop": 0
     }
   },
@@ -1063,8 +1063,8 @@
       {
         "min": 85,
         "max": 100,
-        "winRate": 34.78260869565217,
-        "count": 23
+        "winRate": 33.33333333333333,
+        "count": 24
       },
       {
         "min": 75,
@@ -1090,7 +1090,7 @@
       "wins": 60,
       "losses": 72,
       "winRate": 45.45454545454545,
-      "avgPnlPercent": -0.10082716801797706
+      "avgPnlPercent": -0.10082716801797709
     },
     "skip": {
       "count": 186,
@@ -1109,8 +1109,8 @@
     "inversionAccuracy": 45.45454545454545,
     "skipAccuracy": 57.52688172043011
   },
-  "generatedAt": "2026-01-11T21:10:01.527Z",
-  "totalTradesAnalyzed": 119,
+  "generatedAt": "2026-01-12T21:10:01.183Z",
+  "totalTradesAnalyzed": 120,
   "dataDateRange": {
     "from": "1970-01-01",
     "to": "2025-12-18"

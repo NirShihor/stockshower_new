@@ -1017,6 +1017,11 @@ class MetaApiRestHandler {
 
       for (const position of positions) {
         try {
+          if (position.comment && position.comment.includes('CAN SLIM')) {
+            console.log(`[MetaApi] Skipping CAN SLIM position ${position.id} for ${position.symbol} (swing trade)`);
+            continue;
+          }
+
           const closeRequest = {
             actionType: 'POSITION_CLOSE_ID',
             positionId: position.id,
@@ -1117,6 +1122,11 @@ class MetaApiRestHandler {
 
       for (const order of orders) {
         try {
+          if (order.comment && order.comment.includes('CAN SLIM')) {
+            console.log(`[MetaApi] Skipping CAN SLIM order ${order.id} for ${order.symbol} (swing trade)`);
+            continue;
+          }
+
           const cancelRequest = {
             actionType: 'ORDER_CANCEL',
             orderId: order.id
@@ -1233,6 +1243,44 @@ class MetaApiRestHandler {
 
       for (const order of orders) {
         try {
+          const isCanSlim = order.comment && order.comment.includes('CAN SLIM');
+          
+          if (isCanSlim) {
+            // CAN SLIM orders have longer expiry (48 hours) since they're swing trades
+            const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+            let orderTime = null;
+            const timeFields = ['time', 'openTime', 'createdAt', 'timestamp', 'createTime'];
+            
+            for (const field of timeFields) {
+              if (order[field]) {
+                orderTime = new Date(order[field]).getTime();
+                if (!isNaN(orderTime)) break;
+              }
+            }
+            
+            if (orderTime && orderTime < fortyEightHoursAgo) {
+              const ageInHours = (Date.now() - orderTime) / (60 * 60 * 1000);
+              console.log(`[MetaApi] CAN SLIM order ${order.id} for ${order.symbol} is ${ageInHours.toFixed(1)} hours old - cancelling (48h expiry)`);
+              
+              const cancelRequest = {
+                actionType: 'ORDER_CANCEL',
+                orderId: order.id
+              };
+              
+              await this.axiosInstance.post(
+                `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+                cancelRequest,
+                { headers: this.getHeaders() }
+              );
+              
+              canceledCount++;
+              console.log(`[MetaApi] Successfully canceled stale CAN SLIM order ${order.id}`);
+            } else {
+              console.log(`[MetaApi] Skipping CAN SLIM order ${order.id} for ${order.symbol} (within 48h window)`);
+            }
+            continue;
+          }
+
           // Debug: Log the order structure to understand the time fields
           console.log(`[MetaApi] Checking order ${order.id}:`, {
             id: order.id,
