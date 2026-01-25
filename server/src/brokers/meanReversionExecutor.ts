@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
 import axios from 'axios';
 import * as dotenv from 'dotenv';

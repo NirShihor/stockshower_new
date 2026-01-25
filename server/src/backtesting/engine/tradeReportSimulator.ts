@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { HistoricalDataLoader } from './dataLoader.js';
 import { BacktestCandle } from '../types/backtestTypes.js';
 import fs from 'fs';

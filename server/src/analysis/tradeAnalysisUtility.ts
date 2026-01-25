@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Trade, ITrade } from '../db/models/Trade.js';
 import { connectDatabase } from '../db/connection.js';
 

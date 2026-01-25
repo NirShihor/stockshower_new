@@ -9,6 +9,7 @@ import {
 import { getMarketContext } from '../services/marketContextService.js';
 import { RS_UNIVERSE } from '../services/relativeStrengthService.js';
 import { CanslimTradeService } from '../db/services/canslimTradeService.js';
+import { checkEarningsWithPerplexity, EarningsCheckResult, getSharesFloat, SharesFloatData } from '../services/earningsFilterService.js';
 
 export interface CanslimTradeConfig extends CanslimConfig {
   targetMarginGBP: number;
@@ -16,6 +17,7 @@ export interface CanslimTradeConfig extends CanslimConfig {
   minScore: number;
   dryRun: boolean;
   ignoreMarketRegime: boolean;
+  useEarningsFilter: boolean;
 }
 
 export interface ActiveCanslimTrade {
@@ -36,11 +38,12 @@ export interface ActiveCanslimTrade {
 
 const DEFAULT_CONFIG: CanslimTradeConfig = {
   ...CANSLIM_DEFAULT_CONFIG,
-  targetMarginGBP: 1,
-  maxDailyTrades: 3,
+  targetMarginGBP: 25,
+  maxDailyTrades: 10,
   minScore: 4,
   dryRun: true,
   ignoreMarketRegime: false,
+  useEarningsFilter: true,
   targetMultiple: 3,
 };
 
@@ -112,7 +115,7 @@ export class CanslimExecutor {
     return filtered;
   }
 
-  async executeTrade(signal: CanslimSignal, marketRegime: string, marketRegimeReason: string): Promise<boolean> {
+  async executeTrade(signal: CanslimSignal, marketRegime: string, marketRegimeReason: string, earningsData?: EarningsCheckResult, floatData?: SharesFloatData): Promise<boolean> {
     if (this.dailyTradeCount >= this.config.maxDailyTrades) {
       console.log(`[CANSLIM] Daily trade limit reached (${this.config.maxDailyTrades})`);
       return false;
@@ -144,7 +147,9 @@ export class CanslimExecutor {
         marketRegime,
         marketRegimeReason,
         this.config.ignoreMarketRegime,
-        this.config.dryRun
+        this.config.dryRun,
+        earningsData,
+        floatData
       );
       dbTradeId = dbTrade._id?.toString();
       console.log(`   [DB] Trade saved with ID: ${dbTradeId}`);
@@ -218,7 +223,8 @@ export class CanslimExecutor {
         `Market: ${signal.marketDirection.regime}`
       ],
       currentPrice: entryPrice,
-      tradeType: 'swing'
+      tradeType: 'swing',
+      targetMarginGBP: this.config.targetMarginGBP
     };
 
     try {
@@ -286,6 +292,35 @@ export class CanslimExecutor {
       }
     }
 
+    let existingOpenSymbols = await CanslimTradeService.getOpenSymbols();
+
+    // Cross-check with actual broker positions (not in dry run)
+    if (!this.config.dryRun && existingOpenSymbols.size > 0) {
+      const [positions, orders] = await Promise.all([
+        metaApiHandler.getPositions(),
+        metaApiHandler.getOrders()
+      ]);
+
+      const brokerSymbols = new Set<string>();
+      positions.forEach((p: any) => brokerSymbols.add(p.symbol));
+      orders.forEach((o: any) => brokerSymbols.add(o.symbol));
+
+      const verifiedSymbols = new Set<string>();
+      for (const symbol of existingOpenSymbols) {
+        const mt5Symbol = this.convertToMT5Symbol(symbol);
+        if (brokerSymbols.has(mt5Symbol)) {
+          verifiedSymbols.add(symbol);
+        } else {
+          console.log(`[CANSLIM] DB shows open position for ${symbol} but not found in broker - will allow new trade`);
+        }
+      }
+      existingOpenSymbols = verifiedSymbols;
+    }
+
+    if (existingOpenSymbols.size > 0) {
+      console.log(`[CANSLIM] Found ${existingOpenSymbols.size} existing open positions: ${[...existingOpenSymbols].join(', ')}`);
+    }
+
     const signals = await this.scanForSignals();
     
     if (signals.length === 0) {
@@ -294,10 +329,19 @@ export class CanslimExecutor {
     }
 
     let executed = 0;
+    let skippedEarnings = 0;
+    let skippedDuplicate = 0;
+    
     for (const signal of signals) {
       if (this.dailyTradeCount >= this.config.maxDailyTrades) {
         console.log(`[CANSLIM] Daily limit reached`);
         break;
+      }
+
+      if (existingOpenSymbols.has(signal.symbol)) {
+        console.log(`[CANSLIM] SKIPPED ${signal.symbol} - already has open position in database`);
+        skippedDuplicate++;
+        continue;
       }
 
       console.log(`\n--- ${signal.symbol} ---`);
@@ -306,12 +350,38 @@ export class CanslimExecutor {
       console.log(`Near 52wk High: ${signal.newHigh?.percentFromHigh?.toFixed(1)}%`);
       console.log(`Base Pattern: ${signal.basePattern?.type || 'none'}`);
 
-      const success = await this.executeTrade(signal, marketCheck.regime, marketCheck.reason);
+      let earningsCheck: EarningsCheckResult | undefined;
+      if (this.config.useEarningsFilter) {
+        console.log(`[CANSLIM] Checking earnings for ${signal.symbol}...`);
+        earningsCheck = await checkEarningsWithPerplexity(signal.symbol);
+        
+        if (!earningsCheck.pass) {
+          console.log(`[CANSLIM] SKIPPED ${signal.symbol} - ${earningsCheck.reason}`);
+          skippedEarnings++;
+          continue;
+        }
+        console.log(`[CANSLIM] ${signal.symbol} passed earnings check: ${earningsCheck.reason}`);
+      }
+
+      const floatData = await getSharesFloat(signal.symbol);
+      if (floatData.floatShares) {
+        console.log(`[CANSLIM] ${signal.symbol} Float: ${(floatData.floatShares / 1e9).toFixed(2)}B shares`);
+      }
+
+      const success = await this.executeTrade(signal, marketCheck.regime, marketCheck.reason, earningsCheck, floatData);
       if (success) executed++;
+    }
+    
+    if (skippedEarnings > 0) {
+      console.log(`\n[CANSLIM] Skipped ${skippedEarnings} stocks due to earnings filter`);
+    }
+    if (skippedDuplicate > 0) {
+      console.log(`[CANSLIM] Skipped ${skippedDuplicate} stocks due to existing open positions`);
     }
 
     console.log('\n' + '='.repeat(60));
     console.log(`SCAN COMPLETE: ${executed} trades executed`);
+    console.log(`Time: ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}`);
     console.log('='.repeat(60) + '\n');
 
     return { scanned: RS_UNIVERSE.length, executed, skipped: '' };

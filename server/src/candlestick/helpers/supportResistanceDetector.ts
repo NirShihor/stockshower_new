@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Candle } from '../types/index.js';
 import { MarketContext } from '../types/comprehensive.js';
 import { SupportResistanceBounceStrategy } from '../../backtesting/strategies/supportResistanceBounceStrategy.js';

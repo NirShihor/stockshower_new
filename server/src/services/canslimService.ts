@@ -116,7 +116,7 @@ export interface CanslimConfig {
 }
 
 const DEFAULT_CONFIG: CanslimConfig = {
-  minRsRating: 70,
+  minRsRating: 80,
   maxPercentFromHigh: 15,
   minVolumeRatio: 1.4,
   stopLossPercent: 7,

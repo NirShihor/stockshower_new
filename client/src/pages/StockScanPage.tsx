@@ -83,11 +83,42 @@ interface Signal {
 }
 
 const DEFAULT_WATCHLIST = [
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM',
-  'V', 'JNJ', 'WMT', 'PG', 'DIS', 'HD', 'MA', 'PYPL', 'BAC', 'ADBE',
-  'NFLX', 'CRM', 'PFE', 'TMO', 'CSCO', 'PEP', 'ABT', 'NKE', 'ORCL',
-  'CVX', 'KO', 'CMCSA', 'XOM', 'VZ', 'INTC', 'WFC', 'T', 'UNH',
-  'MRK', 'BA', 'MMM'
+  // Mega Cap Tech (10)
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'AVGO', 'ORCL', 'CRM',
+  // Semiconductors (17)
+  'AMD', 'INTC', 'QCOM', 'TXN', 'AMAT', 'LRCX', 'MU', 'MRVL', 'ON', 'SNPS', 'CDNS', 'KLAC', 'ASML', 'MCHP', 'SWKS', 'ARM', 'SMCI',
+  // Software & Cloud (20)
+  'ADBE', 'NOW', 'INTU', 'PANW', 'CRWD', 'SNOW', 'DDOG', 'NET', 'PLTR', 'SHOP', 'WDAY', 'TEAM', 'OKTA', 'ZS', 'FTNT', 'HUBS', 'DOCU', 'ZM', 'COIN', 'MSTR',
+  // Internet & E-commerce (8)
+  'NFLX', 'PYPL', 'ABNB', 'UBER', 'DASH', 'EBAY', 'ETSY', 'MELI',
+  // Financials (15)
+  'V', 'MA', 'JPM', 'BAC', 'GS', 'MS', 'BLK', 'SCHW', 'AXP', 'C', 'WFC', 'SPGI', 'MCO', 'CME', 'ICE',
+  // Healthcare & Pharma (19)
+  'UNH', 'JNJ', 'LLY', 'ABBV', 'MRK', 'PFE', 'TMO', 'ABT', 'DHR', 'BMY', 'AMGN', 'GILD', 'VRTX', 'REGN', 'ISRG', 'MRNA', 'BIIB', 'ILMN', 'DXCM',
+  // Consumer Discretionary (19)
+  'HD', 'LOW', 'COST', 'WMT', 'TGT', 'NKE', 'SBUX', 'MCD', 'LULU', 'ROST', 'TJX', 'DG', 'DLTR', 'ORLY', 'AZO', 'CMG', 'DPZ', 'YUM', 'ULTA',
+  // Consumer Staples (12)
+  'PG', 'KO', 'PEP', 'PM', 'MO', 'CL', 'KHC', 'MDLZ', 'GIS', 'HSY', 'STZ', 'MNST',
+  // Energy (12)
+  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'PXD', 'OXY', 'VLO', 'PSX', 'MPC', 'HAL', 'DVN',
+  // Industrials (19)
+  'CAT', 'DE', 'BA', 'HON', 'RTX', 'LMT', 'GD', 'NOC', 'GE', 'MMM', 'UPS', 'FDX', 'UNP', 'CSX', 'URI', 'EMR', 'ETN', 'ITW', 'PH',
+  // Materials (7)
+  'APD', 'SHW', 'ECL', 'NEM', 'FCX', 'NUE', 'SCCO',
+  // REITs & Real Estate (10)
+  'AMT', 'PLD', 'CCI', 'EQIX', 'SPG', 'PSA', 'DLR', 'O', 'WELL', 'AVB',
+  // Utilities (7)
+  'NEE', 'DUK', 'SO', 'D', 'AEP', 'EXC', 'XEL',
+  // Telecom & Media (7)
+  'T', 'VZ', 'TMUS', 'CMCSA', 'DIS', 'WBD', 'NWSA',
+  // EV & Clean Energy (7)
+  'RIVN', 'LCID', 'ENPH', 'SEDG', 'FSLR', 'RUN', 'PLUG',
+  // Gaming & Entertainment (7)
+  'EA', 'TTWO', 'RBLX', 'DKNG', 'PENN', 'MGM', 'LVS',
+  // Aerospace & Defense (4)
+  'AXON', 'HII', 'LHX', 'TDG',
+  // Misc High Growth (18)
+  'SOFI', 'HOOD', 'AFRM', 'UPST', 'APP', 'ROKU', 'TTD', 'BILL', 'PCTY', 'PAYC', 'VEEV', 'CPRT', 'ODFL', 'POOL', 'IDXX', 'PODD', 'ALGN', 'MKTX'
 ];
 
 // Helper function to determine MT5 order type

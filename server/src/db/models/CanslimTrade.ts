@@ -46,6 +46,15 @@ export interface ICanslimTrade {
   sectorMomentum?: string;
   volumeRatio?: number;
   
+  floatShares?: number;
+  outstandingShares?: number;
+  
+  earningsCheckPassed?: boolean;
+  earningsCheckReason?: string;
+  quarterlyEpsGrowth?: string;
+  annualEarningsTrend?: string;
+  institutionalOwnership?: string;
+  
   mt5OrderId?: string;
   mt5PositionId?: string;
   mt5Error?: string;
@@ -101,6 +110,15 @@ const CanslimTradeSchema = new Schema({
   sectorRank: { type: Number },
   sectorMomentum: { type: String },
   volumeRatio: { type: Number },
+  
+  floatShares: { type: Number },
+  outstandingShares: { type: Number },
+  
+  earningsCheckPassed: { type: Boolean },
+  earningsCheckReason: { type: String },
+  quarterlyEpsGrowth: { type: String },
+  annualEarningsTrend: { type: String },
+  institutionalOwnership: { type: String },
   
   mt5OrderId: { type: String, index: true },
   mt5PositionId: { type: String, index: true },

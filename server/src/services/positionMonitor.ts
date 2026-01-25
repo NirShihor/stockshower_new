@@ -406,28 +406,29 @@ class PositionMonitorService {
       const marketCloseMinutes = 21 * 60; // 4 PM EST = 21:00 UTC
       const isAfterMarketClose = totalMinutes >= marketCloseMinutes;
       
-      if (isAfterMarketClose && !isSwingTrade) {
-        console.log(`🔔 End of day closure: ${trade._id} (${trade.symbol}) - market closed at 21:00 UTC`);
-        
-        try {
-          if (trade.mt5PositionId) {
-            await metaApiHandler.closePosition(trade.mt5PositionId);
-          }
-        } catch (error) {
-          console.error(`Failed to close via MetaAPI for EOD:`, error);
-        }
-
-        trade.status = 'closed';
-        trade.exitReason = 'end_of_day';
-        trade.closedTime = new Date();
-        trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
-        trade.pnlAmount = 0;
-        trade.pnlPercent = 0;
-        
-        await trade.save();
-        console.log(`✅ Trade ${trade._id} closed at end of day`);
-        return;
-      }
+      // DISABLED: EOD closing - CAN SLIM trades should hold overnight
+      // if (isAfterMarketClose && !isSwingTrade) {
+      //   console.log(`🔔 End of day closure: ${trade._id} (${trade.symbol}) - market closed at 21:00 UTC`);
+      //   
+      //   try {
+      //     if (trade.mt5PositionId) {
+      //       await metaApiHandler.closePosition(trade.mt5PositionId);
+      //     }
+      //   } catch (error) {
+      //     console.error(`Failed to close via MetaAPI for EOD:`, error);
+      //   }
+      //
+      //   trade.status = 'closed';
+      //   trade.exitReason = 'end_of_day';
+      //   trade.closedTime = new Date();
+      //   trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
+      //   trade.pnlAmount = 0;
+      //   trade.pnlPercent = 0;
+      //   
+      //   await trade.save();
+      //   console.log(`✅ Trade ${trade._id} closed at end of day`);
+      //   return;
+      // }
       
       const openTime = trade.filledTime || trade.signalTime;
       if (!openTime) return;
@@ -458,29 +459,30 @@ class PositionMonitorService {
         return;
       }
 
-      const maxHours = 6;
-      if (hoursOpen > maxHours) {
-        console.log(`⏰ Position ${trade._id} (${trade.symbol}) open for ${hoursOpen.toFixed(1)} hours - forcing closure`);
-        
-        try {
-          if (trade.mt5PositionId) {
-            await metaApiHandler.closePosition(trade.mt5PositionId);
-          }
-        } catch (error) {
-          console.error(`Failed to close via MetaAPI, using database closure:`, error);
-        }
-
-        trade.status = 'closed';
-        trade.exitReason = 'timeout';
-        trade.closedTime = new Date();
-        trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
-        
-        trade.pnlAmount = -1;
-        trade.pnlPercent = -0.2;
-        
-        await trade.save();
-        console.log(`🔄 Trade ${trade._id} force-closed due to timeout`);
-      }
+      // DISABLED: 6-hour timeout - let positions run based on SL/TP only
+      // const maxHours = 6;
+      // if (hoursOpen > maxHours) {
+      //   console.log(`⏰ Position ${trade._id} (${trade.symbol}) open for ${hoursOpen.toFixed(1)} hours - forcing closure`);
+      //   
+      //   try {
+      //     if (trade.mt5PositionId) {
+      //       await metaApiHandler.closePosition(trade.mt5PositionId);
+      //     }
+      //   } catch (error) {
+      //     console.error(`Failed to close via MetaAPI, using database closure:`, error);
+      //   }
+      //
+      //   trade.status = 'closed';
+      //   trade.exitReason = 'timeout';
+      //   trade.closedTime = new Date();
+      //   trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
+      //   
+      //   trade.pnlAmount = -1;
+      //   trade.pnlPercent = -0.2;
+      //   
+      //   await trade.save();
+      //   console.log(`🔄 Trade ${trade._id} force-closed due to timeout`);
+      // }
     } catch (error) {
       console.error(`Error in position timeout check for trade ${trade._id}:`, error);
     }

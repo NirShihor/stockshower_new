@@ -20,4 +20,5 @@ export const API_ENDPOINTS = {
   preMarketAnalysis: `${API_BASE_URL}/pre-market-analysis`,
   happyTwists: `${API_BASE_URL}/happy-twists`,
   fundamentalAnalysis: `${API_BASE_URL}/fundamental`,
+  marketOverview: `${API_BASE_URL}/market-overview`,
 };

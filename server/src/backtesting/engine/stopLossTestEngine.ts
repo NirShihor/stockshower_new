@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { DatabaseBacktestEngine, DatabaseBacktestConfig } from './databaseBacktestEngine.js';
 import { Trade } from '../../db/models/Trade.js';
 

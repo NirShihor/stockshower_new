@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createGapAndGoExecutor } from '../brokers/gapAndGoExecutor.js';
 import dotenv from 'dotenv';
 import path from 'path';

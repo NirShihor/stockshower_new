@@ -43,6 +43,8 @@ export interface ITrade {
   
   timeframe: string;
   scannerType?: string;
+  tradeType?: 'day' | 'swing';
+  expectedHoldDays?: number;
   notes?: string;
   
   signalData?: any;

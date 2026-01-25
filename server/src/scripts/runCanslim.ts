@@ -8,17 +8,21 @@ const args = process.argv.slice(2);
 const isLive = args.includes('--live');
 const forceOverride = args.includes('--force');
 const scheduleMode = args.includes('--schedule');
+const noEarnings = args.includes('--no-earnings');
 const marginArg = args.find(a => a.startsWith('--margin='));
 const maxTradesArg = args.find(a => a.startsWith('--max-trades='));
 const minScoreArg = args.find(a => a.startsWith('--min-score='));
 const intervalArg = args.find(a => a.startsWith('--interval='));
+const delayArg = args.find(a => a.startsWith('--delay='));
+const tradingDelayMinutes = delayArg ? parseInt(delayArg.split('=')[1]) : 30;
 
 const config: Partial<CanslimTradeConfig> = {
   dryRun: !isLive,
-  targetMarginGBP: marginArg ? parseFloat(marginArg.split('=')[1]) : 1,
+  targetMarginGBP: marginArg ? parseFloat(marginArg.split('=')[1]) : 25,
   maxDailyTrades: maxTradesArg ? parseInt(maxTradesArg.split('=')[1]) : 3,
   minScore: minScoreArg ? parseInt(minScoreArg.split('=')[1]) : 4,
   ignoreMarketRegime: forceOverride,
+  useEarningsFilter: !noEarnings,
 };
 
 const intervalMinutes = intervalArg ? parseInt(intervalArg.split('=')[1]) : 30;
@@ -43,6 +47,24 @@ function isMarketOpen(): boolean {
   const marketOpen = 9 * 60 + 30;
   const marketClose = 16 * 60;
   return totalMinutes >= marketOpen && totalMinutes < marketClose;
+}
+
+function isTradingWindowOpen(): boolean {
+  const { hour, minute, dayOfWeek } = getETTime();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+  const totalMinutes = hour * 60 + minute;
+  const marketOpen = 9 * 60 + 30;
+  const tradingStart = marketOpen + tradingDelayMinutes;
+  const marketClose = 16 * 60;
+  return totalMinutes >= tradingStart && totalMinutes < marketClose;
+}
+
+function getMinutesUntilTradingWindow(): number {
+  const { hour, minute } = getETTime();
+  const totalMinutes = hour * 60 + minute;
+  const marketOpen = 9 * 60 + 30;
+  const tradingStart = marketOpen + tradingDelayMinutes;
+  return tradingStart - totalMinutes;
 }
 
 function getNextMarketOpen(): Date {
@@ -72,6 +94,8 @@ console.log(`Min Score: ${config.minScore}/6`);
 if (forceOverride) {
   console.log(`Force Override: YES (ignoring market regime)`);
 }
+console.log(`Earnings Filter: ${config.useEarningsFilter ? 'ON' : 'OFF'}`);
+console.log(`Trading Delay: ${tradingDelayMinutes} minutes after market open (starts 10:${tradingDelayMinutes === 30 ? '00' : (tradingDelayMinutes - 30).toString().padStart(2, '0')} AM ET)`);
 if (scheduleMode) {
   console.log(`Scheduler: ON (every ${intervalMinutes} minutes during market hours)`);
 }
@@ -119,12 +143,37 @@ async function runScan() {
     const newStats = executor.getDailyStats();
     console.log(`\nDaily Stats:`);
     console.log(`  Total trades today: ${newStats.trades}`);
-    console.log(`  Active positions: ${newStats.active}`);
+    console.log(`  Active positions (this session): ${newStats.active}`);
 
     if (newStats.active > 0) {
       console.log(`\nActive Trades:`);
       for (const [symbol, trade] of executor.getActiveTrades()) {
         console.log(`  ${symbol}: Entry $${trade.entryPrice.toFixed(2)}, Stop $${trade.stopLoss.toFixed(2)}, Target $${trade.takeProfit.toFixed(2)}`);
+      }
+    }
+
+    if (isLive) {
+      const { metaApiHandler } = await import('../handlers/metaApiRestHandler.js');
+      const [positions, orders] = await Promise.all([
+        metaApiHandler.getPositions(),
+        metaApiHandler.getOrders()
+      ]);
+
+      console.log(`\nBroker Status:`);
+      console.log(`  Open positions: ${positions.length}`);
+      console.log(`  Pending orders: ${orders.length}`);
+
+      if (positions.length > 0) {
+        console.log(`\nOpen Positions:`);
+        for (const pos of positions) {
+          console.log(`  ${pos.symbol}: ${pos.type} ${pos.volume} @ ${pos.openPrice}, P&L: ${pos.profit}`);
+        }
+      }
+      if (orders.length > 0) {
+        console.log(`\nPending Orders:`);
+        for (const ord of orders) {
+          console.log(`  ${ord.symbol}: ${ord.type} ${ord.volume} @ ${ord.openPrice}`);
+        }
       }
     }
 
@@ -141,12 +190,19 @@ async function runScheduler() {
     const { hour, minute } = getETTime();
     const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ET`;
     
-    if (isMarketOpen()) {
-      console.log(`\n[SCHEDULER] ${timeStr} - Market is OPEN, running scan...`);
-      await runScan();
-    } else {
+    if (!isMarketOpen()) {
       console.log(`\n[SCHEDULER] ${timeStr} - Market is CLOSED, skipping scan`);
+      return;
     }
+    
+    if (!isTradingWindowOpen()) {
+      const waitMinutes = getMinutesUntilTradingWindow();
+      console.log(`\n[SCHEDULER] ${timeStr} - Market open but waiting ${waitMinutes} more minutes (${tradingDelayMinutes}min delay after open)`);
+      return;
+    }
+    
+    console.log(`\n[SCHEDULER] ${timeStr} - Trading window OPEN, running scan...`);
+    await runScan();
   };
 
   await runIfMarketOpen();

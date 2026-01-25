@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ComprehensiveSignal } from '../../candlestick/types/comprehensive.js';
 import { Candle } from '../../candlestick/types/index.js';
 

@@ -58,6 +58,7 @@ export class TradeService {
         // Additional
         timeframe: signal.timeframe,
         scannerType: scannerType,
+        tradeType: (signal as any).tradeType || 'day',
         signalData: signal, // Store full signal for analysis
         status: 'pending'
       });

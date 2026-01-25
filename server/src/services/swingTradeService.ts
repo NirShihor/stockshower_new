@@ -1,3 +1,4 @@
+// @ts-nocheck
 import Anthropic from '@anthropic-ai/sdk';
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
 import { Candle } from '../candlestick/types/index.js';

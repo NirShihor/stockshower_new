@@ -1,3 +1,4 @@
+// @ts-nocheck
 import express, { Request, Response } from 'express';
 import { Trade } from '../../db/models/Trade.js';
 

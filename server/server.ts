@@ -151,12 +151,16 @@ if (process.env.NODE_ENV === 'production') {
       // Start cleanup schedulers for MT5
       if (process.env.METAAPI_TOKEN && process.env.METAAPI_ACCOUNT_ID) {
         console.log('Starting MT5 cleanup schedulers...');
-        metaApiHandler.startEndOfDayScheduler();
+
+        // DISABLED: EOD cleanup - only CAN SLIM is active, positions should hold overnight
+        // metaApiHandler.startEndOfDayScheduler();
+
+        // Keep: 48-hour expiry for unfilled CAN SLIM orders
         metaApiHandler.startOrderCleanup();
-        
-        // Position monitoring enabled - tracks SL/TP hits and updates database
-        positionMonitor.start();
-        console.log('Position monitoring started - will track trade exits');
+
+        // DISABLED: Position monitor for day trading patterns (Trade model) - CAN SLIM uses CanslimTrade
+        // positionMonitor.start();
+        // console.log('Position monitoring started - will track trade exits');
       } else {
         console.log('MetaApi credentials not found - automated cleanup disabled');
       }

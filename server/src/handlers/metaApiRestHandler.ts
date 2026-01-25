@@ -296,8 +296,8 @@ class MetaApiRestHandler {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Position sizing to target £1 MARGIN (minimum for testing)
-      const targetMarginGBP = 1; // £1 margin per trade - minimal testing size
+      // Position sizing based on target margin from signal config
+      const targetMarginGBP = (signal as any).targetMarginGBP || 25; // £25 default margin per trade
       const gbpToUsd = 1.30; // Approximate exchange rate
       const targetMarginUSD = targetMarginGBP * gbpToUsd; // $1.30 margin for testing
       let volume = 0.01; // Default fallback
@@ -560,7 +560,8 @@ class MetaApiRestHandler {
         volume: volume,
         stopLoss: roundedStopLoss,
         takeProfit: roundedTakeProfit,
-        comment: `Signal: ${signal.pattern.name}`.slice(0, 31)
+        comment: `Signal: ${signal.pattern.name}`.slice(0, 31),
+        clientId: signal.pattern.name.includes('CAN SLIM') ? `canslim-${Date.now()}` : undefined
       };
       
       // Create trade record before placing order
@@ -1013,12 +1014,16 @@ class MetaApiRestHandler {
       }
 
       console.log(`[MetaApi] Found ${positions.length} open positions to close`);
+      console.log(`[MetaApi] Position data:`, JSON.stringify(positions.map((p: any) => ({ id: p.id, symbol: p.symbol, comment: p.comment, clientId: p.clientId })), null, 2));
       const closeResults = [];
 
       for (const position of positions) {
         try {
-          if (position.comment && position.comment.includes('CAN SLIM')) {
-            console.log(`[MetaApi] Skipping CAN SLIM position ${position.id} for ${position.symbol} (swing trade)`);
+          const hasCanSlimComment = position.comment && position.comment.includes('CAN SLIM');
+          const hasCanSlimClientId = position.clientId && position.clientId.includes('canslim');
+          
+          if (hasCanSlimComment || hasCanSlimClientId) {
+            console.log(`[MetaApi] Skipping CAN SLIM position ${position.id} for ${position.symbol} (swing trade) - comment: ${position.comment}, clientId: ${position.clientId}`);
             continue;
           }
 
@@ -1122,7 +1127,9 @@ class MetaApiRestHandler {
 
       for (const order of orders) {
         try {
-          if (order.comment && order.comment.includes('CAN SLIM')) {
+          const isCanSlim = (order.comment && order.comment.includes('CAN SLIM')) ||
+                            (order.clientId && order.clientId.includes('canslim'));
+          if (isCanSlim) {
             console.log(`[MetaApi] Skipping CAN SLIM order ${order.id} for ${order.symbol} (swing trade)`);
             continue;
           }
@@ -1243,7 +1250,8 @@ class MetaApiRestHandler {
 
       for (const order of orders) {
         try {
-          const isCanSlim = order.comment && order.comment.includes('CAN SLIM');
+          const isCanSlim = (order.comment && order.comment.includes('CAN SLIM')) ||
+                            (order.clientId && order.clientId.includes('canslim'));
           
           if (isCanSlim) {
             // CAN SLIM orders have longer expiry (48 hours) since they're swing trades

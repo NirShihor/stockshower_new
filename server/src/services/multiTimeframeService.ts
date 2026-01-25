@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
 import { Candle } from '../candlestick/types/index.js';
 

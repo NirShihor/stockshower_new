@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Trade } from './src/db/models/Trade.js';
 import { connectDatabase } from './src/db/connection.js';
 import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';

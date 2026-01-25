@@ -12,12 +12,42 @@ export interface RelativeStrengthResult {
 }
 
 const RS_UNIVERSE = [
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK.B', 'UNH', 'JNJ',
-  'V', 'XOM', 'JPM', 'PG', 'MA', 'HD', 'CVX', 'LLY', 'ABBV', 'MRK',
-  'PEP', 'KO', 'COST', 'AVGO', 'TMO', 'MCD', 'WMT', 'CSCO', 'ACN', 'ABT',
-  'CRM', 'DHR', 'NKE', 'TXN', 'NEE', 'UPS', 'PM', 'RTX', 'HON', 'ORCL',
-  'IBM', 'QCOM', 'LOW', 'SPGI', 'BA', 'CAT', 'GS', 'AMD', 'INTC', 'AMAT',
-  'NFLX', 'ADBE', 'PYPL', 'INTU', 'ADI', 'LRCX', 'MU', 'NOW', 'PANW', 'SNPS'
+  // Mega Cap Tech (10)
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'AVGO', 'ORCL', 'CRM',
+  // Semiconductors (17) - removed ADI, NXPI (not on FxPro)
+  'AMD', 'INTC', 'QCOM', 'TXN', 'AMAT', 'LRCX', 'MU', 'MRVL', 'ON', 'SNPS', 'CDNS', 'KLAC', 'ASML', 'MCHP', 'SWKS', 'ARM', 'SMCI',
+  // Software & Cloud (20)
+  'ADBE', 'NOW', 'INTU', 'PANW', 'CRWD', 'SNOW', 'DDOG', 'NET', 'PLTR', 'SHOP', 'WDAY', 'TEAM', 'OKTA', 'ZS', 'FTNT', 'HUBS', 'DOCU', 'ZM', 'COIN', 'MSTR',
+  // Internet & E-commerce (8) - removed BKNG (not on FxPro)
+  'NFLX', 'PYPL', 'ABNB', 'UBER', 'DASH', 'EBAY', 'ETSY', 'MELI',
+  // Financials (15)
+  'V', 'MA', 'JPM', 'BAC', 'GS', 'MS', 'BLK', 'SCHW', 'AXP', 'C', 'WFC', 'SPGI', 'MCO', 'CME', 'ICE',
+  // Healthcare & Pharma (19)
+  'UNH', 'JNJ', 'LLY', 'ABBV', 'MRK', 'PFE', 'TMO', 'ABT', 'DHR', 'BMY', 'AMGN', 'GILD', 'VRTX', 'REGN', 'ISRG', 'MRNA', 'BIIB', 'ILMN', 'DXCM',
+  // Consumer Discretionary (19)
+  'HD', 'LOW', 'COST', 'WMT', 'TGT', 'NKE', 'SBUX', 'MCD', 'LULU', 'ROST', 'TJX', 'DG', 'DLTR', 'ORLY', 'AZO', 'CMG', 'DPZ', 'YUM', 'ULTA',
+  // Consumer Staples (12)
+  'PG', 'KO', 'PEP', 'PM', 'MO', 'CL', 'KHC', 'MDLZ', 'GIS', 'HSY', 'STZ', 'MNST',
+  // Energy (12)
+  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'PXD', 'OXY', 'VLO', 'PSX', 'MPC', 'HAL', 'DVN',
+  // Industrials (19)
+  'CAT', 'DE', 'BA', 'HON', 'RTX', 'LMT', 'GD', 'NOC', 'GE', 'MMM', 'UPS', 'FDX', 'UNP', 'CSX', 'URI', 'EMR', 'ETN', 'ITW', 'PH',
+  // Materials (7) - removed LIN (not on FxPro)
+  'APD', 'SHW', 'ECL', 'NEM', 'FCX', 'NUE', 'SCCO',
+  // REITs & Real Estate (10)
+  'AMT', 'PLD', 'CCI', 'EQIX', 'SPG', 'PSA', 'DLR', 'O', 'WELL', 'AVB',
+  // Utilities (7) - removed SRE (not on FxPro)
+  'NEE', 'DUK', 'SO', 'D', 'AEP', 'EXC', 'XEL',
+  // Telecom & Media (7) - removed PARA (not on FxPro)
+  'T', 'VZ', 'TMUS', 'CMCSA', 'DIS', 'WBD', 'NWSA',
+  // EV & Clean Energy (7)
+  'RIVN', 'LCID', 'ENPH', 'SEDG', 'FSLR', 'RUN', 'PLUG',
+  // Gaming & Entertainment (7) - removed WYNN (not on FxPro)
+  'EA', 'TTWO', 'RBLX', 'DKNG', 'PENN', 'MGM', 'LVS',
+  // Aerospace & Defense (4)
+  'AXON', 'HII', 'LHX', 'TDG',
+  // Misc High Growth (16) - removed SQ, VRSK, VRSN (not on FxPro)
+  'SOFI', 'HOOD', 'AFRM', 'UPST', 'APP', 'ROKU', 'TTD', 'BILL', 'PCTY', 'PAYC', 'VEEV', 'CPRT', 'ODFL', 'POOL', 'IDXX', 'PODD', 'ALGN', 'MKTX'
 ];
 
 async function calculate12MonthReturn(

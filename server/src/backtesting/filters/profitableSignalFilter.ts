@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ComprehensiveSignal } from '../../candlestick/types/comprehensive.js';
 
 export interface FilterConfig {

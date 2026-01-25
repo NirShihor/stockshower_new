@@ -1,6 +1,7 @@
 import { CanslimTrade, ICanslimTrade } from '../models/CanslimTrade.js';
 import { CanslimSignal } from '../../services/canslimService.js';
 import { MetaApiOrderResult } from '../../handlers/metaApiRestHandler.js';
+import { EarningsCheckResult, SharesFloatData } from '../../services/earningsFilterService.js';
 
 export class CanslimTradeService {
   static async createTrade(
@@ -10,7 +11,9 @@ export class CanslimTradeService {
     marketRegime: string,
     marketRegimeReason: string,
     forceOverride: boolean,
-    dryRun: boolean
+    dryRun: boolean,
+    earningsData?: EarningsCheckResult,
+    floatData?: SharesFloatData
   ): Promise<ICanslimTrade> {
     try {
       console.log(`[CanslimTradeService] Creating trade for ${signal.symbol} - Score: ${signal.score}/${signal.maxScore}`);
@@ -46,6 +49,15 @@ export class CanslimTradeService {
         sectorRank: signal.sectorStrength?.rank,
         sectorMomentum: signal.sectorStrength?.momentum,
         volumeRatio: signal.volumeBreakout?.volumeRatio,
+        
+        earningsCheckPassed: earningsData?.pass,
+        earningsCheckReason: earningsData?.reason,
+        quarterlyEpsGrowth: earningsData?.currentEarnings?.quarterlyGrowth,
+        annualEarningsTrend: earningsData?.currentEarnings?.annualGrowth,
+        institutionalOwnership: earningsData?.institutionalOwnership,
+        
+        floatShares: floatData?.floatShares ?? undefined,
+        outstandingShares: floatData?.outstandingShares ?? undefined,
         
         status: 'pending',
         dryRun: dryRun,
@@ -178,6 +190,13 @@ export class CanslimTradeService {
     return await CanslimTrade.find({
       status: { $in: ['pending', 'placed', 'filled'] }
     }).sort({ signalTime: -1 });
+  }
+
+  static async getOpenSymbols(): Promise<Set<string>> {
+    const openTrades = await CanslimTrade.find({
+      status: { $in: ['pending', 'placed', 'filled'] }
+    }).select('symbol');
+    return new Set(openTrades.map(t => t.symbol));
   }
 
   static async getRecentTrades(limit: number = 20): Promise<ICanslimTrade[]> {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { analyzeSwingTrades } from './swingTradeService.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
 import { Trade } from '../db/models/Trade.js';

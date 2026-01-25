@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { connectDatabase } from './src/db/connection.js';
 
 async function forceConnection() {

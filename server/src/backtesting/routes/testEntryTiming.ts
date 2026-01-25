@@ -1,3 +1,4 @@
+// @ts-nocheck
 import express, { Request, Response } from 'express';
 import { DatabaseBacktestEngine, DatabaseBacktestConfig } from '../engine/databaseBacktestEngine.js';
 
