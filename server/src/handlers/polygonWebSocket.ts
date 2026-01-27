@@ -154,7 +154,10 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
   });
   
   wsClient.on('close', (code, reason) => {
-    console.log(`Polygon WebSocket disconnected - Code: ${code}, Reason: ${reason}`);
+    console.log('🔴🔴🔴 POLYGON WEBSOCKET CLOSE EVENT 🔴🔴🔴');
+    console.log(`Code: ${code}, Reason: ${reason}`);
+    console.log('Close event stack trace:', new Error().stack);
+    console.log('🔴🔴🔴 END CLOSE EVENT 🔴🔴🔴');
     isConnected = false;
     isConnecting = false; // Clear connection lock on close
     wsClient = null; // CRITICAL: Clear the client reference to allow new connections

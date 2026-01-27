@@ -31,6 +31,7 @@ import { aggregate1MinTo5Min, clearAggregator } from './src/candlestick/aggregat
 import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
 import { startTrainingScheduler, stopTrainingScheduler } from './src/services/trainingScheduler.js';
 import aiTopTradesRoutes from './src/routes/aiTopTrades.js';
+import canslimRoutes from './src/routes/canslim.js';
 import { setCandleHistoryAccessor, startAiTopTradesService, stopAiTopTradesService } from './src/services/aiTopTradesService.js';
 import { getCandleHistoryMap } from './src/candlestick/comprehensiveScanner.js';
 import { startSwingExecutor, stopSwingExecutor } from './src/services/swingTradeExecutor.js';
@@ -67,6 +68,7 @@ app.use('/api/test', testCircuitBreakerRoutes);
 app.use('/api/backtest', backtestRoutes);
 app.use('/api/position-management', positionManagementRoutes);
 app.use('/api/ai-top-trades', aiTopTradesRoutes);
+app.use('/api/canslim', canslimRoutes);
 
 // Signals endpoint
 app.get('/api/signals', (req: Request, res: Response) => {
