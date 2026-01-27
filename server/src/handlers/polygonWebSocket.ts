@@ -12,6 +12,7 @@ let reconnectTimeout: NodeJS.Timeout | null = null;
 let isShuttingDown = true; // START AS SHUTDOWN to prevent any automatic connections
 let lastConnectionAttempt = 0;
 const CONNECTION_COOLDOWN = 5000; // 5 second cooldown between attempts
+let isConnecting = false; // GLOBAL LOCK: Prevent simultaneous connection attempts
 
 // FORCE CLEANUP ON MODULE LOAD
 if (reconnectTimeout) {
@@ -44,7 +45,20 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     throw new Error('Polygon API key is required');
   }
   
-  // Rate limiting - prevent rapid connection attempts
+  // GLOBAL LOCK: Prevent simultaneous connection attempts
+  if (isConnecting) {
+    console.log('🚫 BLOCKED: Connection already in progress, refusing additional connection attempt');
+    return;
+  }
+  
+  // STRICT: Only allow ONE connection attempt at a time
+  if (wsClient !== null) {
+    console.log('🚫 BLOCKED: WebSocket client already exists, refusing to create new connection');
+    console.log(`🚫 Current state: ${wsClient.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`);
+    return;
+  }
+  
+  // Rate limiting - prevent rapid connection attempts  
   const now = Date.now();
   if (now - lastConnectionAttempt < CONNECTION_COOLDOWN) {
     const waitTime = CONNECTION_COOLDOWN - (now - lastConnectionAttempt);
@@ -60,18 +74,15 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
   }
   
   onCandleCallback = onCandle;
+  isConnecting = true; // Set connection lock
   
-  if (wsClient && (wsClient.readyState === WebSocket.OPEN || 
-      wsClient.readyState === WebSocket.CONNECTING)) {
-    console.log('🔌 Already connected to Polygon WebSocket');
-    return;
-  }
-  
+  console.log('🔐 Setting connection lock - creating WebSocket...');
   wsClient = new WebSocket(STOCKS_WS_URL);
   
   wsClient.on('open', () => {
     console.log('Connected to Polygon WebSocket');
     isConnected = true;
+    isConnecting = false; // Clear connection lock on successful open
     reconnectAttempts = 0; // Reset on successful connection
     
     // Authenticate
@@ -145,6 +156,8 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
   wsClient.on('close', (code, reason) => {
     console.log(`Polygon WebSocket disconnected - Code: ${code}, Reason: ${reason}`);
     isConnected = false;
+    isConnecting = false; // Clear connection lock on close
+    wsClient = null; // CRITICAL: Clear the client reference to allow new connections
     
     // Clear any existing reconnect timeout
     if (reconnectTimeout) {
@@ -181,9 +194,11 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
   
   wsClient.on('error', (error) => {
     console.error('Polygon WebSocket error:', error);
+    isConnecting = false; // Clear connection lock on error
     try {
       wsClient?.close();
     } catch {}
+    // Don't set wsClient = null here, let the 'close' event handle cleanup
   });
 }
 
@@ -199,16 +214,14 @@ export function subscribeSymbols(symbols: string[], granularity: 'AM' | 'A' = 'A
   
   const topics = symbols.map(s => `${granularity}.${s.toUpperCase()}`);
   
-  // Limit to first 10 symbols to avoid policy violations
-  const limitedTopics = topics.slice(0, 10);
-  console.log(`Limiting subscription to ${limitedTopics.length} symbols (from ${topics.length} requested)`);
+  console.log(`Subscribing to ${topics.length} symbols`);
   
-  limitedTopics.forEach(t => desiredSubscriptions.add(t));
+  topics.forEach(t => desiredSubscriptions.add(t));
   
   if (isConnected && wsClient) {
     wsClient.send(JSON.stringify({
       action: 'subscribe',
-      params: limitedTopics.join(',')
+      params: topics.join(',')
     }));
   }
 }
@@ -231,6 +244,7 @@ export function disconnectPolygon() {
   
   // Prevent reconnection attempts
   isShuttingDown = true;
+  isConnecting = false; // Clear connection lock
   
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);
@@ -241,7 +255,7 @@ export function disconnectPolygon() {
   if (wsClient) {
     console.log('🔌 Closing WebSocket connection...');
     wsClient.close(1000, 'Manual disconnect'); // Normal closure
-    wsClient = null;
+    // Note: wsClient will be set to null in the 'close' event handler
   }
   
   isConnected = false;
@@ -275,4 +289,23 @@ export function isPolygonConnecting(): boolean {
 
 export function hasActivePolygonConnection(): boolean {
   return wsClient !== null && (wsClient.readyState === WebSocket.OPEN || wsClient.readyState === WebSocket.CONNECTING);
+}
+
+// Emergency function to reset all connection state
+export function forceResetConnectionState() {
+  console.log('🚨 FORCE RESETTING ALL POLYGON CONNECTION STATE');
+  isConnected = false;
+  isConnecting = false;
+  isShuttingDown = true;
+  wsClient = null;
+  reconnectAttempts = 0;
+  onCandleCallback = null;
+  desiredSubscriptions.clear();
+  
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+  
+  console.log('✅ All connection state forcibly reset');
 }

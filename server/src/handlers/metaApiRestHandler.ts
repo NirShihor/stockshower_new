@@ -2,6 +2,7 @@ import axios from 'axios';
 import https from 'https';
 import { ComprehensiveSignal } from '../candlestick/types/comprehensive.js';
 import { TradeService } from '../db/services/tradeService.js';
+import { Trade } from '../db/models/Trade.js';
 
 export interface MetaApiOrderResult {
   success: boolean;
@@ -32,6 +33,11 @@ class MetaApiRestHandler {
     });
   }
 
+  reinitialize(): void {
+    this.token = process.env.METAAPI_TOKEN || '';
+    this.accountId = process.env.METAAPI_ACCOUNT_ID || '';
+  }
+
   private getHeaders() {
     return {
       'auth-token': this.token,
@@ -40,11 +46,44 @@ class MetaApiRestHandler {
   }
 
   private convertToMT5Symbol(symbol: string): string {
-    // Common NASDAQ stocks that need .O suffix
-    const nasdaqStocks = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'META', 'NVDA', 'NFLX', 'DLTR', 'CSX', 'MU', 'ISRG'];
-    
-    // Common NYSE stocks that need .N suffix  
-    const nyseStocks = ['JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO', 'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA', 'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR', 'BSX'];
+    const nasdaqStocks = [
+      'AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AFRM', 'AKAM', 'ALGN', 'ALNY',
+      'AMAT', 'AMD', 'AMGN', 'AMZN', 'APP', 'ARGX', 'ARM', 'ASML', 'AVGO', 'AXON',
+      'BIDU', 'BIIB', 'BILI', 'BKR', 'BMRN', 'BNTX',
+      'CDNS', 'CDW', 'CHKP', 'CHRW', 'CHTR', 'CME', 'CMCSA', 'COIN', 'COST', 'CPRT',
+      'CRWD', 'CSCO', 'CSGP', 'CSX', 'CTAS', 'CTSH',
+      'DASH', 'DDOG', 'DKNG', 'DLTR', 'DOCU', 'DXCM',
+      'EA', 'EBAY', 'ENPH', 'EQIX', 'EXAS',
+      'FANG', 'FAST', 'FISV', 'FTNT',
+      'GEN', 'GFS', 'GILD', 'GOOG', 'GOOGL',
+      'HBAN', 'HOLX', 'HON', 'HOOD',
+      'IDXX', 'ILMN', 'INCY', 'INTC', 'INTU', 'ISRG',
+      'JD',
+      'KDP', 'KHC', 'KLAC',
+      'LCID', 'LRCX', 'LULU', 'LYFT',
+      'MAR', 'MARA', 'MCHP', 'MDLZ', 'MELI', 'META', 'MNST', 'MRNA', 'MRVL', 'MSFT',
+      'MSTR', 'MTCH', 'MU',
+      'NFLX', 'NTES', 'NTAP', 'NTNX', 'NVAX', 'NVDA', 'NXPI',
+      'ODFL', 'OKTA', 'ON', 'ORLY', 'ORCL',
+      'PANW', 'PAYX', 'PCAR', 'PDD', 'PEP', 'PLTR', 'PLUG', 'PYPL',
+      'QCOM',
+      'REGN', 'RIOT', 'RIVN', 'RKLB', 'ROKU', 'ROP', 'ROST',
+      'SBUX', 'SEDG', 'SHOP', 'SMCI', 'SNPS', 'SOFI', 'SPLK', 'SSNC', 'STX', 'SWKS',
+      'TEAM', 'TER', 'TMUS', 'TSLA', 'TTD', 'TTWO', 'TXN',
+      'UAL', 'ULTA',
+      'VRSK', 'VRSN', 'VRTX',
+      'WDAY', 'WDC',
+      'XEL',
+      'ZM', 'ZS'
+    ];
+
+    const nyseStocks = [
+      'JNJ', 'JPM', 'V', 'PG', 'HD', 'MA', 'BAC', 'WMT', 'DIS', 'KO',
+      'PFE', 'MRK', 'UNH', 'CVX', 'XOM', 'VZ', 'T', 'MMM', 'CAT', 'BA',
+      'IBM', 'GE', 'GM', 'F', 'CRM', 'RTX', 'DHR', 'BSX', 'NKE', 'ABT',
+      'TMO', 'WFC', 'GS', 'MS', 'AXP', 'LLY', 'ABBV', 'COP', 'SLB', 'OXY',
+      'UNP', 'DE', 'LMT', 'MCD'
+    ];
     
     if (nasdaqStocks.includes(symbol)) {
       return `${symbol}.O`;
@@ -52,8 +91,7 @@ class MetaApiRestHandler {
       return `${symbol}.N`;
     }
     
-    // For other symbols, return as-is
-    return symbol;
+    return `${symbol}.N`;
   }
 
   async checkStatus(): Promise<{ connected: boolean; error?: string; accountInfo?: any }> {
@@ -153,10 +191,16 @@ class MetaApiRestHandler {
       let canceledCount = 0;
 
       // Filter orders for this symbol (need to check both with and without suffix)
-      const baseSymbol = symbol.replace(/\.[ON]$/, ''); // Remove .O or .N suffix if present
+      // Use case-insensitive matching since MT5 may return different cases
+      const baseSymbol = symbol.replace(/\.[ON]$/i, '').toUpperCase(); // Remove .O or .N suffix, uppercase
+      
+      console.log(`[MetaApi] Looking for orders matching base symbol: ${baseSymbol}`);
+      console.log(`[MetaApi] Current pending orders:`, orders.map((o: any) => o.symbol));
       
       for (const order of orders) {
-        const orderBaseSymbol = order.symbol.replace(/\.[ON]$/, '');
+        const orderBaseSymbol = order.symbol.replace(/\.[ON]$/i, '').toUpperCase();
+        
+        console.log(`[MetaApi] Comparing: ${orderBaseSymbol} vs ${baseSymbol}`);
         
         if (orderBaseSymbol === baseSymbol) {
           try {
@@ -252,23 +296,23 @@ class MetaApiRestHandler {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      // Position sizing to target £5 MARGIN (not notional value)
-      const targetMarginGBP = 5; // £5 margin per trade
+      // Position sizing based on target margin from signal config
+      const targetMarginGBP = (signal as any).targetMarginGBP || 25; // £25 default margin per trade
       const gbpToUsd = 1.30; // Approximate exchange rate
-      const targetMarginUSD = targetMarginGBP * gbpToUsd; // $6.50 margin
+      const targetMarginUSD = targetMarginGBP * gbpToUsd; // $1.30 margin for testing
       let volume = 0.01; // Default fallback
       
       try {
-        // Calculate volume based on £5 target margin
+        // Calculate volume based on £1 target margin
         // This will use leverage to control much larger positions
         const entryPrice = plan.entry;
         
-        // Assume average margin requirement of 2% (1:50 leverage)
-        // You can adjust this based on specific stock margin requirements
-        const estimatedMarginPercent = 0.02; // 2% margin = 1:50 leverage
+        // Use actual account leverage (1:30) for margin calculations
+        // Based on actual MetaAPI account settings
+        const estimatedMarginPercent = 0.033; // 3.33% margin = 1:30 leverage
         
-        // Calculate notional value that £5 margin can control
-        const notionalValueUSD = targetMarginUSD / estimatedMarginPercent; // $6.50 / 0.02 = $325
+        // Calculate notional value that £1 margin can control with 1:30 leverage
+        const notionalValueUSD = targetMarginUSD / estimatedMarginPercent; // $1.30 / 0.033 = $39
         
         // Calculate lots needed (1 lot = 1 share at entry price)
         const sharesNeeded = notionalValueUSD / entryPrice;
@@ -278,7 +322,7 @@ class MetaApiRestHandler {
         
         // Apply safety limits - much higher now since we're targeting margin
         volume = Math.max(volume, 0.01); // Minimum 0.01 lots
-        volume = Math.min(volume, 10.0);  // Maximum 10 lots (£50 margin max)
+        volume = Math.min(volume, 2.0);   // Maximum 2 lots (£10 margin max for testing)
         
         // Calculate actual values for logging
         const actualNotionalUSD = volume * entryPrice;
@@ -312,9 +356,18 @@ class MetaApiRestHandler {
       try {
         const quoteCheck = await this.checkSymbolQuotes(mt5Symbol);
         if (!quoteCheck.success) {
+          const errorMsg = `No quotes available for ${mt5Symbol}. ${quoteCheck.error}`;
+          await TradeService.saveFailedOrder(
+            signal,
+            mt5Symbol,
+            'QUOTE_CHECK_FAILED',
+            volume,
+            errorMsg,
+            signal.pattern?.name?.includes('Gap') ? 'gap' : 'pattern'
+          );
           return {
             success: false,
-            error: `No quotes available for ${mt5Symbol}. ${quoteCheck.error}`
+            error: errorMsg
           };
         }
         // Use the actual market price if available
@@ -328,10 +381,12 @@ class MetaApiRestHandler {
       }
       
       // Determine order type and adjust entry price if needed
-      const minDistancePercent = 0.007; // 0.7% minimum distance - provides adequate margin for MT5 orders
+      const minDistancePercent = 0.002; // 0.2% minimum distance - reduced for better fills
       const priceDiff = Math.abs((plan.entry - currentMarketPrice) / currentMarketPrice);
       
       let adjustedEntry = plan.entry;
+      
+      const useMarketOrder = signal.score >= 80;
       
       console.log(`[MetaApi] Price analysis:`, {
         originalEntry: plan.entry,
@@ -339,11 +394,36 @@ class MetaApiRestHandler {
         marketCurrentPrice: currentMarketPrice,
         priceDiffPercent: (priceDiff * 100).toFixed(2) + '%',
         minRequiredPercent: (minDistancePercent * 100).toFixed(1) + '%',
-        willNeedAdjustment: priceDiff < minDistancePercent
+        willNeedAdjustment: priceDiff < minDistancePercent,
+        signalScore: signal.score,
+        useMarketOrder: useMarketOrder
       });
       
-      if (isLong) {
-        if (plan.entry > currentMarketPrice && priceDiff >= minDistancePercent) {
+      if (useMarketOrder) {
+        if (isLong) {
+          actionType = 'ORDER_TYPE_BUY';
+          adjustedEntry = currentMarketPrice;
+          console.log(`[MetaApi] HIGH SCORE (${signal.score}) - Using MARKET BUY at ${currentMarketPrice}`);
+        } else {
+          actionType = 'ORDER_TYPE_SELL';
+          adjustedEntry = currentMarketPrice;
+          console.log(`[MetaApi] HIGH SCORE (${signal.score}) - Using MARKET SELL at ${currentMarketPrice}`);
+        }
+      } else if (isLong) {
+        // CAN SLIM: Always use BUY_STOP for breakout entries (O'Neil method)
+        const isCanSlimSignal = signal.pattern?.name?.includes('CAN SLIM');
+
+        if (isCanSlimSignal) {
+          // CAN SLIM breakout strategy - always use BUY_STOP above current price
+          actionType = 'ORDER_TYPE_BUY_STOP';
+          if (plan.entry <= currentMarketPrice) {
+            // Entry is at or below market - adjust to above market for breakout
+            adjustedEntry = currentMarketPrice + (currentMarketPrice * minDistancePercent);
+            console.log(`[MetaApi] CAN SLIM BUY_STOP: Entry ${plan.entry} <= Current ${currentMarketPrice}, adjusted to ${adjustedEntry.toFixed(2)} (breakout entry above market)`);
+          } else {
+            console.log(`[MetaApi] CAN SLIM BUY_STOP: Entry ${plan.entry} > Current ${currentMarketPrice} (breakout entry)`);
+          }
+        } else if (plan.entry > currentMarketPrice && priceDiff >= minDistancePercent) {
           actionType = 'ORDER_TYPE_BUY_STOP';
           console.log(`[MetaApi] Using BUY_STOP: Entry ${plan.entry} > Current ${currentMarketPrice}, diff ${(priceDiff*100).toFixed(2)}% >= ${(minDistancePercent*100).toFixed(1)}%`);
         } else if (plan.entry < currentMarketPrice && priceDiff >= minDistancePercent) {
@@ -374,50 +454,98 @@ class MetaApiRestHandler {
       let adjustedStopLoss = plan.stop;
       let adjustedTakeProfit = plan.targets[0];
       
+      const isSwingTrade = (signal as any).tradeType === 'swing';
+      const isGapAndGo = signal.pattern?.name?.includes('Gap') || false;
+      
       console.log(`[MetaApi] Order validation:
         Direction: ${plan.direction} (${actionType})
+        Trade Type: ${isSwingTrade ? 'SWING' : 'DAY'}
+        Is Gap and Go: ${isGapAndGo}
         Current Price: ${currentMarketPrice}
         Original Entry: ${plan.entry} -> Adjusted Entry: ${adjustedEntry}
         Original Stop: ${plan.stop}
         Original TP: ${plan.targets[0]}
       `);
       
-      // Ensure minimum distances for stops (many brokers require this)
-      const minStopDistance = adjustedEntry * 0.01; // Increased to 1% minimum distance
-      
-      if (isLong) {
-        // For long positions: SL below entry, TP above entry
-        if (adjustedStopLoss >= adjustedEntry) {
-          adjustedStopLoss = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry`);
-        } else if ((adjustedEntry - adjustedStopLoss) < minStopDistance) {
-          adjustedStopLoss = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}) - distance too small`);
-        }
+      if (isSwingTrade || isGapAndGo) {
+        console.log(`[MetaApi] ${isGapAndGo ? 'GAP AND GO' : 'SWING TRADE'} - Using provided stops without ATR-based adjustments`);
         
-        if (adjustedTakeProfit <= adjustedEntry) {
-          adjustedTakeProfit = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Adjusted TP for long: ${adjustedTakeProfit} (was ${plan.targets[0]}) - TP was below entry`);
-        } else if ((adjustedTakeProfit - adjustedEntry) < minStopDistance) {
-          adjustedTakeProfit = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Increased TP distance for long: ${adjustedTakeProfit} (was ${plan.targets[0]}) - distance too small`);
+        if (isLong) {
+          if (adjustedStopLoss >= adjustedEntry) {
+            const swingStopDistance = adjustedEntry * 0.03;
+            adjustedStopLoss = adjustedEntry - swingStopDistance;
+            console.warn(`[MetaApi] Fixed invalid SL for swing long: ${adjustedStopLoss}`);
+          }
+          if (adjustedTakeProfit <= adjustedEntry) {
+            const swingTargetDistance = adjustedEntry * 0.05;
+            adjustedTakeProfit = adjustedEntry + swingTargetDistance;
+            console.warn(`[MetaApi] Fixed invalid TP for swing long: ${adjustedTakeProfit}`);
+          }
+        } else {
+          if (adjustedStopLoss <= adjustedEntry) {
+            const swingStopDistance = adjustedEntry * 0.03;
+            adjustedStopLoss = adjustedEntry + swingStopDistance;
+            console.warn(`[MetaApi] Fixed invalid SL for swing short: ${adjustedStopLoss}`);
+          }
+          if (adjustedTakeProfit >= adjustedEntry) {
+            const swingTargetDistance = adjustedEntry * 0.05;
+            adjustedTakeProfit = adjustedEntry - swingTargetDistance;
+            console.warn(`[MetaApi] Fixed invalid TP for swing short: ${adjustedTakeProfit}`);
+          }
         }
       } else {
-        // For short positions: SL above entry, TP below entry
-        if (adjustedStopLoss <= adjustedEntry) {
-          adjustedStopLoss = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry`);
-        } else if ((adjustedStopLoss - adjustedEntry) < minStopDistance) {
-          adjustedStopLoss = adjustedEntry + minStopDistance;
-          console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}) - distance too small`);
-        }
+        // DAY TRADING LOGIC - use ATR-based stops with tighter parameters
+        const atr = signal.context?.atr || 0;
+        const atrBasedStop = atr * 3;
+        const fallbackStop = adjustedEntry * 0.005;
+        const minStopDistance = atrBasedStop > 0 ? Math.max(atrBasedStop, fallbackStop) : fallbackStop;
         
-        if (adjustedTakeProfit >= adjustedEntry) {
-          adjustedTakeProfit = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Adjusted TP for short: ${adjustedTakeProfit} (was ${plan.targets[0]}) - TP was above entry`);
-        } else if ((adjustedEntry - adjustedTakeProfit) < minStopDistance) {
-          adjustedTakeProfit = adjustedEntry - minStopDistance;
-          console.warn(`[MetaApi] Increased TP distance for short: ${adjustedTakeProfit} (was ${plan.targets[0]}) - distance too small`);
+        console.log(`[MetaApi] Stop calculation: ATR=${atr.toFixed(4)}, 3xATR=${atrBasedStop.toFixed(4)}, minStop=${minStopDistance.toFixed(4)} (${((minStopDistance/adjustedEntry)*100).toFixed(2)}%)`)
+        
+        const originalRisk = Math.abs(plan.entry - plan.stop);
+        const originalReward = Math.abs(plan.targets[0] - plan.entry);
+        const originalRRRatio = originalRisk > 0 ? originalReward / originalRisk : 1.5;
+        
+        if (isLong) {
+          if (adjustedStopLoss >= adjustedEntry) {
+            adjustedStopLoss = adjustedEntry - minStopDistance;
+            console.warn(`[MetaApi] Adjusted SL for long: ${adjustedStopLoss} (was ${plan.stop}) - SL was above entry`);
+          } else if ((adjustedEntry - adjustedStopLoss) < minStopDistance) {
+            adjustedStopLoss = adjustedEntry - minStopDistance;
+            console.warn(`[MetaApi] Increased SL distance for long: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
+          }
+          
+          const currentTargetDistance = adjustedTakeProfit - adjustedEntry;
+          if (currentTargetDistance < (adjustedEntry * 0.005)) {
+             adjustedTakeProfit = adjustedEntry + (minStopDistance * 1.2);
+             console.log(`[MetaApi] Adjusted TP for long (was too close): ${adjustedTakeProfit}`);
+          }
+          
+          const tpPercent = (adjustedTakeProfit - adjustedEntry) / adjustedEntry;
+          if (tpPercent > 0.03) {
+             adjustedTakeProfit = adjustedEntry * 1.0122;
+             console.log(`[MetaApi] Capping extreme long TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
+          }
+        } else {
+          if (adjustedStopLoss <= adjustedEntry) {
+            adjustedStopLoss = adjustedEntry + minStopDistance;
+            console.warn(`[MetaApi] Adjusted SL for short: ${adjustedStopLoss} (was ${plan.stop}) - SL was below entry`);
+          } else if ((adjustedStopLoss - adjustedEntry) < minStopDistance) {
+            adjustedStopLoss = adjustedEntry + minStopDistance;
+            console.warn(`[MetaApi] Increased SL distance for short: ${adjustedStopLoss} (was ${plan.stop}) to meet minimum ATR-based distance`);
+          }
+          
+          const currentTargetDistance = adjustedEntry - adjustedTakeProfit;
+          if (currentTargetDistance < (adjustedEntry * 0.005)) {
+             adjustedTakeProfit = adjustedEntry - (minStopDistance * 1.2);
+             console.log(`[MetaApi] Adjusted TP for short (was too close): ${adjustedTakeProfit}`);
+          }
+          
+          const tpPercent = (adjustedEntry - adjustedTakeProfit) / adjustedEntry;
+          if (tpPercent > 0.03) {
+             adjustedTakeProfit = adjustedEntry * (1 - 0.0122);
+             console.log(`[MetaApi] Capping extreme short TP (${(tpPercent*100).toFixed(2)}%) to historical optimal 1.22%`);
+          }
         }
       }
       
@@ -426,12 +554,17 @@ class MetaApiRestHandler {
       const roundedStopLoss = Math.round(adjustedStopLoss * 100) / 100;
       const roundedTakeProfit = Math.round(adjustedTakeProfit * 100) / 100;
       
+      const finalRisk = Math.abs(roundedEntry - roundedStopLoss);
+      const finalReward = Math.abs(roundedTakeProfit - roundedEntry);
+      const finalRRRatio = finalRisk > 0 ? (finalReward / finalRisk).toFixed(2) : 'N/A';
+      
       console.log(`[MetaApi] Final order prices:
         Entry: ${roundedEntry}
         Stop Loss: ${roundedStopLoss}
         Take Profit: ${roundedTakeProfit}
-        SL Distance: ${Math.abs(roundedEntry - roundedStopLoss)}
-        TP Distance: ${Math.abs(roundedTakeProfit - roundedEntry)}
+        SL Distance: ${finalRisk.toFixed(2)} (${((finalRisk/roundedEntry)*100).toFixed(2)}%)
+        TP Distance: ${finalReward.toFixed(2)} (${((finalReward/roundedEntry)*100).toFixed(2)}%)
+        R:R Ratio: 1:${finalRRRatio}
       `);
       
       orderRequest = {
@@ -440,7 +573,7 @@ class MetaApiRestHandler {
         volume: volume,
         stopLoss: roundedStopLoss,
         takeProfit: roundedTakeProfit,
-        comment: `Signal: ${signal.pattern.name}`
+        comment: `Signal: ${signal.pattern.name}`.slice(0, 31)
       };
       
       // Create trade record before placing order
@@ -463,8 +596,10 @@ class MetaApiRestHandler {
         // Continue with order placement even if trade saving fails
       }
 
-      // Only add openPrice if we have a valid entry price (not null for market orders)
-      if (roundedEntry !== null && !isNaN(roundedEntry)) {
+      // Only add openPrice for pending orders (not market orders)
+      // Market orders (ORDER_TYPE_BUY/SELL) execute at current market price
+      const isMarketOrder = actionType === 'ORDER_TYPE_BUY' || actionType === 'ORDER_TYPE_SELL';
+      if (!isMarketOrder && roundedEntry !== null && !isNaN(roundedEntry)) {
         orderRequest.openPrice = roundedEntry;
       }
       
@@ -523,9 +658,25 @@ class MetaApiRestHandler {
       
       // Check if the trade was actually successful
       if (response.data.stringCode && response.data.stringCode !== 'TRADE_RETCODE_DONE') {
+        const errorMsg = `${response.data.stringCode}: ${response.data.message}`;
+        
+        // Save failed order for analysis if no trade record exists
+        if (!tradeId) {
+          await TradeService.saveFailedOrder(
+            signal,
+            mt5Symbol,
+            actionType,
+            volume,
+            errorMsg,
+            signal.pattern?.name?.includes('Gap') ? 'gap' : 'pattern'
+          );
+        } else {
+          await TradeService.updateTradeWithOrderResult(tradeId, { success: false, error: errorMsg });
+        }
+        
         return {
           success: false,
-          error: `${response.data.stringCode}: ${response.data.message}`
+          error: errorMsg
         };
       }
       
@@ -669,7 +820,7 @@ class MetaApiRestHandler {
       }
       
       // Calculate price adjustments
-      const minDistancePercent = 0.007; // 0.7% minimum distance - provides adequate margin for MT5 orders
+      const minDistancePercent = 0.002; // 0.2% minimum distance - reduced for better fills
       const priceDiff = Math.abs((plan.entry - currentMarketPrice) / currentMarketPrice);
       
       let adjustedEntry = plan.entry;
@@ -701,7 +852,7 @@ class MetaApiRestHandler {
       // Adjust stop loss and take profit if needed
       let adjustedStopLoss = plan.stop;
       let adjustedTakeProfit = plan.targets[0];
-      const minStopDistance = adjustedEntry * 0.01; // 1% minimum distance
+      const minStopDistance = adjustedEntry * 0.06; // 6% minimum distance - momentum trades need room for volatility
       
       if (isLong) {
         if (adjustedStopLoss >= adjustedEntry || (adjustedEntry - adjustedStopLoss) < minStopDistance) {
@@ -860,280 +1011,54 @@ class MetaApiRestHandler {
   }
 
   async closeAllPositions(): Promise<{ success: boolean; results: any[]; error?: string }> {
-    try {
-      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      
-      // Get all open positions
-      const positionsResponse = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
-        { headers: this.getHeaders() }
-      );
-
-      const positions = positionsResponse.data;
-      if (!positions || positions.length === 0) {
-        console.log('[MetaApi] No open positions to close');
-        return { success: true, results: [] };
-      }
-
-      console.log(`[MetaApi] Found ${positions.length} open positions to close`);
-      const closeResults = [];
-
-      for (const position of positions) {
-        try {
-          const closeRequest = {
-            actionType: 'POSITION_CLOSE_ID',
-            positionId: position.id,
-            comment: 'End of day auto-close'
-          };
-
-          console.log(`[MetaApi] Closing position ${position.id} for ${position.symbol}`);
-          
-          const closeResponse = await this.axiosInstance.post(
-            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
-            closeRequest,
-            { headers: this.getHeaders() }
-          );
-
-          closeResults.push({
-            positionId: position.id,
-            symbol: position.symbol,
-            success: true,
-            result: closeResponse.data
-          });
-
-          console.log(`[MetaApi] Successfully closed position ${position.id}`);
-        } catch (error: any) {
-          console.error(`[MetaApi] Failed to close position ${position.id}:`, error.response?.data);
-          closeResults.push({
-            positionId: position.id,
-            symbol: position.symbol,
-            success: false,
-            error: error.response?.data?.error || error.message
-          });
-        }
-      }
-
-      return { success: true, results: closeResults };
-    } catch (error: any) {
-      console.error('[MetaApi] Error closing all positions:', error.response?.data || error.message);
-      return {
-        success: false,
-        results: [],
-        error: error.response?.data?.error || error.message || 'Failed to close positions'
-      };
-    }
+    // ============================================================
+    // DISABLED - CAN SLIM positions should NEVER be auto-closed
+    // Positions will only close when they hit SL or TP
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: closeAllPositions() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - positions only close via SL/TP');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, results: [], error: 'DISABLED - CAN SLIM mode active' };
   }
 
   async cancelAllPendingOrders(): Promise<{ success: boolean; results: any[]; error?: string }> {
-    try {
-      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      
-      // Get all pending orders
-      const ordersResponse = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
-        { headers: this.getHeaders() }
-      );
-
-      const orders = ordersResponse.data;
-      if (!orders || orders.length === 0) {
-        console.log('[MetaApi] No pending orders to cancel');
-        return { success: true, results: [] };
-      }
-
-      console.log(`[MetaApi] Found ${orders.length} pending orders to cancel`);
-      const cancelResults = [];
-
-      for (const order of orders) {
-        try {
-          const cancelRequest = {
-            actionType: 'ORDER_CANCEL',
-            orderId: order.id
-          };
-
-          console.log(`[MetaApi] Canceling order ${order.id} for ${order.symbol}`);
-          
-          const cancelResponse = await this.axiosInstance.post(
-            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
-            cancelRequest,
-            { headers: this.getHeaders() }
-          );
-
-          cancelResults.push({
-            orderId: order.id,
-            symbol: order.symbol,
-            success: true,
-            result: cancelResponse.data
-          });
-
-          console.log(`[MetaApi] Successfully canceled order ${order.id}`);
-        } catch (error: any) {
-          console.error(`[MetaApi] Failed to cancel order ${order.id}:`, error.response?.data);
-          cancelResults.push({
-            orderId: order.id,
-            symbol: order.symbol,
-            success: false,
-            error: error.response?.data?.error || error.message
-          });
-        }
-      }
-
-      return { success: true, results: cancelResults };
-    } catch (error: any) {
-      console.error('[MetaApi] Error canceling all orders:', error.response?.data || error.message);
-      return {
-        success: false,
-        results: [],
-        error: error.response?.data?.error || error.message || 'Failed to cancel orders'
-      };
-    }
+    // ============================================================
+    // DISABLED - CAN SLIM orders should only be cancelled after 48h
+    // Use cancelExpiredCanslimOrders() for 48-hour expiry
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: cancelAllPendingOrders() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - only 48h expiry cancels orders');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, results: [], error: 'DISABLED - CAN SLIM mode active' };
   }
 
   async endOfDayCleanup(): Promise<{ success: boolean; closedPositions: number; canceledOrders: number; errors: string[] }> {
-    console.log('[MetaApi] Starting end-of-day cleanup...');
-    
-    const errors: string[] = [];
-    let closedPositions = 0;
-    let canceledOrders = 0;
-
-    try {
-      // Close all positions first
-      const closeResult = await this.closeAllPositions();
-      if (closeResult.success) {
-        closedPositions = closeResult.results.filter(r => r.success).length;
-        const closeErrors = closeResult.results.filter(r => !r.success);
-        closeErrors.forEach(e => errors.push(`Position ${e.positionId}: ${e.error}`));
-      } else {
-        errors.push(`Failed to close positions: ${closeResult.error}`);
-      }
-
-      // Cancel all pending orders
-      const cancelResult = await this.cancelAllPendingOrders();
-      if (cancelResult.success) {
-        canceledOrders = cancelResult.results.filter(r => r.success).length;
-        const cancelErrors = cancelResult.results.filter(r => !r.success);
-        cancelErrors.forEach(e => errors.push(`Order ${e.orderId}: ${e.error}`));
-      } else {
-        errors.push(`Failed to cancel orders: ${cancelResult.error}`);
-      }
-
-      console.log(`[MetaApi] End-of-day cleanup completed: ${closedPositions} positions closed, ${canceledOrders} orders canceled, ${errors.length} errors`);
-      
-      return {
-        success: errors.length === 0,
-        closedPositions,
-        canceledOrders,
-        errors
-      };
-    } catch (error: any) {
-      console.error('[MetaApi] End-of-day cleanup failed:', error);
-      return {
-        success: false,
-        closedPositions,
-        canceledOrders,
-        errors: [`Cleanup failed: ${error.message}`]
-      };
-    }
+    // ============================================================
+    // DISABLED - No EOD cleanup for CAN SLIM
+    // Positions close via SL/TP, orders expire after 48h
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: endOfDayCleanup() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - no EOD cleanup');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, closedPositions: 0, canceledOrders: 0, errors: ['DISABLED - CAN SLIM mode active'] };
   }
 
   async cancelOldOrders(): Promise<{ success: boolean; canceledCount: number; errors: string[] }> {
-    try {
-      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      
-      // Cancel orders older than 15 minutes - trading conditions change rapidly
-      // Get all pending orders
-      const ordersResponse = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
-        { headers: this.getHeaders() }
-      );
-
-      const orders = ordersResponse.data;
-      console.log(`[MetaApi] Found ${orders?.length || 0} pending orders to check`);
-      
-      if (!orders || orders.length === 0) {
-        console.log('[MetaApi] No pending orders found - nothing to cancel');
-        return { success: true, canceledCount: 0, errors: [] };
-      }
-
-      const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
-      console.log(`[MetaApi] Will cancel orders placed before: ${new Date(fifteenMinutesAgo).toISOString()}`);
-      const errors: string[] = [];
-      let canceledCount = 0;
-
-      for (const order of orders) {
-        try {
-          // Debug: Log the order structure to understand the time fields
-          console.log(`[MetaApi] Checking order ${order.id}:`, {
-            id: order.id,
-            symbol: order.symbol,
-            time: order.time,
-            openTime: order.openTime,
-            createdAt: order.createdAt,
-            timestamp: order.timestamp,
-            allKeys: Object.keys(order)
-          });
-          
-          // Try multiple possible time fields
-          let orderTime = null;
-          const timeFields = ['time', 'openTime', 'createdAt', 'timestamp', 'createTime'];
-          
-          for (const field of timeFields) {
-            if (order[field]) {
-              orderTime = new Date(order[field]).getTime();
-              if (!isNaN(orderTime)) {
-                console.log(`[MetaApi] Using ${field} for order time: ${new Date(orderTime).toISOString()}`);
-                break;
-              }
-            }
-          }
-          
-          if (!orderTime || isNaN(orderTime)) {
-            // If no valid time found, assume it's a new order (don't cancel)
-            console.log(`[MetaApi] No valid time found for order ${order.id}, skipping cancellation`);
-            continue;
-          }
-          
-          const ageInMinutes = (Date.now() - orderTime) / (60 * 1000);
-          console.log(`[MetaApi] Order ${order.id} age: ${ageInMinutes.toFixed(1)} minutes`);
-          
-          if (orderTime < fifteenMinutesAgo) {
-            const cancelRequest = {
-              actionType: 'ORDER_CANCEL',
-              orderId: order.id
-            };
-
-            console.log(`[MetaApi] Canceling old order ${order.id} for ${order.symbol} (placed at ${new Date(orderTime).toISOString()}, age: ${ageInMinutes.toFixed(1)} minutes)`);
-            
-            await this.axiosInstance.post(
-              `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
-              cancelRequest,
-              { headers: this.getHeaders() }
-            );
-
-            canceledCount++;
-            console.log(`[MetaApi] Successfully canceled old order ${order.id}`);
-          } else {
-            console.log(`[MetaApi] Order ${order.id} is only ${ageInMinutes.toFixed(1)} minutes old, keeping it`);
-          }
-        } catch (error: any) {
-          const errorMsg = `Failed to cancel order ${order.id}: ${error.response?.data?.error || error.message}`;
-          console.error(`[MetaApi] ${errorMsg}`);
-          errors.push(errorMsg);
-        }
-      }
-
-      if (canceledCount > 0) {
-        console.log(`[MetaApi] Canceled ${canceledCount} old orders`);
-      }
-
-      return { success: errors.length === 0, canceledCount, errors };
-    } catch (error: any) {
-      console.error('[MetaApi] Error checking for old orders:', error.response?.data || error.message);
-      return {
-        success: false,
-        canceledCount: 0,
-        errors: [`Failed to check orders: ${error.message}`]
-      };
-    }
+    // ============================================================
+    // DISABLED - CAN SLIM orders only expire after 48h via cancelExpiredCanslimOrders()
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: cancelOldOrders() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - use cancelExpiredCanslimOrders() for 48h expiry');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, canceledCount: 0, errors: ['DISABLED - CAN SLIM mode active'] };
   }
 
   private orderCleanupInterval: NodeJS.Timeout | null = null;
@@ -1182,6 +1107,98 @@ class MetaApiRestHandler {
       clearInterval(this.orderCleanupInterval);
       this.orderCleanupInterval = null;
       console.log('[MetaApi] Order cleanup scheduler stopped');
+    }
+  }
+
+  // CAN SLIM order expiry - runs once at EOD (21:00 UK time)
+  // Cancels unfilled CAN SLIM orders older than 48 hours
+  // Does NOT touch positions or any other orders
+  private canslimExpiryTimeout: NodeJS.Timeout | null = null;
+
+  startCanslimOrderExpiry(): void {
+    const scheduleNextCheck = () => {
+      // Schedule for 21:00 UK time (after US market close)
+      const msUntilCheck = this.msUntilUKTime(21, 0);
+      const hoursUntil = Math.floor(msUntilCheck / 1000 / 60 / 60);
+      const minutesUntil = Math.floor((msUntilCheck / 1000 / 60) % 60);
+
+      console.log(`[MetaApi] CAN SLIM order expiry scheduled in ${hoursUntil}h ${minutesUntil}m (at 21:00 UK time)`);
+
+      this.canslimExpiryTimeout = setTimeout(async () => {
+        console.log('[MetaApi] Running CAN SLIM order expiry check (21:00 UK)...');
+        await this.cancelExpiredCanslimOrders();
+        // Schedule next check for tomorrow
+        scheduleNextCheck();
+      }, msUntilCheck);
+    };
+
+    scheduleNextCheck();
+  }
+
+  private async cancelExpiredCanslimOrders(): Promise<void> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+
+      const ordersResponse = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
+        { headers: this.getHeaders() }
+      );
+
+      const orders = ordersResponse.data;
+      if (!orders || orders.length === 0) {
+        console.log('[MetaApi] No pending orders found');
+        return;
+      }
+
+      const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+      let cancelledCount = 0;
+
+      for (const order of orders) {
+        // ONLY process CAN SLIM orders
+        const isCanSlim = order.comment && order.comment.includes('CAN SLIM');
+        if (!isCanSlim) continue;
+
+        // Check order age
+        let orderTime = null;
+        const timeFields = ['time', 'openTime', 'createdAt', 'timestamp', 'createTime'];
+        for (const field of timeFields) {
+          if (order[field]) {
+            orderTime = new Date(order[field]).getTime();
+            if (!isNaN(orderTime)) break;
+          }
+        }
+
+        if (orderTime && orderTime < fortyEightHoursAgo) {
+          const ageInHours = (Date.now() - orderTime) / (60 * 60 * 1000);
+          console.log(`[MetaApi] CAN SLIM order ${order.id} (${order.symbol}) expired after ${ageInHours.toFixed(1)} hours - cancelling`);
+
+          try {
+            await this.axiosInstance.post(
+              `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+              { actionType: 'ORDER_CANCEL', orderId: order.id },
+              { headers: this.getHeaders() }
+            );
+            console.log(`[MetaApi] Cancelled expired CAN SLIM order ${order.id}`);
+            cancelledCount++;
+          } catch (cancelError: any) {
+            console.error(`[MetaApi] Failed to cancel order ${order.id}:`, cancelError.message);
+          }
+        } else {
+          const ageInHours = orderTime ? (Date.now() - orderTime) / (60 * 60 * 1000) : 0;
+          console.log(`[MetaApi] CAN SLIM order ${order.id} (${order.symbol}) is ${ageInHours.toFixed(1)} hours old - keeping`);
+        }
+      }
+
+      console.log(`[MetaApi] CAN SLIM order expiry complete: ${cancelledCount} orders cancelled`);
+    } catch (error: any) {
+      console.error('[MetaApi] CAN SLIM expiry check error:', error.message);
+    }
+  }
+
+  stopCanslimOrderExpiry(): void {
+    if (this.canslimExpiryTimeout) {
+      clearTimeout(this.canslimExpiryTimeout);
+      this.canslimExpiryTimeout = null;
     }
   }
 
@@ -1250,17 +1267,18 @@ class MetaApiRestHandler {
   }
 
   startEndOfDayScheduler(): void {
-    // Calculate time until 3:50 PM ET (10 minutes before market close)
+    // NYSE closes at 4 PM ET = 21:00 UK time
+    // Schedule cleanup for 20:48 UK time (12 minutes before NYSE close)
     const scheduleCleanup = () => {
-      const msUntilCleanup = this.msUntilETTime(15, 50); // 3:50 PM ET
+      const msUntilCleanup = this.msUntilUKTime(20, 48); // 20:48 UK time
       const minutesUntilCleanup = Math.round(msUntilCleanup / 1000 / 60);
       const hoursUntilCleanup = Math.floor(minutesUntilCleanup / 60);
       const remainingMinutes = minutesUntilCleanup % 60;
       
-      console.log(`[MetaApi] End-of-day cleanup scheduled in ${hoursUntilCleanup}h ${remainingMinutes}m (at 3:50 PM ET)`);
+      console.log(`[MetaApi] End-of-day cleanup scheduled in ${hoursUntilCleanup}h ${remainingMinutes}m (at 20:48 UK time)`);
       
       setTimeout(async () => {
-        console.log('[MetaApi] Executing scheduled end-of-day cleanup (10 minutes before market close)...');
+        console.log('[MetaApi] Executing scheduled end-of-day cleanup (12 minutes before NYSE close)...');
         await this.endOfDayCleanup();
         
         // Schedule next cleanup for tomorrow
@@ -1269,6 +1287,52 @@ class MetaApiRestHandler {
     };
 
     scheduleCleanup();
+  }
+
+  // Helper to calculate milliseconds until specific UK time
+  private msUntilUKTime(targetHour: number, targetMinute: number): number {
+    const now = new Date();
+    
+    // Get current UK time
+    const ukString = now.toLocaleString("en-GB", { 
+      timeZone: "Europe/London",
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const [datePart, timePart] = ukString.split(', ');
+    const [day, month, year] = datePart.split('/').map(Number);
+    const [currentHour, currentMinute] = timePart.split(':').map(Number);
+    
+    // Calculate minutes until target
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    const targetTotalMinutes = targetHour * 60 + targetMinute;
+    let minutesUntilTarget = targetTotalMinutes - currentTotalMinutes;
+    
+    // If target time has passed today, schedule for tomorrow
+    if (minutesUntilTarget <= 0) {
+      minutesUntilTarget += 24 * 60; // Add 24 hours
+    }
+    
+    // Get day of week in UK
+    const ukDate = new Date(now.toLocaleString("en-US", { timeZone: "Europe/London" }));
+    let dayOfWeek = ukDate.getDay();
+    
+    // Adjust day of week if target is tomorrow
+    if (minutesUntilTarget >= 24 * 60 - (currentTotalMinutes - targetTotalMinutes)) {
+      dayOfWeek = (dayOfWeek + 1) % 7;
+    }
+    
+    // Skip weekends (no trading on Sat/Sun)
+    let daysToAdd = 0;
+    if (dayOfWeek === 6) daysToAdd = 2; // Saturday -> Monday
+    else if (dayOfWeek === 0) daysToAdd = 1; // Sunday -> Monday
+    
+    return (minutesUntilTarget + (daysToAdd * 24 * 60)) * 60 * 1000;
   }
 
   // Position monitoring methods for trade tracking
@@ -1300,26 +1364,120 @@ class MetaApiRestHandler {
     }
   }
 
-  async getClosedPosition(positionId: string): Promise<any | null> {
+  async closePosition(positionId: string): Promise<{ success: boolean; error?: string }> {
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      // Try to get historical data for closed position
-      const response = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/history-deals`,
-        { 
-          headers: this.getHeaders(),
-          params: {
-            positionId: positionId,
-            limit: 10
-          }
+      
+      const closeRequest = {
+        actionType: 'POSITION_CLOSE_ID',
+        positionId: positionId,
+        comment: 'System auto-close'
+      };
+
+      console.log(`[MetaApi] Closing position ${positionId}`);
+      
+      const response = await this.axiosInstance.post(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+        closeRequest,
+        { headers: this.getHeaders() }
+      );
+
+      console.log(`[MetaApi] Close position response:`, response.data);
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[MetaApi] Error closing position ${positionId}:`, error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to close position'
+      };
+    }
+  }
+
+  async modifyPosition(positionId: string, stopLoss?: number, takeProfit?: number): Promise<{ success: boolean; error?: string }> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      
+      const modifyRequest: any = {
+        actionType: 'POSITION_MODIFY',
+        positionId: positionId
+      };
+
+      if (stopLoss !== undefined) {
+        modifyRequest.stopLoss = Math.round(stopLoss * 100) / 100;
+      }
+      if (takeProfit !== undefined) {
+        modifyRequest.takeProfit = Math.round(takeProfit * 100) / 100;
+      }
+
+      console.log(`[MetaApi] Modifying position ${positionId}:`, modifyRequest);
+      
+      const response = await this.axiosInstance.post(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+        modifyRequest,
+        { headers: this.getHeaders() }
+      );
+
+      console.log(`[MetaApi] Modify position response:`, response.data);
+      
+      if (response.data.stringCode && response.data.stringCode !== 'TRADE_RETCODE_DONE') {
+        return {
+          success: false,
+          error: `${response.data.stringCode}: ${response.data.message}`
+        };
+      }
+      
+      return { success: true };
+    } catch (error: any) {
+      console.error(`[MetaApi] Error modifying position ${positionId}:`, error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to modify position'
+      };
+    }
+  }
+
+  private lastHistoryFetch: number = 0;
+  private cachedDeals: any[] = [];
+  private historyFetchCooldown = 15000; // 15 seconds between history API calls
+
+  async getClosedPosition(positionId: string): Promise<any | null> {
+    try {
+      const now = Date.now();
+      
+      // Use cached deals if we fetched recently (avoid rate limiting)
+      if (now - this.lastHistoryFetch < this.historyFetchCooldown && this.cachedDeals.length > 0) {
+        const closingDeal = this.cachedDeals.find((deal: any) => 
+          String(deal.positionId) === String(positionId) && 
+          deal.entryType === 'DEAL_ENTRY_OUT'
+        );
+        
+        if (closingDeal) {
+          return {
+            closePrice: closingDeal.price,
+            closeTime: closingDeal.time,
+            commission: closingDeal.commission || 0,
+            profit: closingDeal.profit || 0
+          };
         }
+        return null;
+      }
+      
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      const endTime = new Date().toISOString();
+      const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      
+      const response = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/history-deals/time/${startTime}/${endTime}`,
+        { headers: this.getHeaders() }
       );
       
-      const deals = response.data || [];
-      // Find the closing deal (type should be OUT)
-      const closingDeal = deals.find((deal: any) => 
-        deal.positionId === positionId && 
-        (deal.entryType === 'DEAL_ENTRY_OUT' || deal.type === 'DEAL_TYPE_SELL')
+      this.cachedDeals = response.data || [];
+      this.lastHistoryFetch = now;
+      
+      const closingDeal = this.cachedDeals.find((deal: any) => 
+        String(deal.positionId) === String(positionId) && 
+        deal.entryType === 'DEAL_ENTRY_OUT'
       );
       
       if (closingDeal) {
@@ -1333,6 +1491,10 @@ class MetaApiRestHandler {
       
       return null;
     } catch (error: any) {
+      // If rate limited, return null silently (backup closure will handle it)
+      if (error.response?.data?.error === 'TooManyRequestsError') {
+        return null;
+      }
       console.error('[MetaApi] Error getting closed position:', error.response?.data || error.message);
       return null;
     }

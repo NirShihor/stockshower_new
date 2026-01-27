@@ -16,9 +16,12 @@ const __dirname = path.dirname(__filename);
 import analysisRoutes from './src/routes/analysis.js';
 import candlestickRoutes from './src/routes/candlestick.js';
 import tradesRoutes from './src/routes/trades.js';
+import tradeAnalysisRoutes from './src/routes/tradeAnalysis.js';
 import mt5Routes from './src/routes/mt5.js';
 import circuitBreakerStatusRoutes from './src/routes/circuitBreakerStatus.js';
 import testCircuitBreakerRoutes from './src/routes/testCircuitBreaker.js';
+import backtestRoutes from './src/backtesting/routes/backtestRoutes.js';
+import positionManagementRoutes from './src/routes/positionManagement.js';
 import { setupWebSocketServer, handleCandle, handleSignal, getSignals } from './src/websocket/server.js';
 import { connectPolygon, shutdownPolygon } from './src/handlers/polygonWebSocket.js';
 import { stopMockDataFeed } from './src/handlers/mockDataGenerator.js';
@@ -26,6 +29,11 @@ import { stopMockSignalFeed } from './src/handlers/mockSignalGenerator.js';
 import { detectEngulfingPatterns } from './src/candlestick/patterns/engulfing.js';
 import { aggregate1MinTo5Min, clearAggregator } from './src/candlestick/aggregator.js';
 import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
+import { startTrainingScheduler, stopTrainingScheduler } from './src/services/trainingScheduler.js';
+import aiTopTradesRoutes from './src/routes/aiTopTrades.js';
+import { setCandleHistoryAccessor, startAiTopTradesService, stopAiTopTradesService } from './src/services/aiTopTradesService.js';
+import { getCandleHistoryMap } from './src/candlestick/comprehensiveScanner.js';
+import { startSwingExecutor, stopSwingExecutor } from './src/services/swingTradeExecutor.js';
 
   // Load environment variables
   dotenv.config();
@@ -52,9 +60,13 @@ import { metaApiHandler } from './src/handlers/metaApiRestHandler.js';
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/candlestick', candlestickRoutes);
 app.use('/api/trades', tradesRoutes);
+app.use('/api/trade-analysis', tradeAnalysisRoutes);
 app.use('/api/mt5', mt5Routes);
 app.use('/api/circuit-breaker', circuitBreakerStatusRoutes);
 app.use('/api/test', testCircuitBreakerRoutes);
+app.use('/api/backtest', backtestRoutes);
+app.use('/api/position-management', positionManagementRoutes);
+app.use('/api/ai-top-trades', aiTopTradesRoutes);
 
 // Signals endpoint
 app.get('/api/signals', (req: Request, res: Response) => {
@@ -139,15 +151,36 @@ if (process.env.NODE_ENV === 'production') {
       // Start cleanup schedulers for MT5
       if (process.env.METAAPI_TOKEN && process.env.METAAPI_ACCOUNT_ID) {
         console.log('Starting MT5 cleanup schedulers...');
-        metaApiHandler.startEndOfDayScheduler();
-        metaApiHandler.startOrderCleanup();
-        
-        // Start position monitoring for trade tracking
-        console.log('Starting position monitoring service...');
-        positionMonitor.start();
+
+        // DISABLED: All automatic cleanup - CAN SLIM positions should hold until SL/TP
+        // metaApiHandler.startEndOfDayScheduler();
+        // metaApiHandler.startOrderCleanup();  // DISABLED - was cancelling orders unexpectedly
+
+        // Only run CAN SLIM 48-hour order expiry check
+        metaApiHandler.startCanslimOrderExpiry();
+        console.log('CAN SLIM 48-hour order expiry checker started');
+
+        // DISABLED: Position monitor for day trading patterns (Trade model) - CAN SLIM uses CanslimTrade
+        // positionMonitor.start();
+        // console.log('Position monitoring started - will track trade exits');
       } else {
         console.log('MetaApi credentials not found - automated cleanup disabled');
       }
+      
+      // Start daily training insights regeneration scheduler (21:10 UK time)
+      startTrainingScheduler();
+      
+      // DISABLED: AI Top Trades and Swing Executor - only CAN SLIM is active now
+      // Setup AI Top Trades service
+      // setCandleHistoryAccessor(getCandleHistoryMap);
+      // startAiTopTradesService();
+      // console.log('AI Top Trades service initialized - scans every 15 min (3pm-7:30pm UK)');
+      
+      // Start swing trade executor (auto-runs daily at 20:30 UTC)
+      // startSwingExecutor();
+      // console.log('Swing trade executor started - will scan daily at 20:30 UTC');
+      
+      console.log('Only CAN SLIM trading is active - run manually with: npx tsx src/scripts/runCanslim.ts');
     });
   };
 
@@ -173,6 +206,9 @@ process.on('SIGINT', () => {
   stopMockSignalFeed();
   clearAggregator(); // Clean up aggregator timers
   positionMonitor.stop(); // Stop position monitoring
+  stopTrainingScheduler(); // Stop training scheduler
+  stopAiTopTradesService(); // Stop AI Top Trades service
+  stopSwingExecutor(); // Stop swing trade executor
   
   // Force exit after 5 seconds if graceful shutdown fails
   setTimeout(() => {
@@ -195,6 +231,7 @@ process.on('SIGTERM', () => {
   shutdownPolygon();
   stopMockDataFeed();
   stopMockSignalFeed();
+  stopSwingExecutor(); // Stop swing trade executor
   
   // Force exit after 5 seconds if graceful shutdown fails
   setTimeout(() => {

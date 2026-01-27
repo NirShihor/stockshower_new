@@ -30,13 +30,14 @@ export function buildTradePlan(
   accountBalance: number = 10000 // Default for position sizing
 ): TradePlan {
   const tickSize = 0.01; // Assume penny stocks, adjust as needed
-  // Use ATR-based buffer for better fills (minimum 0.05% of price or 0.1 * ATR)
-  const priceBasedBuffer = confirmation.triggerPrice * 0.0005; // 0.05% of price
-  const atrBasedBuffer = context.atr * 0.1; // 10% of ATR
-  const entryBuffer = Math.max(priceBasedBuffer, atrBasedBuffer, tickSize * 5); // At least 5 ticks
+  // Minimal buffer for aggressive entry timing - reduced for more executions
+  const priceBasedBuffer = confirmation.triggerPrice * 0.0001; // 0.01% of price - very small
+  const atrBasedBuffer = context.atr * 0.02; // 2% of ATR - much smaller
+  const entryBuffer = Math.max(priceBasedBuffer, atrBasedBuffer, tickSize * 1); // Just 1 tick minimum
   
   if (pattern.direction === 'bullish') {
-    const entry = confirmation.triggerPrice + entryBuffer; // Use buffer instead of just tickSize
+    // MOMENTUM APPROACH: Enter on breakout ABOVE pattern high (confirming upward momentum)
+    const entry = pattern.patternHigh + entryBuffer; // Enter above pattern high + buffer for momentum confirmation
     const stop = findOptimalStopLoss(pattern, context, 'long');
     const risk = entry - stop;
     
@@ -45,48 +46,71 @@ export function buildTradePlan(
       return createFallbackTradePlan(entry, 'long', context.atr, params, accountBalance);
     }
     
+    // PROFIT INTEGRITY FILTERS:
+    // 1. Precision Volatility Cap: Reject if risk > 1.6% (Standard Institutional Stop)
+    const riskPct = risk / entry;
+    if (riskPct > 0.016) {
+      console.log(`[TRADE-PLAN] REJECTED: Risk too wide (${(riskPct * 100).toFixed(2)}% > 1.6%)`);
+      return { ...createFallbackTradePlan(entry, 'long', context.atr, params, accountBalance), risk: -1 };
+    }
+
+    // 2. Minimum 1.5x R/R Enforcement:
+    // With V4, MFT requires high-payoff winners to filter out M5 noise.
+    const minTargetDistance = Math.max(risk * 1.5, entry * 0.01);
+    
     const targets = [
-      entry + (risk * params.rMultiple1),
-      entry + (risk * params.rMultiple2)
+      Number((entry + minTargetDistance).toFixed(2)),
+      Number((entry + minTargetDistance * 1.5).toFixed(2))
     ];
     
     const positionQty = calculatePositionSize(risk, params.riskPerTradePct, accountBalance);
-    
+
     return {
       direction: 'long',
       entry: Number(entry.toFixed(2)),
       stop: Number(stop.toFixed(2)),
       risk: Number(risk.toFixed(2)),
-      targets: targets.map(t => Number(t.toFixed(2))),
+      targets: targets,
       positionQty,
-      riskRewardRatio: `1:${params.rMultiple1}`
+      riskRewardRatio: `1:${(minTargetDistance / risk).toFixed(2)}`
     };
     
   } else {
-    const entry = confirmation.triggerPrice - entryBuffer; // Use buffer instead of just tickSize
+    // SHORT DIRECTION
+    const entry = pattern.patternLow - entryBuffer;
     const stop = findOptimalStopLoss(pattern, context, 'short');
     const risk = stop - entry;
     
     if (risk <= 0) {
-      // Fallback if risk calculation is invalid
       return createFallbackTradePlan(entry, 'short', context.atr, params, accountBalance);
     }
+
+    // PROFIT INTEGRITY FILTERS:
+    // 1. Precision Volatility Cap: Reject if risk > 1.6%
+    const riskPct = risk / entry;
+    if (riskPct > 0.016) {
+      console.log(`[TRADE-PLAN] REJECTED: Risk too wide (${(riskPct * 100).toFixed(2)}% > 1.6%)`);
+      return { ...createFallbackTradePlan(entry, 'short', context.atr, params, accountBalance), risk: -1 };
+    }
+
+    // 2. Minimum 1.5x R/R Enforcement:
+    const minTargetDistance = Math.max(risk * 1.5, entry * 0.01);
     
     const targets = [
-      entry - (risk * params.rMultiple1),
-      entry - (risk * params.rMultiple2)
+      Number((entry - minTargetDistance).toFixed(2)),
+      Number((entry - minTargetDistance * 1.5).toFixed(2))
     ];
     
     const positionQty = calculatePositionSize(risk, params.riskPerTradePct, accountBalance);
-    
+
     return {
       direction: 'short',
       entry: Number(entry.toFixed(2)),
       stop: Number(stop.toFixed(2)),
       risk: Number(risk.toFixed(2)),
-      targets: targets.map(t => Number(t.toFixed(2))),
+      targets: targets,
       positionQty,
-      riskRewardRatio: `1:${params.rMultiple1}`
+      riskRewardRatio: `1:${(minTargetDistance / risk).toFixed(2)}`
     };
   }
 }
@@ -96,7 +120,13 @@ function findOptimalStopLoss(
   context: MarketContext,
   direction: 'long' | 'short'
 ): number {
-  const minDistance = Math.max(context.atr * 0.75, 0.15); // Increased minimum distance for better stops
+  // Get the trigger price (where we expect to enter)
+  const entryPrice = direction === 'long' ? pattern.patternHigh : pattern.patternLow;
+  
+  // Calculate minimum distance as percentage of entry price (1.5% minimum for better survival)
+  const minDistancePercent = entryPrice * 0.015; 
+  // Restore 2.0x ATR stops to survive choppy market noise
+  const minDistance = Math.max(context.atr * 2.0, minDistancePercent);
   
   if (direction === 'long') {
     // For long trades, stop below pattern low
@@ -106,11 +136,13 @@ function findOptimalStopLoss(
     if (context.nearestSupport && context.nearestSupport < stopLevel) {
       const distanceToSupport = pattern.patternLow - context.nearestSupport;
       if (distanceToSupport <= context.atr * 2) {
-        stopLevel = context.nearestSupport - minDistance;
+        stopLevel = context.nearestSupport;
       }
     }
     
-    return stopLevel - minDistance;
+    // Ensure stop is at least minDistance below the expected entry
+    const stopFromEntry = entryPrice - minDistance;
+    return Math.min(stopLevel, stopFromEntry);
     
   } else {
     // For short trades, stop above pattern high
@@ -120,11 +152,13 @@ function findOptimalStopLoss(
     if (context.nearestResistance && context.nearestResistance > stopLevel) {
       const distanceToResistance = context.nearestResistance - pattern.patternHigh;
       if (distanceToResistance <= context.atr * 2) {
-        stopLevel = context.nearestResistance + minDistance;
+        stopLevel = context.nearestResistance;
       }
     }
     
-    return stopLevel + minDistance;
+    // Ensure stop is at least minDistance above the expected entry
+    const stopFromEntry = entryPrice + minDistance;
+    return Math.max(stopLevel, stopFromEntry);
   }
 }
 

@@ -5,8 +5,9 @@ import { TradingCircuitBreaker } from '../helpers/circuitBreaker.js';
 
 class PositionMonitorService {
   private intervalId: NodeJS.Timeout | null = null;
-  private checkIntervalMs = 30000; // Check every 30 seconds
+  private checkIntervalMs = 60000; // Check every 60 seconds - reduced to avoid MetaAPI rate limits
   private circuitBreaker: TradingCircuitBreaker;
+  private breakEvenPositions: Set<string> = new Set();
   
   constructor() {
     this.circuitBreaker = new TradingCircuitBreaker();
@@ -49,6 +50,32 @@ class PositionMonitorService {
           {
             status: 'cancelled',
             cancelReason: 'cleanup_stuck',
+            cancelTime: new Date()
+          }
+        );
+      }
+      
+      // Clean up trades with invalid position IDs
+      const invalidPositionTrades = await Trade.find({
+        status: { $in: ['placed', 'filled', 'partial'] },
+        $or: [
+          { mt5PositionId: 'N/A' },
+          { mt5PositionId: 'undefined' },
+          { mt5PositionId: null },
+          { mt5PositionId: '' }
+        ]
+      });
+      
+      console.log(`Found ${invalidPositionTrades.length} trades with invalid position IDs to clean up`);
+      
+      for (const trade of invalidPositionTrades) {
+        console.log(`🧹 Cleaning up invalid position trade ${trade._id} (${trade.symbol})`);
+        
+        await Trade.findByIdAndUpdate(
+          trade._id,
+          {
+            status: 'cancelled',
+            cancelReason: 'invalid_position_id',
             cancelTime: new Date()
           }
         );
@@ -174,11 +201,24 @@ class PositionMonitorService {
           
           // Check if filled position was closed
           if (trade.status === 'filled' && trade.mt5PositionId) {
+            // Skip invalid position IDs (e.g., "N/A" from failed order placements)
+            if (!trade.mt5PositionId || trade.mt5PositionId === 'N/A' || trade.mt5PositionId === 'undefined') {
+              console.log(`⚠️ Skipping trade ${trade._id} - invalid position ID: ${trade.mt5PositionId}`);
+              // Mark as closed with unknown outcome to stop further processing
+              trade.status = 'closed';
+              trade.exitReason = 'invalid_position';
+              trade.closedTime = new Date();
+              trade.pnlAmount = 0;
+              trade.pnlPercent = 0;
+              await trade.save();
+              continue;
+            }
+            
             const position = positionMap.get(trade.mt5PositionId);
             
             if (!position) {
               // Position no longer exists - it was closed!
-              // Need to get historical data to find exit details
+              // Try multiple methods to get closure details
               const historicalData = await metaApiHandler.getClosedPosition(trade.mt5PositionId);
               
               if (historicalData) {
@@ -203,13 +243,27 @@ class PositionMonitorService {
                   await this.circuitBreaker.updateTradeResult(closedTrade);
                 }
               } else {
-                // Fallback - mark as closed without details
-                console.log(`⚠️ Trade ${trade._id} closed but no details available`);
+                // BACKUP CLOSURE: If no historical data, mark as closed with estimated P&L
+                console.log(`⚠️ Trade ${trade._id} closed but no details available - using backup closure`);
+                const estimatedClosePrice = trade.actualEntryPrice || trade.entryPrice;
+                
                 trade.status = 'closed';
-                trade.exitReason = 'system';
+                trade.exitReason = 'system_backup';
                 trade.closedTime = new Date();
+                trade.exitPrice = estimatedClosePrice;
+                // Mark as break-even since we can't determine actual exit
+                trade.pnlAmount = 0;
+                trade.pnlPercent = 0;
                 await trade.save();
+                
+                console.log(`🔄 Trade ${trade._id} marked closed with backup system`);
               }
+            } else {
+              // ACTIVE PRICE MONITORING: Check if position should be closed based on current price
+              await this.checkActivePriceTargets(trade, position);
+              
+              // TIMEOUT CLOSURE: Check if position has been open too long
+              await this.checkPositionTimeout(trade);
             }
           }
         } catch (error) {
@@ -239,6 +293,199 @@ class PositionMonitorService {
     }
     
     return 'manual';
+  }
+
+  private async checkActivePriceTargets(trade: any, position: any): Promise<void> {
+    try {
+      const currentPrice = position.currentPrice || position.openPrice;
+      
+      if (!currentPrice || !trade.stopLoss || !trade.takeProfit) {
+        return;
+      }
+
+      const isLong = trade.direction === 'long';
+      const entryPrice = trade.actualEntryPrice || trade.entryPrice;
+      const positionId = position.id || trade.mt5PositionId;
+
+      if (entryPrice && positionId && !this.breakEvenPositions.has(positionId)) {
+        const initialRisk = Math.abs(entryPrice - trade.stopLoss);
+        const currentProfit = isLong 
+          ? currentPrice - entryPrice 
+          : entryPrice - currentPrice;
+
+        if (currentProfit >= initialRisk) {
+          console.log(`🔒 Break-even triggered for ${trade.symbol}: profit ${currentProfit.toFixed(2)} >= risk ${initialRisk.toFixed(2)}`);
+          
+          const result = await metaApiHandler.modifyPosition(positionId, entryPrice);
+          
+          if (result.success) {
+            this.breakEvenPositions.add(positionId);
+            trade.stopLoss = entryPrice;
+            trade.breakEvenTriggered = true;
+            trade.breakEvenTime = new Date();
+            await trade.save();
+            console.log(`✅ ${trade.symbol} SL moved to break-even at ${entryPrice}`);
+          } else {
+            console.error(`❌ Failed to move SL to break-even for ${trade.symbol}: ${result.error}`);
+          }
+        }
+      }
+
+      let shouldClose = false;
+      let exitReason: 'stop_loss' | 'take_profit' | null = null;
+
+      if (isLong) {
+        if (currentPrice <= trade.stopLoss) {
+          shouldClose = true;
+          exitReason = 'stop_loss';
+        } else if (currentPrice >= trade.takeProfit) {
+          shouldClose = true;
+          exitReason = 'take_profit';
+        }
+      } else {
+        if (currentPrice >= trade.stopLoss) {
+          shouldClose = true;
+          exitReason = 'stop_loss';
+        } else if (currentPrice <= trade.takeProfit) {
+          shouldClose = true;
+          exitReason = 'take_profit';
+        }
+      }
+
+      if (shouldClose && exitReason) {
+        console.log(`🎯 Active monitoring triggered: ${trade.symbol} hit ${exitReason} at ${currentPrice}`);
+        
+        try {
+          await metaApiHandler.closePosition(position.id);
+          
+          await TradeService.closeTrade(
+            trade.mt5PositionId,
+            currentPrice,
+            exitReason,
+            0
+          );
+          
+          this.breakEvenPositions.delete(positionId);
+          console.log(`✅ Position ${position.id} closed via active monitoring`);
+        } catch (closeError) {
+          console.error(`❌ Failed to close position ${position.id} via active monitoring:`, closeError);
+          
+          trade.status = 'closed';
+          trade.exitReason = exitReason;
+          trade.exitPrice = currentPrice;
+          trade.closedTime = new Date();
+          
+          if (entryPrice) {
+            const pnlPercent = isLong 
+              ? ((currentPrice - entryPrice) / entryPrice) * 100
+              : ((entryPrice - currentPrice) / entryPrice) * 100;
+            
+            trade.pnlPercent = pnlPercent;
+            trade.pnlAmount = (pnlPercent / 100) * (trade.positionSizeGBP || 5);
+          }
+          
+          await trade.save();
+          this.breakEvenPositions.delete(positionId);
+          console.log(`🔄 Trade ${trade._id} force-closed via fallback system`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error in active price monitoring for trade ${trade._id}:`, error);
+    }
+  }
+
+  private async checkPositionTimeout(trade: any): Promise<void> {
+    try {
+      const now = new Date();
+      const utcHours = now.getUTCHours();
+      const utcMinutes = now.getUTCMinutes();
+      const totalMinutes = utcHours * 60 + utcMinutes;
+      
+      const isSwingTrade = trade.tradeType === 'swing';
+      
+      const marketCloseMinutes = 21 * 60; // 4 PM EST = 21:00 UTC
+      const isAfterMarketClose = totalMinutes >= marketCloseMinutes;
+      
+      // DISABLED: EOD closing - CAN SLIM trades should hold overnight
+      // if (isAfterMarketClose && !isSwingTrade) {
+      //   console.log(`🔔 End of day closure: ${trade._id} (${trade.symbol}) - market closed at 21:00 UTC`);
+      //   
+      //   try {
+      //     if (trade.mt5PositionId) {
+      //       await metaApiHandler.closePosition(trade.mt5PositionId);
+      //     }
+      //   } catch (error) {
+      //     console.error(`Failed to close via MetaAPI for EOD:`, error);
+      //   }
+      //
+      //   trade.status = 'closed';
+      //   trade.exitReason = 'end_of_day';
+      //   trade.closedTime = new Date();
+      //   trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
+      //   trade.pnlAmount = 0;
+      //   trade.pnlPercent = 0;
+      //   
+      //   await trade.save();
+      //   console.log(`✅ Trade ${trade._id} closed at end of day`);
+      //   return;
+      // }
+      
+      const openTime = trade.filledTime || trade.signalTime;
+      if (!openTime) return;
+
+      const hoursOpen = (Date.now() - openTime.getTime()) / (1000 * 60 * 60);
+      const daysOpen = hoursOpen / 24;
+      
+      if (isSwingTrade) {
+        const maxDays = trade.expectedHoldDays || 5;
+        if (daysOpen >= maxDays) {
+          console.log(`⏰ Swing trade ${trade._id} (${trade.symbol}) open for ${daysOpen.toFixed(1)} days - max hold reached`);
+          
+          try {
+            if (trade.mt5PositionId) {
+              await metaApiHandler.closePosition(trade.mt5PositionId);
+            }
+          } catch (error) {
+            console.error(`Failed to close swing trade via MetaAPI:`, error);
+          }
+
+          trade.status = 'closed';
+          trade.exitReason = 'max_hold_time';
+          trade.closedTime = new Date();
+          
+          await trade.save();
+          console.log(`🔄 Swing trade ${trade._id} closed after ${maxDays} day hold period`);
+        }
+        return;
+      }
+
+      // DISABLED: 6-hour timeout - let positions run based on SL/TP only
+      // const maxHours = 6;
+      // if (hoursOpen > maxHours) {
+      //   console.log(`⏰ Position ${trade._id} (${trade.symbol}) open for ${hoursOpen.toFixed(1)} hours - forcing closure`);
+      //   
+      //   try {
+      //     if (trade.mt5PositionId) {
+      //       await metaApiHandler.closePosition(trade.mt5PositionId);
+      //     }
+      //   } catch (error) {
+      //     console.error(`Failed to close via MetaAPI, using database closure:`, error);
+      //   }
+      //
+      //   trade.status = 'closed';
+      //   trade.exitReason = 'timeout';
+      //   trade.closedTime = new Date();
+      //   trade.exitPrice = trade.actualEntryPrice || trade.entryPrice;
+      //   
+      //   trade.pnlAmount = -1;
+      //   trade.pnlPercent = -0.2;
+      //   
+      //   await trade.save();
+      //   console.log(`🔄 Trade ${trade._id} force-closed due to timeout`);
+      // }
+    } catch (error) {
+      console.error(`Error in position timeout check for trade ${trade._id}:`, error);
+    }
   }
 }
 

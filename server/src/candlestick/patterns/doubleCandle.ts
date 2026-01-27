@@ -174,23 +174,24 @@ export function detectDoubleCandlePatterns(
 ): PatternDetails[] {
   const patterns: PatternDetails[] = [];
   
-  // Check for Engulfing patterns
-  const bullishEngulfing = detectBullishEngulfing(prevCandle, currCandle, params);
-  if (bullishEngulfing) patterns.push(bullishEngulfing);
-  
+  // V12 HIGH OCTANE: Enabling Short Patterns (Engulfing, Dark Cloud)
+  // We keep Longs commented out as V11 is Short Only.
+
+  // const bullishEngulfing = detectBullishEngulfing(prevCandle, currCandle, params);
+  // if (bullishEngulfing) patterns.push(bullishEngulfing);
+
   const bearishEngulfing = detectBearishEngulfing(prevCandle, currCandle, params);
   if (bearishEngulfing) patterns.push(bearishEngulfing);
-  
+
   // Check for Tweezer patterns
   const tweezerTop = detectTweezerTop(prevCandle, currCandle, atr, params);
   if (tweezerTop) patterns.push(tweezerTop);
   
-  const tweezerBottom = detectTweezerBottom(prevCandle, currCandle, atr, params);
-  if (tweezerBottom) patterns.push(tweezerBottom);
+  // const tweezerBottom = detectTweezerBottom(prevCandle, currCandle, atr, params);
+  // if (tweezerBottom) patterns.push(tweezerBottom);
   
-  // Check for Piercing/Dark Cloud
-  const piercing = detectPiercing(prevCandle, currCandle, params);
-  if (piercing) patterns.push(piercing);
+  // const piercing = detectPiercing(prevCandle, currCandle, params);
+  // if (piercing) patterns.push(piercing);
   
   const darkCloud = detectDarkCloudCover(prevCandle, currCandle, params);
   if (darkCloud) patterns.push(darkCloud);

@@ -29,6 +29,8 @@ interface GapUpStock {
   first15MinHigh?: string;
   first15MinLow?: string;
   first15MinClose?: string;
+  premarketHigh?: string;
+  premarketLow?: string;
 }
 
 interface GapTradePlan {
@@ -480,9 +482,8 @@ const GapScannerPage: React.FC = () => {
     }
   };
 
-  // Generate trading plan for gap stocks
+  // Generate trading plan for gap stocks (Gap & Go Strategy - Warrior Trading style)
   const generateGapTradePlan = (stock: GapUpStock): GapTradePlan => {
-    // Helper function to safely parse price strings
     const parsePrice = (priceStr: string | undefined): number => {
       if (!priceStr) return 0;
       const cleaned = priceStr.replace(/[$,]/g, '');
@@ -491,63 +492,50 @@ const GapScannerPage: React.FC = () => {
     };
 
     const currentPrice = parsePrice(stock.livePrice || stock.currentPrice);
-    const openPrice = parsePrice(stock.openPrice);
-    const twentyDayLevel = parsePrice(stock.twentyDayHigh);
-    const first15MinHigh = parsePrice(stock.first15MinHigh);
-    const first15MinLow = parsePrice(stock.first15MinLow);
-    const first15MinClose = parsePrice(stock.first15MinClose);
-    const previousClose = parsePrice(stock.previousClose);
+    const premarketHigh = parsePrice(stock.premarketHigh || stock.first15MinHigh);
+    const premarketLow = parsePrice(stock.premarketLow || stock.first15MinLow);
 
-    // Validate required data
-    if (!stock.first15MinHigh || !stock.first15MinLow || first15MinHigh === 0 || first15MinLow === 0) {
-      throw new Error('Missing required first 15-minute data for trading plan');
+    if (premarketHigh === 0 || premarketLow === 0) {
+      throw new Error('Missing required premarket data for trading plan');
     }
 
-    // Validate parsed prices
-    if (currentPrice === 0 || twentyDayLevel === 0) {
-      console.warn('Invalid price data for trading plan:', {
-        currentPrice,
-        twentyDayLevel,
-        stock
-      });
+    if (currentPrice === 0) {
       throw new Error('Invalid price data for trading plan');
     }
     
     if (activeTab === 'up') {
-      // Gap Up Strategy
-      const entry = Math.max(first15MinHigh, twentyDayLevel) + 0.05; // Entry above breakout level
-      const stop = Math.min(first15MinLow, previousClose) - 0.05; // Stop below support
+      const entry = premarketHigh;
+      const stop = premarketLow;
       const risk = entry - stop;
-      const target1 = entry + (risk * 1.5); // 1.5:1 target
-      const target2 = entry + (risk * 2.5); // 2.5:1 target
+      const target1 = entry + (risk * 2);
+      const target2 = entry + (risk * 3);
       
       return {
         direction: 'long',
         entry: Number(entry.toFixed(2)),
         stop: Number(stop.toFixed(2)),
         targets: [Number(target1.toFixed(2)), Number(target2.toFixed(2))],
-        positionQty: 1, // Will be adjusted by position sizing
-        riskRewardRatio: '1:1.5',
+        positionQty: 1,
+        riskRewardRatio: '1:2',
         orderType: getMT5OrderType('long', currentPrice, entry),
-        strategy: 'Gap Up Breakout'
+        strategy: 'Gap & Go Long'
       };
     } else {
-      // Gap Down Strategy  
-      const entry = Math.min(first15MinLow, twentyDayLevel) - 0.05; // Entry below breakdown level
-      const stop = Math.max(first15MinHigh, previousClose) + 0.05; // Stop above resistance
+      const entry = premarketLow;
+      const stop = premarketHigh;
       const risk = stop - entry;
-      const target1 = entry - (risk * 1.5); // 1.5:1 target
-      const target2 = entry - (risk * 2.5); // 2.5:1 target
+      const target1 = entry - (risk * 2);
+      const target2 = entry - (risk * 3);
       
       return {
         direction: 'short',
         entry: Number(entry.toFixed(2)),
         stop: Number(stop.toFixed(2)),
         targets: [Number(target1.toFixed(2)), Number(target2.toFixed(2))],
-        positionQty: 1, // Will be adjusted by position sizing
-        riskRewardRatio: '1:1.5',
+        positionQty: 1,
+        riskRewardRatio: '1:2',
         orderType: getMT5OrderType('short', currentPrice, entry),
-        strategy: 'Gap Down Breakdown'
+        strategy: 'Gap & Go Short'
       };
     }
   };
@@ -556,9 +544,8 @@ const GapScannerPage: React.FC = () => {
   const handlePlaceGapOrder = async (stock: GapUpStock) => {
     if (placingOrder) return;
     
-    // Validate we have the required data
-    if (!stock.first15MinHigh || !stock.first15MinLow) {
-      alert('❌ Cannot place order: Missing required first 15-minute trading data for this stock.');
+    if (!stock.premarketHigh && !stock.first15MinHigh || !stock.premarketLow && !stock.first15MinLow) {
+      alert('❌ Cannot place order: Missing required premarket data for this stock.');
       return;
     }
     
@@ -908,6 +895,18 @@ Do you want to proceed with the adjusted price?`;
                       <span className="value" style={{color: '#FF8C00', fontWeight: 'bold'}}>{stock.first15MinClose}</span>
                     </div>
                   )}
+                  {stock.premarketHigh && (
+                    <div className="detail-row">
+                      <span className="label">Premarket High:</span>
+                      <span className="value" style={{color: '#2e7d32', fontWeight: 'bold'}}>{stock.premarketHigh}</span>
+                    </div>
+                  )}
+                  {stock.premarketLow && (
+                    <div className="detail-row">
+                      <span className="label">Premarket Low:</span>
+                      <span className="value" style={{color: '#c62828', fontWeight: 'bold'}}>{stock.premarketLow}</span>
+                    </div>
+                  )}
                   {stock.highPrice && (
                     <div className="detail-row">
                       <span className="label">{getMarketStatus(stock.exchange).status !== 'OPEN' && getLastTradingDay() !== 'Today' ? `${getLastTradingDay()}'s High:` : 'Day High:'}</span>
@@ -951,7 +950,7 @@ Do you want to proceed with the adjusted price?`;
                 </div>
 
                 {/* Trading Plan Preview */}
-                {stock.suitable && stock.first15MinHigh && stock.first15MinLow && (() => {
+                {stock.suitable && (stock.premarketHigh || stock.first15MinHigh) && (stock.premarketLow || stock.first15MinLow) && (() => {
                   const tradePlan = generateGapTradePlan(stock);
                   
                   // Helper function to safely parse price strings
@@ -1110,7 +1109,7 @@ Do you want to proceed with the adjusted price?`;
                       </button>
                     )}
 
-                    {stock.suitable && stock.first15MinHigh && stock.first15MinLow && (
+                    {stock.suitable && (stock.premarketHigh || stock.first15MinHigh) && (stock.premarketLow || stock.first15MinLow) && (
                       <button 
                         className="analysis-button"
                         onClick={() => handlePlaceGapOrder(stock)}

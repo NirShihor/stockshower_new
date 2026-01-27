@@ -58,6 +58,7 @@ export class TradeService {
         // Additional
         timeframe: signal.timeframe,
         scannerType: scannerType,
+        tradeType: (signal as any).tradeType || 'day',
         signalData: signal, // Store full signal for analysis
         status: 'pending'
       });
@@ -214,6 +215,99 @@ export class TradeService {
         .select('-signalData'); // Exclude large signal data
     } catch (error) {
       console.error('Error getting recent trades:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save a failed order attempt for analysis
+   */
+  static async saveFailedOrder(
+    signal: any,
+    mt5Symbol: string,
+    orderType: string,
+    volume: number,
+    errorMessage: string,
+    scannerType?: string
+  ): Promise<ITrade | null> {
+    try {
+      const trade = new Trade({
+        symbol: signal.symbol,
+        mt5Symbol: mt5Symbol,
+        patternName: signal.pattern?.name || 'Unknown',
+        patternScore: signal.score || 0,
+        entryPrice: signal.plan?.entry || 0,
+        stopLoss: signal.plan?.stop || 0,
+        takeProfit: signal.plan?.targets?.[0] || 0,
+        direction: signal.plan?.direction || 'long',
+        orderType: orderType,
+        volume: volume,
+        signalTime: new Date(),
+        status: 'failed',
+        mt5Error: errorMessage,
+        timeframe: signal.timeframe || '1m',
+        scannerType: scannerType,
+        signalData: signal
+      });
+      
+      const saved = await trade.save();
+      console.log(`[TradeService] Saved failed order for ${signal.symbol}: ${errorMessage}`);
+      return saved as ITrade;
+    } catch (error) {
+      console.error('[TradeService] Error saving failed order:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get gap trading analytics
+   */
+  static async getGapTradingAnalytics(days: number = 30) {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const trades = await Trade.find({
+        scannerType: 'gap',
+        signalTime: { $gte: startDate }
+      }).sort({ signalTime: -1 });
+      
+      const closed = trades.filter(t => t.status === 'closed');
+      const failed = trades.filter(t => t.status === 'failed');
+      const pending = trades.filter(t => t.status === 'pending' || t.status === 'placed');
+      
+      const wins = closed.filter(t => t.pnlAmount && t.pnlAmount > 0);
+      const losses = closed.filter(t => t.pnlAmount && t.pnlAmount < 0);
+      
+      const totalPnL = closed.reduce((sum, t) => sum + (t.pnlAmount || 0), 0);
+      const avgWin = wins.length > 0 
+        ? wins.reduce((sum, t) => sum + (t.pnlAmount || 0), 0) / wins.length 
+        : 0;
+      const avgLoss = losses.length > 0 
+        ? Math.abs(losses.reduce((sum, t) => sum + (t.pnlAmount || 0), 0)) / losses.length 
+        : 0;
+      
+      return {
+        period: `Last ${days} days`,
+        totalSignals: trades.length,
+        closedTrades: closed.length,
+        failedOrders: failed.length,
+        pendingOrders: pending.length,
+        wins: wins.length,
+        losses: losses.length,
+        winRate: closed.length > 0 ? ((wins.length / closed.length) * 100).toFixed(1) + '%' : 'N/A',
+        totalPnL: totalPnL.toFixed(2),
+        avgWin: avgWin.toFixed(2),
+        avgLoss: avgLoss.toFixed(2),
+        profitFactor: avgLoss > 0 ? (avgWin / avgLoss).toFixed(2) : 'N/A',
+        failureReasons: failed.reduce((acc: Record<string, number>, t) => {
+          const reason = t.mt5Error || 'Unknown';
+          acc[reason] = (acc[reason] || 0) + 1;
+          return acc;
+        }, {})
+      };
+    } catch (error) {
+      console.error('Error getting gap trading analytics:', error);
       throw error;
     }
   }

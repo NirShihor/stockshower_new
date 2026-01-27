@@ -1,0 +1,2068 @@
+{
+  "generatedAt": "2025-11-25T19:37:11.549Z",
+  "config": {
+    "startDate": "2023-01-01T00:00:00.000Z",
+    "includeAll": true,
+    "minTrades": 3
+  },
+  "results": {
+    "summary": {
+      "totalSignals": 1798,
+      "filledTrades": 130,
+      "closedTrades": 14,
+      "fillRate": 7.230255839822025,
+      "overallWinRate": 100,
+      "totalPnL": 6208.67,
+      "avgPnL": 443.48,
+      "profitFactor": 0,
+      "sharpeRatio": 22.144
+    },
+    "patternAnalysis": [
+      {
+        "patternName": "Reversal Bullish Engulfing",
+        "totalTrades": 48,
+        "closedTrades": 1,
+        "winningTrades": 1,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 75.5,
+        "scoreRange": {
+          "min": 54,
+          "max": 100
+        },
+        "avgPnL": 1437.4,
+        "totalPnL": 1437.4,
+        "avgWin": 1437.4,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.458473216119498,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 20.833333333333336,
+        "avgStopDistance": 0.7,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 2,
+          "15:00": 3,
+          "16:00": 2,
+          "17:00": 12,
+          "18:00": 25,
+          "19:00": 4
+        },
+        "exitReasons": {
+          "stop_loss": 1
+        },
+        "bestTrades": [
+          {
+            "symbol": "TSLA",
+            "pnl": 1437.3960792000007,
+            "score": 54
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "TSLA",
+            "pnl": 1437.3960792000007,
+            "score": 54
+          }
+        ]
+      },
+      {
+        "patternName": "Reversal Three Inside Down",
+        "totalTrades": 19,
+        "closedTrades": 2,
+        "winningTrades": 2,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 79.5,
+        "scoreRange": {
+          "min": 50,
+          "max": 100
+        },
+        "avgPnL": 511.81,
+        "totalPnL": 1023.63,
+        "avgWin": 511.81,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.087371056868773,
+        "atSupportRate": 0,
+        "atResistanceRate": 21.052631578947366,
+        "trendAlignedRate": 21.052631578947366,
+        "avgStopDistance": 0.6,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 3,
+          "16:00": 4,
+          "18:00": 9,
+          "19:00": 3
+        },
+        "exitReasons": {
+          "stop_loss": 2
+        },
+        "bestTrades": [
+          {
+            "symbol": "PFE",
+            "pnl": 633.7999999999972,
+            "score": 54
+          },
+          {
+            "symbol": "MMM",
+            "pnl": 389.8251549999975,
+            "score": 75
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "PFE",
+            "pnl": 633.7999999999972,
+            "score": 54
+          },
+          {
+            "symbol": "MMM",
+            "pnl": 389.8251549999975,
+            "score": 75
+          }
+        ]
+      },
+      {
+        "patternName": "Reversal Three White Soldiers",
+        "totalTrades": 9,
+        "closedTrades": 2,
+        "winningTrades": 2,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 78.4,
+        "scoreRange": {
+          "min": 63,
+          "max": 100
+        },
+        "avgPnL": 478.76,
+        "totalPnL": 957.51,
+        "avgWin": 478.76,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.1970547509711373,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.78,
+        "avgRiskReward": 1.51,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 2,
+          "16:00": 1,
+          "18:00": 4,
+          "19:00": 2
+        },
+        "exitReasons": {
+          "stop_loss": 2
+        },
+        "bestTrades": [
+          {
+            "symbol": "META",
+            "pnl": 612.5240249999989,
+            "score": 67
+          },
+          {
+            "symbol": "UNH",
+            "pnl": 344.98631999999907,
+            "score": 78
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "META",
+            "pnl": 612.5240249999989,
+            "score": 67
+          },
+          {
+            "symbol": "UNH",
+            "pnl": 344.98631999999907,
+            "score": 78
+          }
+        ]
+      },
+      {
+        "patternName": "Reversal Tweezer Bottom",
+        "totalTrades": 72,
+        "closedTrades": 2,
+        "winningTrades": 2,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 76.8,
+        "scoreRange": {
+          "min": 50,
+          "max": 100
+        },
+        "avgPnL": 409.07,
+        "totalPnL": 818.14,
+        "avgWin": 409.07,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.115564792654536,
+        "atSupportRate": 4.166666666666666,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 34.72222222222222,
+        "avgStopDistance": 0.44,
+        "avgRiskReward": 1.51,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 3,
+          "16:00": 1,
+          "17:00": 6,
+          "18:00": 53,
+          "19:00": 9
+        },
+        "exitReasons": {
+          "stop_loss": 2
+        },
+        "bestTrades": [
+          {
+            "symbol": "INTC",
+            "pnl": 504.8732250000036,
+            "score": 55
+          },
+          {
+            "symbol": "UNH",
+            "pnl": 313.27121000000454,
+            "score": 50
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "INTC",
+            "pnl": 504.8732250000036,
+            "score": 55
+          },
+          {
+            "symbol": "UNH",
+            "pnl": 313.27121000000454,
+            "score": 50
+          }
+        ]
+      },
+      {
+        "patternName": "Reversal Tweezer Top",
+        "totalTrades": 64,
+        "closedTrades": 3,
+        "winningTrades": 3,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 76.8,
+        "scoreRange": {
+          "min": 52,
+          "max": 100
+        },
+        "avgPnL": 246,
+        "totalPnL": 738.01,
+        "avgWin": 246,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.093323280390529,
+        "atSupportRate": 1.5625,
+        "atResistanceRate": 12.5,
+        "trendAlignedRate": 12.5,
+        "avgStopDistance": 0.4,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 4,
+          "15:00": 4,
+          "16:00": 3,
+          "17:00": 11,
+          "18:00": 35,
+          "19:00": 7
+        },
+        "exitReasons": {
+          "stop_loss": 3
+        },
+        "bestTrades": [
+          {
+            "symbol": "PEP",
+            "pnl": 273.3426174999982,
+            "score": 62
+          },
+          {
+            "symbol": "MMM",
+            "pnl": 256.5051549999982,
+            "score": 52
+          },
+          {
+            "symbol": "NKE",
+            "pnl": 208.16071279999662,
+            "score": 52
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "PEP",
+            "pnl": 273.3426174999982,
+            "score": 62
+          },
+          {
+            "symbol": "MMM",
+            "pnl": 256.5051549999982,
+            "score": 52
+          },
+          {
+            "symbol": "NKE",
+            "pnl": 208.16071279999662,
+            "score": 52
+          }
+        ]
+      },
+      {
+        "patternName": "Reversal Bearish Marubozu",
+        "totalTrades": 46,
+        "closedTrades": 2,
+        "winningTrades": 2,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 72.2,
+        "scoreRange": {
+          "min": 55,
+          "max": 100
+        },
+        "avgPnL": 255.06,
+        "totalPnL": 510.12,
+        "avgWin": 255.06,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.3777078397835145,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.3,
+        "avgRiskReward": 1.49,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 3,
+          "15:00": 2,
+          "16:00": 3,
+          "17:00": 24,
+          "18:00": 12,
+          "19:00": 2
+        },
+        "exitReasons": {
+          "stop_loss": 2
+        },
+        "bestTrades": [
+          {
+            "symbol": "INTC",
+            "pnl": 375.4753475,
+            "score": 80
+          },
+          {
+            "symbol": "ORCL",
+            "pnl": 134.64736749999886,
+            "score": 55
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "INTC",
+            "pnl": 375.4753475,
+            "score": 80
+          },
+          {
+            "symbol": "ORCL",
+            "pnl": 134.64736749999886,
+            "score": 55
+          }
+        ]
+      },
+      {
+        "patternName": "Reversal Three Black Crows",
+        "totalTrades": 6,
+        "closedTrades": 1,
+        "winningTrades": 1,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 75.7,
+        "scoreRange": {
+          "min": 50,
+          "max": 100
+        },
+        "avgPnL": 398.26,
+        "totalPnL": 398.26,
+        "avgWin": 398.26,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.518150400378482,
+        "atSupportRate": 0,
+        "atResistanceRate": 16.666666666666664,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.69,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 1,
+          "18:00": 5
+        },
+        "exitReasons": {
+          "stop_loss": 1
+        },
+        "bestTrades": [
+          {
+            "symbol": "CMCSA",
+            "pnl": 398.2587500000001,
+            "score": 50
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "CMCSA",
+            "pnl": 398.2587500000001,
+            "score": 50
+          }
+        ]
+      },
+      {
+        "patternName": "Reversal Bearish Engulfing",
+        "totalTrades": 44,
+        "closedTrades": 1,
+        "winningTrades": 1,
+        "losingTrades": 0,
+        "winRate": 100,
+        "avgScore": 78.7,
+        "scoreRange": {
+          "min": 52,
+          "max": 100
+        },
+        "avgPnL": 325.6,
+        "totalPnL": 325.6,
+        "avgWin": 325.6,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.894686394863058,
+        "atSupportRate": 0,
+        "atResistanceRate": 22.727272727272727,
+        "trendAlignedRate": 27.27272727272727,
+        "avgStopDistance": 0.55,
+        "avgRiskReward": 1.51,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 2,
+          "15:00": 1,
+          "16:00": 7,
+          "18:00": 27,
+          "19:00": 7
+        },
+        "exitReasons": {
+          "stop_loss": 1
+        },
+        "bestTrades": [
+          {
+            "symbol": "VZ",
+            "pnl": 325.6005099999969,
+            "score": 57
+          }
+        ],
+        "worstTrades": [
+          {
+            "symbol": "VZ",
+            "pnl": 325.6005099999969,
+            "score": 57
+          }
+        ]
+      },
+      {
+        "patternName": "Bullish Engulfing",
+        "totalTrades": 127,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 81.6,
+        "scoreRange": {
+          "min": 60,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 3.098753199456277,
+        "atSupportRate": 21.25984251968504,
+        "atResistanceRate": 11.023622047244094,
+        "trendAlignedRate": 30.708661417322837,
+        "avgStopDistance": 0.99,
+        "avgRiskReward": 1.89,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "16:00": 15,
+          "15:00": 8,
+          "17:00": 30,
+          "18:00": 6,
+          "19:00": 13,
+          "10:00": 2,
+          "13:00": 4,
+          "12:00": 2,
+          "14:00": 16,
+          "11:00": 1,
+          "20:00": 25,
+          "21:00": 5
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Tweezer Bottom",
+        "totalTrades": 240,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 83.9,
+        "scoreRange": {
+          "min": 57,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.7860386707486327,
+        "atSupportRate": 36.666666666666664,
+        "atResistanceRate": 11.25,
+        "trendAlignedRate": 14.166666666666666,
+        "avgStopDistance": 0.88,
+        "avgRiskReward": 1.92,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "16:00": 31,
+          "17:00": 59,
+          "14:00": 25,
+          "15:00": 10,
+          "18:00": 22,
+          "19:00": 20,
+          "20:00": 60,
+          "11:00": 4,
+          "13:00": 5,
+          "12:00": 2,
+          "10:00": 1,
+          "21:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Morning Star",
+        "totalTrades": 25,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 80.9,
+        "scoreRange": {
+          "min": 53,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 3.3214828568998014,
+        "atSupportRate": 16,
+        "atResistanceRate": 28.000000000000004,
+        "trendAlignedRate": 32,
+        "avgStopDistance": 1.17,
+        "avgRiskReward": 1.63,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "16:00": 2,
+          "17:00": 4,
+          "18:00": 2,
+          "19:00": 4,
+          "20:00": 3,
+          "12:00": 4,
+          "11:00": 1,
+          "13:00": 2,
+          "14:00": 3
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Tweezer Top",
+        "totalTrades": 307,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 82.7,
+        "scoreRange": {
+          "min": 57,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.7719873391722047,
+        "atSupportRate": 8.469055374592834,
+        "atResistanceRate": 28.990228013029316,
+        "trendAlignedRate": 17.58957654723127,
+        "avgStopDistance": 0.69,
+        "avgRiskReward": 1.92,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "16:00": 24,
+          "17:00": 98,
+          "14:00": 27,
+          "15:00": 10,
+          "19:00": 35,
+          "20:00": 76,
+          "18:00": 15,
+          "9:00": 2,
+          "11:00": 3,
+          "13:00": 11,
+          "10:00": 1,
+          "8:00": 1,
+          "21:00": 4
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Evening Star",
+        "totalTrades": 20,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 83.5,
+        "scoreRange": {
+          "min": 65,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.960579264061755,
+        "atSupportRate": 0,
+        "atResistanceRate": 15,
+        "trendAlignedRate": 50,
+        "avgStopDistance": 0.99,
+        "avgRiskReward": 1.6,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "16:00": 5,
+          "14:00": 4,
+          "17:00": 3,
+          "19:00": 1,
+          "18:00": 4,
+          "11:00": 1,
+          "10:00": 1,
+          "12:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Three White Soldiers",
+        "totalTrades": 36,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 81.8,
+        "scoreRange": {
+          "min": 55,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.7834375635610193,
+        "atSupportRate": 5.555555555555555,
+        "atResistanceRate": 8.333333333333332,
+        "trendAlignedRate": 8.333333333333332,
+        "avgStopDistance": 1.5,
+        "avgRiskReward": 1.75,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 5,
+          "14:00": 6,
+          "18:00": 3,
+          "19:00": 1,
+          "15:00": 4,
+          "10:00": 2,
+          "13:00": 2,
+          "11:00": 2,
+          "20:00": 5,
+          "16:00": 5,
+          "21:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Bearish Engulfing",
+        "totalTrades": 148,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 86.8,
+        "scoreRange": {
+          "min": 57,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 3.833670148360717,
+        "atSupportRate": 4.72972972972973,
+        "atResistanceRate": 29.72972972972973,
+        "trendAlignedRate": 35.810810810810814,
+        "avgStopDistance": 0.88,
+        "avgRiskReward": 1.88,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 41,
+          "15:00": 8,
+          "16:00": 12,
+          "18:00": 14,
+          "20:00": 50,
+          "13:00": 7,
+          "12:00": 2,
+          "9:00": 1,
+          "11:00": 2,
+          "19:00": 6,
+          "14:00": 4,
+          "21:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Three Inside Down",
+        "totalTrades": 60,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 86.1,
+        "scoreRange": {
+          "min": 63,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.6721480344071584,
+        "atSupportRate": 6.666666666666667,
+        "atResistanceRate": 15,
+        "trendAlignedRate": 45,
+        "avgStopDistance": 0.96,
+        "avgRiskReward": 1.86,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 8,
+          "18:00": 12,
+          "15:00": 5,
+          "13:00": 2,
+          "12:00": 1,
+          "14:00": 1,
+          "16:00": 9,
+          "20:00": 22
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Fade Tweezer Top",
+        "totalTrades": 13,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 60.2,
+        "scoreRange": {
+          "min": 27,
+          "max": 75
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.278405194959923,
+        "atSupportRate": 0,
+        "atResistanceRate": 53.84615384615385,
+        "trendAlignedRate": 53.84615384615385,
+        "avgStopDistance": 0.61,
+        "avgRiskReward": 2.08,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 4,
+          "18:00": 1,
+          "15:00": 1,
+          "20:00": 5,
+          "14:00": 1,
+          "16:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Bullish Marubozu",
+        "totalTrades": 5,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 68,
+        "scoreRange": {
+          "min": 60,
+          "max": 75
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 3.138830894949846,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 60,
+        "avgStopDistance": 0.98,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 3,
+          "15:00": 1,
+          "19:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Three Inside Up",
+        "totalTrades": 64,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 86.2,
+        "scoreRange": {
+          "min": 63,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.5962699001235046,
+        "atSupportRate": 10.9375,
+        "atResistanceRate": 6.25,
+        "trendAlignedRate": 20.3125,
+        "avgStopDistance": 0.91,
+        "avgRiskReward": 1.72,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 7,
+          "16:00": 13,
+          "19:00": 8,
+          "18:00": 5,
+          "13:00": 9,
+          "12:00": 2,
+          "15:00": 4,
+          "17:00": 9,
+          "20:00": 6,
+          "21:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Bearish Marubozu",
+        "totalTrades": 12,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 69.6,
+        "scoreRange": {
+          "min": 60,
+          "max": 85
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.5377856524406175,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 100,
+        "avgStopDistance": 1.14,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 1,
+          "16:00": 4,
+          "19:00": 2,
+          "17:00": 2,
+          "18:00": 2,
+          "20:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Shooting Star",
+        "totalTrades": 34,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 87,
+        "scoreRange": {
+          "min": 60,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 3.455442839779789,
+        "atSupportRate": 2.941176470588235,
+        "atResistanceRate": 55.88235294117647,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.92,
+        "avgRiskReward": 1.81,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "15:00": 4,
+          "18:00": 3,
+          "19:00": 4,
+          "13:00": 2,
+          "14:00": 4,
+          "12:00": 1,
+          "11:00": 1,
+          "17:00": 8,
+          "20:00": 7
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Hanging Man",
+        "totalTrades": 14,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 77,
+        "scoreRange": {
+          "min": 60,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 3.1999782003645447,
+        "atSupportRate": 7.142857142857142,
+        "atResistanceRate": 42.857142857142854,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.74,
+        "avgRiskReward": 1.86,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "15:00": 3,
+          "14:00": 4,
+          "17:00": 2,
+          "20:00": 3,
+          "18:00": 1,
+          "19:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Fade Tweezer Bottom",
+        "totalTrades": 3,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 75,
+        "scoreRange": {
+          "min": 75,
+          "max": 75
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.5004099833954894,
+        "atSupportRate": 33.33333333333333,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 66.66666666666666,
+        "avgStopDistance": 0.2,
+        "avgRiskReward": 1.79,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 1,
+          "14:00": 1,
+          "15:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Three Black Crows",
+        "totalTrades": 71,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 84.3,
+        "scoreRange": {
+          "min": 67,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.757533458581342,
+        "atSupportRate": 9.859154929577464,
+        "atResistanceRate": 23.943661971830984,
+        "trendAlignedRate": 67.6056338028169,
+        "avgStopDistance": 0.95,
+        "avgRiskReward": 1.92,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "19:00": 14,
+          "17:00": 28,
+          "18:00": 3,
+          "14:00": 6,
+          "9:00": 1,
+          "12:00": 1,
+          "20:00": 13,
+          "15:00": 1,
+          "16:00": 4
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Piercing Line",
+        "totalTrades": 3,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 79.7,
+        "scoreRange": {
+          "min": 67,
+          "max": 87
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.788411315784657,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.77,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "19:00": 1,
+          "18:00": 1,
+          "12:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Dark Cloud Cover",
+        "totalTrades": 15,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 88.5,
+        "scoreRange": {
+          "min": 67,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.419671167717821,
+        "atSupportRate": 13.333333333333334,
+        "atResistanceRate": 33.33333333333333,
+        "trendAlignedRate": 13.333333333333334,
+        "avgStopDistance": 0.57,
+        "avgRiskReward": 1.89,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "8:00": 2,
+          "19:00": 3,
+          "17:00": 1,
+          "20:00": 6,
+          "14:00": 1,
+          "15:00": 1,
+          "18:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Doji",
+        "totalTrades": 7,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 71.4,
+        "scoreRange": {
+          "min": 65,
+          "max": 74
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.181104688881465,
+        "atSupportRate": 71.42857142857143,
+        "atResistanceRate": 14.285714285714285,
+        "trendAlignedRate": 28.57142857142857,
+        "avgStopDistance": 1,
+        "avgRiskReward": 1.87,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "9:00": 2,
+          "17:00": 3,
+          "19:00": 1,
+          "20:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Hammer",
+        "totalTrades": 22,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 76.4,
+        "scoreRange": {
+          "min": 70,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 3.353042807140736,
+        "atSupportRate": 31.818181818181817,
+        "atResistanceRate": 4.545454545454546,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.92,
+        "avgRiskReward": 1.89,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "10:00": 2,
+          "9:00": 1,
+          "11:00": 1,
+          "18:00": 1,
+          "12:00": 1,
+          "17:00": 6,
+          "20:00": 5,
+          "14:00": 2,
+          "16:00": 3
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Evening Star",
+        "totalTrades": 11,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 77.2,
+        "scoreRange": {
+          "min": 65,
+          "max": 95
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.7424464615353936,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.52,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 1,
+          "15:00": 2,
+          "16:00": 3,
+          "18:00": 4,
+          "19:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Three Inside Up",
+        "totalTrades": 33,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 80.7,
+        "scoreRange": {
+          "min": 63,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.2982584174097362,
+        "atSupportRate": 6.0606060606060606,
+        "atResistanceRate": 3.0303030303030303,
+        "trendAlignedRate": 9.090909090909092,
+        "avgStopDistance": 0.45,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "14:00": 1,
+          "15:00": 4,
+          "16:00": 10,
+          "18:00": 17,
+          "19:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Morning Star",
+        "totalTrades": 3,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 64.7,
+        "scoreRange": {
+          "min": 63,
+          "max": 67
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 0.8974685627190859,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.36,
+        "avgRiskReward": 1.48,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "15:00": 1,
+          "18:00": 2
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Hammer",
+        "totalTrades": 13,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 77.5,
+        "scoreRange": {
+          "min": 65,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.8443909567002765,
+        "atSupportRate": 7.6923076923076925,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 100,
+        "avgStopDistance": 0.37,
+        "avgRiskReward": 1.51,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "16:00": 4,
+          "18:00": 9
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Shooting Star",
+        "totalTrades": 22,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 75,
+        "scoreRange": {
+          "min": 65,
+          "max": 90
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.1339395890015402,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.17,
+        "avgRiskReward": 1.52,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 13,
+          "18:00": 6,
+          "19:00": 3
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Hanging Man",
+        "totalTrades": 21,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 72.6,
+        "scoreRange": {
+          "min": 60,
+          "max": 85
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.3597425600627746,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.19,
+        "avgRiskReward": 1.46,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 13,
+          "18:00": 6,
+          "19:00": 2
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Doji",
+        "totalTrades": 19,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 66.3,
+        "scoreRange": {
+          "min": 62,
+          "max": 70
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.2569375620123162,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.28,
+        "avgRiskReward": 1.51,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 12,
+          "18:00": 7
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Bullish Marubozu",
+        "totalTrades": 15,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 68.7,
+        "scoreRange": {
+          "min": 62,
+          "max": 82
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.124256914856724,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.11,
+        "avgRiskReward": 1.49,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 2,
+          "18:00": 4,
+          "19:00": 9
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal Inverted Hammer",
+        "totalTrades": 8,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 82.4,
+        "scoreRange": {
+          "min": 60,
+          "max": 100
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.4987953103969573,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 100,
+        "avgStopDistance": 0.23,
+        "avgRiskReward": 1.5,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "18:00": 7,
+          "19:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Fade Hammer",
+        "totalTrades": 8,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 76.1,
+        "scoreRange": {
+          "min": 75,
+          "max": 84
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 2.5261748640677197,
+        "atSupportRate": 25,
+        "atResistanceRate": 12.5,
+        "trendAlignedRate": 100,
+        "avgStopDistance": 0.4,
+        "avgRiskReward": 1.85,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "17:00": 5,
+          "19:00": 1,
+          "20:00": 1,
+          "16:00": 1
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "🔄 VwapBounce Long",
+        "totalTrades": 7,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 65,
+        "scoreRange": {
+          "min": 60,
+          "max": 73
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 0.857794991391309,
+        "atSupportRate": 100,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.42,
+        "avgRiskReward": 2,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "15:00": 5,
+          "16:00": 2
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "🔄 VwapBounce Bullish",
+        "totalTrades": 18,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 61.2,
+        "scoreRange": {
+          "min": 60,
+          "max": 63
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 0.7511114103655985,
+        "atSupportRate": 100,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.18,
+        "avgRiskReward": 2,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "16:00": 4,
+          "17:00": 5,
+          "20:00": 1,
+          "19:00": 2,
+          "18:00": 6
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Reversal VwapBounce Bullish",
+        "totalTrades": 15,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 60.6,
+        "scoreRange": {
+          "min": 60,
+          "max": 63
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 0.6444513617924207,
+        "atSupportRate": 100,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.36,
+        "avgRiskReward": 1.48,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "15:00": 3,
+          "16:00": 8,
+          "17:00": 4
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "🔄 Momentum Bullish",
+        "totalTrades": 3,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 65,
+        "scoreRange": {
+          "min": 65,
+          "max": 65
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.6963665253606122,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 0,
+        "avgStopDistance": 0.21,
+        "avgRiskReward": 2,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "19:00": 1,
+          "18:00": 2
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "VwapBounce Bullish",
+        "totalTrades": 55,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 66.3,
+        "scoreRange": {
+          "min": 60,
+          "max": 78
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.4994409596277385,
+        "atSupportRate": 100,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 100,
+        "avgStopDistance": 0.26,
+        "avgRiskReward": 2,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "18:00": 3,
+          "19:00": 10,
+          "20:00": 35,
+          "15:00": 1,
+          "16:00": 3,
+          "17:00": 3
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      },
+      {
+        "patternName": "Momentum Bullish",
+        "totalTrades": 8,
+        "closedTrades": 0,
+        "winningTrades": 0,
+        "losingTrades": 0,
+        "winRate": 0,
+        "avgScore": 65,
+        "scoreRange": {
+          "min": 65,
+          "max": 65
+        },
+        "avgPnL": 0,
+        "totalPnL": 0,
+        "avgWin": 0,
+        "avgLoss": 0,
+        "profitFactor": 0,
+        "avgVolumeFactor": 1.9725693076652915,
+        "atSupportRate": 0,
+        "atResistanceRate": 0,
+        "trendAlignedRate": 100,
+        "avgStopDistance": 0.38,
+        "avgRiskReward": 2,
+        "avgHoldTime": 0,
+        "timeOfDayPattern": {
+          "18:00": 1,
+          "19:00": 1,
+          "20:00": 6
+        },
+        "exitReasons": {},
+        "bestTrades": [],
+        "worstTrades": []
+      }
+    ],
+    "scoreAnalysis": [
+      {
+        "range": "50-60",
+        "trades": 9,
+        "winRate": 100,
+        "avgPnL": 468.06,
+        "patterns": {
+          "Reversal Bearish Marubozu": 1,
+          "Reversal Tweezer Bottom": 2,
+          "Reversal Bearish Engulfing": 1,
+          "Reversal Tweezer Top": 2,
+          "Reversal Three Black Crows": 1,
+          "Reversal Three Inside Down": 1,
+          "Reversal Bullish Engulfing": 1
+        }
+      },
+      {
+        "range": "60-70",
+        "trades": 2,
+        "winRate": 100,
+        "avgPnL": 442.93,
+        "patterns": {
+          "Reversal Tweezer Top": 1,
+          "Reversal Three White Soldiers": 1
+        }
+      },
+      {
+        "range": "70-80",
+        "trades": 2,
+        "winRate": 100,
+        "avgPnL": 367.41,
+        "patterns": {
+          "Reversal Three White Soldiers": 1,
+          "Reversal Three Inside Down": 1
+        }
+      },
+      {
+        "range": "80-90",
+        "trades": 1,
+        "winRate": 100,
+        "avgPnL": 375.48,
+        "patterns": {
+          "Reversal Bearish Marubozu": 1
+        }
+      }
+    ],
+    "marketConditions": [
+      {
+        "condition": "High Volume",
+        "trades": 13,
+        "winRate": 100,
+        "avgPnL": 451.05,
+        "patterns": {
+          "Reversal Bearish Marubozu": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Tweezer Bottom": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Bearish Engulfing": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Tweezer Top": {
+            "trades": 3,
+            "winRate": 100
+          },
+          "Reversal Three Inside Down": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Three Black Crows": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Three White Soldiers": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Bullish Engulfing": {
+            "trades": 1,
+            "winRate": 100
+          }
+        }
+      },
+      {
+        "condition": "Low Volatility",
+        "trades": 12,
+        "winRate": 100,
+        "avgPnL": 344.79,
+        "patterns": {
+          "Reversal Bearish Marubozu": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Tweezer Bottom": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Bearish Engulfing": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Three White Soldiers": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Tweezer Top": {
+            "trades": 3,
+            "winRate": 100
+          },
+          "Reversal Three Inside Down": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Three Black Crows": {
+            "trades": 1,
+            "winRate": 100
+          }
+        }
+      },
+      {
+        "condition": "Medium Volatility",
+        "trades": 2,
+        "winRate": 100,
+        "avgPnL": 1035.6,
+        "patterns": {
+          "Reversal Three Inside Down": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Bullish Engulfing": {
+            "trades": 1,
+            "winRate": 100
+          }
+        }
+      },
+      {
+        "condition": "Up Trend",
+        "trades": 2,
+        "winRate": 100,
+        "avgPnL": 1024.96,
+        "patterns": {
+          "Reversal Three White Soldiers": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Bullish Engulfing": {
+            "trades": 1,
+            "winRate": 100
+          }
+        }
+      },
+      {
+        "condition": "Down Trend",
+        "trades": 9,
+        "winRate": 100,
+        "avgPnL": 332.85,
+        "patterns": {
+          "Reversal Bearish Marubozu": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Bearish Engulfing": {
+            "trades": 1,
+            "winRate": 100
+          },
+          "Reversal Tweezer Top": {
+            "trades": 3,
+            "winRate": 100
+          },
+          "Reversal Three Inside Down": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Three Black Crows": {
+            "trades": 1,
+            "winRate": 100
+          }
+        }
+      },
+      {
+        "condition": "Sideways Trend",
+        "trades": 3,
+        "winRate": 100,
+        "avgPnL": 387.71,
+        "patterns": {
+          "Reversal Tweezer Bottom": {
+            "trades": 2,
+            "winRate": 100
+          },
+          "Reversal Three White Soldiers": {
+            "trades": 1,
+            "winRate": 100
+          }
+        }
+      }
+    ],
+    "symbolPerformance": [
+      {
+        "symbol": "INTC",
+        "trades": 2,
+        "winRate": 100,
+        "avgPnL": 440.17,
+        "bestPattern": "Reversal Tweezer Bottom",
+        "worstPattern": "Reversal Bearish Marubozu"
+      },
+      {
+        "symbol": "UNH",
+        "trades": 2,
+        "winRate": 100,
+        "avgPnL": 329.13,
+        "bestPattern": "Reversal Three White Soldiers",
+        "worstPattern": "Reversal Tweezer Bottom"
+      },
+      {
+        "symbol": "MMM",
+        "trades": 2,
+        "winRate": 100,
+        "avgPnL": 323.17,
+        "bestPattern": "Reversal Three Inside Down",
+        "worstPattern": "Reversal Tweezer Top"
+      }
+    ],
+    "timeAnalysis": {
+      "hourOfDay": {
+        "14:00": {
+          "trades": 14,
+          "winRate": 100,
+          "avgPnL": 443.48
+        }
+      },
+      "dayOfWeek": {
+        "Tuesday": {
+          "trades": 14,
+          "winRate": 100,
+          "avgPnL": 443.48
+        }
+      },
+      "sessionAnalysis": {
+        "premarket": {
+          "trades": 0,
+          "winRate": 0,
+          "avgPnL": 0
+        },
+        "regular": {
+          "trades": 14,
+          "winRate": 100,
+          "avgPnL": 443.48
+        },
+        "afterhours": {
+          "trades": 0,
+          "winRate": 0,
+          "avgPnL": 0
+        }
+      }
+    },
+    "insights": {
+      "topPerformingPatterns": [
+        "Reversal Tweezer Top (100.0% win rate, $738.01 total PnL)"
+      ],
+      "worstPerformingPatterns": [],
+      "optimalScoreRanges": [
+        "Score 50-60: 100.0% win rate (9 trades)"
+      ],
+      "bestMarketConditions": [
+        "High Volume: 100.0% win rate (13 trades)",
+        "Low Volatility: 100.0% win rate (12 trades)",
+        "Down Trend: 100.0% win rate (9 trades)"
+      ],
+      "recommendedFilters": [
+        "Fill rate is only 7.2% - review entry buffer settings",
+        "Bullish Engulfing: Require trend alignment (only 30.7% are trend-aligned)",
+        "Tweezer Bottom: Require trend alignment (only 14.2% are trend-aligned)",
+        "Morning Star: Require trend alignment (only 32.0% are trend-aligned)",
+        "Tweezer Top: Require trend alignment (only 17.6% are trend-aligned)",
+        "Three White Soldiers: Require trend alignment (only 8.3% are trend-aligned)",
+        "Bearish Engulfing: Require trend alignment (only 35.8% are trend-aligned)",
+        "Three Inside Up: Require trend alignment (only 20.3% are trend-aligned)",
+        "Shooting Star: Require trend alignment (only 0.0% are trend-aligned)",
+        "Hanging Man: Require trend alignment (only 0.0% are trend-aligned)",
+        "Piercing Line: Require trend alignment (only 0.0% are trend-aligned)",
+        "Dark Cloud Cover: Require trend alignment (only 13.3% are trend-aligned)",
+        "Doji: Require trend alignment (only 28.6% are trend-aligned)",
+        "Hammer: Require trend alignment (only 0.0% are trend-aligned)",
+        "Reversal Evening Star: Require trend alignment (only 0.0% are trend-aligned)",
+        "Reversal Three Inside Up: Require trend alignment (only 9.1% are trend-aligned)",
+        "Reversal Morning Star: Require trend alignment (only 0.0% are trend-aligned)",
+        "Reversal Shooting Star: Require trend alignment (only 0.0% are trend-aligned)",
+        "Reversal Hanging Man: Require trend alignment (only 0.0% are trend-aligned)",
+        "Reversal Doji: Require trend alignment (only 0.0% are trend-aligned)",
+        "Reversal Bullish Marubozu: Require trend alignment (only 0.0% are trend-aligned)",
+        "🔄 VwapBounce Long: Require trend alignment (only 0.0% are trend-aligned)",
+        "🔄 VwapBounce Bullish: Require trend alignment (only 0.0% are trend-aligned)",
+        "Reversal VwapBounce Bullish: Require trend alignment (only 0.0% are trend-aligned)",
+        "🔄 Momentum Bullish: Require trend alignment (only 0.0% are trend-aligned)"
+      ],
+      "riskManagementIssues": [
+        "Low risk/reward ratios: Reversal Bearish Marubozu, Reversal Morning Star, Reversal Hanging Man, Reversal Bullish Marubozu, Reversal VwapBounce Bullish"
+      ]
+    }
+  }
+}

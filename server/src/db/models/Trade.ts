@@ -43,6 +43,8 @@ export interface ITrade {
   
   timeframe: string;
   scannerType?: string;
+  tradeType?: 'day' | 'swing';
+  expectedHoldDays?: number;
   notes?: string;
   
   signalData?: any;
@@ -62,8 +64,10 @@ TradeSchema.index({ mt5PositionId: 1 });
   if (this.exitPrice && this.actualEntryPrice) {
     const multiplier = this.direction === 'long' ? 1 : -1;
     const priceDiff = (this.exitPrice - this.actualEntryPrice) * multiplier;
-    this.pnlAmount = priceDiff * this.volume * 100; // Assuming standard lot size
-    this.pnlPercentage = (priceDiff / this.actualEntryPrice) * 100 * multiplier;
+    // Calculate actual dollar P&L (price diff * volume/share count)
+    this.pnlAmount = priceDiff * this.volume; 
+    // Corrected percentage calculation - previously multiplier was applied to both priceDiff and the final percentage
+    this.pnlPercentage = (priceDiff / this.actualEntryPrice) * 100;
   }
   next();
 });

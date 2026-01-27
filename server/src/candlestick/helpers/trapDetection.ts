@@ -56,7 +56,7 @@ function checkWrongLevelPattern(
       type: 'bull_trap',
       severity: 'medium', // Reduced from high
       description: 'Bullish pattern at resistance - proceed with caution',
-      penaltyPoints: 15 // Reduced from 25
+      penaltyPoints: 5 // Further reduced - patterns at levels can be valid
     };
   }
   
@@ -66,7 +66,7 @@ function checkWrongLevelPattern(
       type: 'bear_trap',
       severity: 'medium', // Reduced from high
       description: 'Bearish pattern at support - proceed with caution',
-      penaltyPoints: 15 // Reduced from 25
+      penaltyPoints: 5 // Further reduced - patterns at levels can be valid
     };
   }
   
@@ -76,7 +76,7 @@ function checkWrongLevelPattern(
       type: 'bull_trap',
       severity: 'medium',
       description: 'Bullish pattern against strong downtrend with high volume',
-      penaltyPoints: 15
+      penaltyPoints: 5
     };
   }
   
@@ -85,7 +85,7 @@ function checkWrongLevelPattern(
       type: 'bear_trap',
       severity: 'medium',
       description: 'Bearish pattern against strong uptrend with high volume',
-      penaltyPoints: 15
+      penaltyPoints: 5
     };
   }
   
@@ -114,7 +114,7 @@ function checkStopLossHunting(
         type: 'stop_hunt',
         severity: 'high',
         description: `Long wick (${(wickRatio * 100).toFixed(1)}%) reaching round number - possible stop hunt`,
-        penaltyPoints: 20
+        penaltyPoints: 8
       };
     }
     
@@ -130,7 +130,7 @@ function checkStopLossHunting(
         type: 'stop_hunt',
         severity: 'medium',
         description: `Long wick touching recent high/low - possible stop hunt`,
-        penaltyPoints: 15
+        penaltyPoints: 5
       };
     }
   }
@@ -192,7 +192,7 @@ function checkVolumeDivergence(
         type: 'volume_divergence',
         severity: 'medium',
         description: 'High volume on red candles suggests selling pressure',
-        penaltyPoints: 15
+        penaltyPoints: 5
       };
     }
   } else if (pattern.direction === 'bearish') {
@@ -205,7 +205,7 @@ function checkVolumeDivergence(
         type: 'volume_divergence',
         severity: 'medium',
         description: 'High volume on green candles suggests buying support',
-        penaltyPoints: 15
+        penaltyPoints: 5
       };
     }
   }
@@ -274,7 +274,7 @@ function checkExhaustionPattern(
         type: 'bull_trap',
         severity: 'medium',
         description: `Bullish pattern after ${consecutiveGreen} consecutive up candles - possible exhaustion`,
-        penaltyPoints: 15
+        penaltyPoints: 5
       };
     }
   } else if (pattern.direction === 'bearish') {
@@ -285,7 +285,7 @@ function checkExhaustionPattern(
         type: 'bear_trap',
         severity: 'medium',
         description: `Bearish pattern after ${consecutiveRed} consecutive down candles - possible exhaustion`,
-        penaltyPoints: 15
+        penaltyPoints: 5
       };
     }
   }

@@ -1,0 +1,15 @@
+{
+  "watch": ["src", "*.ts"],
+  "ignore": [
+    "*.log",
+    "candle-debug.log",
+    "dist",
+    "node_modules",
+    "*.test.ts",
+    "*.spec.ts",
+    "debug-*.js",
+    "*.d.ts"
+  ],
+  "ext": "ts,js",
+  "exec": "tsx server.ts"
+}

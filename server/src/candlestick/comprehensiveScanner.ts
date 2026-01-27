@@ -35,7 +35,7 @@ const recentSignals: RecentSignal[] = [];
 
 export class ComprehensiveScanner {
   private params: TradingParameters;
-  private duplicateBlockMinutes: number = 20; // Block duplicates for 20 minutes
+  private duplicateBlockMinutes: number = 360; // Block duplicates for 6 hours (One trade per symbol per session)
   private signalRateLimiter: Map<string, number[]> = new Map(); // Track signals per hour
   private maxSignalsPerHour: number = 5; // Maximum signals per hour per symbol
   
@@ -43,8 +43,8 @@ export class ComprehensiveScanner {
     this.params = params;
   }
   
-  private isDuplicateSignal(symbol: string, patternName: string): boolean {
-    const now = Date.now();
+  private isDuplicateSignal(symbol: string, patternName: string, nowOverride?: number): boolean {
+    const now = nowOverride || Date.now();
     const blockDurationMs = this.duplicateBlockMinutes * 60 * 1000;
     
     // Clean old signals
@@ -63,16 +63,16 @@ export class ComprehensiveScanner {
     );
   }
   
-  private addToRecentSignals(symbol: string, patternName: string): void {
+  private addToRecentSignals(symbol: string, patternName: string, nowOverride?: number): void {
     recentSignals.push({
       symbol,
       patternName,
-      timestamp: Date.now()
+      timestamp: nowOverride || Date.now()
     });
   }
   
-  private isRateLimited(symbol: string): boolean {
-    const now = Date.now();
+  private isRateLimited(symbol: string, nowOverride?: number): boolean {
+    const now = nowOverride || Date.now();
     const oneHourAgo = now - (60 * 60 * 1000);
     
     // Get or create rate limit tracker for symbol
@@ -95,15 +95,15 @@ export class ComprehensiveScanner {
     return false;
   }
   
-  private recordSignal(symbol: string): void {
+  private recordSignal(symbol: string, nowOverride?: number): void {
     if (!this.signalRateLimiter.has(symbol)) {
       this.signalRateLimiter.set(symbol, []);
     }
     
-    this.signalRateLimiter.get(symbol)!.push(Date.now());
+    this.signalRateLimiter.get(symbol)!.push(nowOverride || Date.now());
   }
   
-  public scan(candle: Candle): ComprehensiveSignal[] {
+  public scan(candle: Candle, h1Trend?: 'up' | 'down' | 'sideways'): ComprehensiveSignal[] {
     const { symbol } = candle;
     
     console.log(`[COMPREHENSIVE] Scanning ${symbol} candle: ${candle.start} - O:${candle.open} H:${candle.high} L:${candle.low} C:${candle.close}`);
@@ -140,10 +140,10 @@ export class ComprehensiveScanner {
       return [];
     }
     
-    return this.detectPatterns(history.candles);
+    return this.detectPatterns(history.candles, h1Trend);
   }
   
-  private detectPatterns(candles: Candle[]): ComprehensiveSignal[] {
+  private detectPatterns(candles: Candle[], h1Trend?: 'up' | 'down' | 'sideways'): ComprehensiveSignal[] {
     const signals: ComprehensiveSignal[] = [];
     const current = candles[candles.length - 1];
     const symbol = current.symbol;
@@ -151,7 +151,7 @@ export class ComprehensiveScanner {
     console.log(`[SCANNER] Detecting patterns for ${symbol} with ${candles.length} candles history`);
     
     // Build market context
-    const context = buildMarketContext(candles, this.params);
+    const context = buildMarketContext(candles, this.params, h1Trend);
     const atr = calculateATR(candles, this.params.atrLen);
     
     // Collect all possible patterns
@@ -194,7 +194,8 @@ export class ComprehensiveScanner {
         pattern,
         context,
         candles,
-        symbol
+        symbol,
+        h1Trend
       );
       
       if (signal) {
@@ -210,11 +211,10 @@ export class ComprehensiveScanner {
     pattern: PatternDetails,
     context: MarketContext,
     candles: Candle[],
-    symbol: string
+    symbol: string,
+    h1Trend?: 'up' | 'down' | 'sideways'
   ): ComprehensiveSignal | null {
     const current = candles[candles.length - 1];
-    
-    // Score the pattern
     const { score, notes } = scorePattern(pattern, context, candles, this.params);
     
     // Filter out low-quality signals
@@ -222,12 +222,70 @@ export class ComprehensiveScanner {
     if (strength === 'ignore') {
       console.log(`[SCANNER] Pattern ${pattern.name} scored ${score} - ignoring (below threshold)`);
       return null;
-    } else {
-      console.log(`[SCANNER] Pattern ${pattern.name} scored ${score} - ${strength} signal`);
+    }
+
+    // V3 SESSION FILTER: "Golden Hours" (13:30 - 18:30 UTC / 9:30 AM - 2:30 PM EST)
+    const date = new Date(current.start);
+    const hour = date.getUTCHours(); 
+    const minutes = date.getUTCMinutes();
+    const marketTimeMinutes = (hour * 60) + minutes;
+    
+    // Covers 9:30 AM - 1:30 PM EST across both Standard and Daylight time.
+    const startLimit = (13 * 60) + 30; 
+    const endLimit = (18 * 60) + 30; 
+    
+    if (marketTimeMinutes < startLimit || marketTimeMinutes > endLimit) {
+      console.log(`[SCANNER] Blocking signal: ${pattern.name} at ${hour}:${minutes.toString().padStart(2, '0')} UTC - outside Institutional Hours`);
+      return null;
+    }
+
+    // ADAPTIVE TREND EXECUTION FILTER:
+    // Only take BULLISH signals in an UP trend, BEARISH in a DOWN trend.
+    const isBullAligned = pattern.direction === 'bullish' && context.trend === 'up';
+    const isBearAligned = pattern.direction === 'bearish' && context.trend === 'down';
+    
+    if (!isBullAligned && !isBearAligned) {
+      console.log(`[SCANNER] Blocking signal: ${pattern.name} is Counter-Trend in ${context.trend} market`);
+      return null;
+    }
+
+    // V4 H1 SENTINEL FILTER: Strategic Direction Confirmation
+    if (!h1Trend || h1Trend === 'sideways') {
+      console.log(`[SCANNER] Blocking signal: ${pattern.name} - No clear H1 trend direction`);
+      return null;
+    }
+
+    if (pattern.direction === 'bullish' && h1Trend !== 'up') {
+      console.log(`[SCANNER] Blocking signal: Bullish ${pattern.name} vs Bearish H1 Trend`);
+      return null;
+    }
+
+    if (pattern.direction === 'bearish' && h1Trend !== 'down') {
+      console.log(`[SCANNER] Blocking signal: Bearish ${pattern.name} vs Bullish H1 Trend`);
+      return null;
+    }
+
+    console.log(`[SCANNER] V4 Sentinel Approved: ${pattern.name} aligned with H1 ${h1Trend} trend`);
+
+    // V5 STRUCTURE MANDATE: LOCATION OR BUST
+    // A trade is FORBIDDEN unless it triggers at a verified Major Key Level.
+    if (pattern.direction === 'bullish' && !context.atSupport) {
+      console.log(`[SCANNER] Blocking signal: Bullish ${pattern.name} is floating (Not at Support)`);
+      return null;
+    }
+
+    if (pattern.direction === 'bearish' && !context.atResistance) {
+      console.log(`[SCANNER] Blocking signal: Bearish ${pattern.name} is floating (Not at Resistance)`);
+      return null;
     }
     
+    console.log(`[SCANNER] V5 Structure Approved: ${pattern.name} at verified ${pattern.direction === 'bullish' ? 'Support' : 'Resistance'}`);
+
+    console.log(`[SCANNER] Pattern ${pattern.name} scored ${score} - ${strength} signal`);
+    
     // Check for duplicate signals
-    if (this.isDuplicateSignal(symbol, pattern.name)) {
+    const candleTime = new Date(current.start).getTime();
+    if (this.isDuplicateSignal(symbol, pattern.name, candleTime)) {
       console.log(`[SCANNER] Blocking duplicate signal: ${pattern.name} for ${symbol} (already generated within ${this.duplicateBlockMinutes} minutes)`);
       return null;
     }
@@ -278,7 +336,7 @@ export class ComprehensiveScanner {
     };
     
     // Add to recent signals to prevent duplicates
-    this.addToRecentSignals(symbol, pattern.name);
+    this.addToRecentSignals(symbol, pattern.name, candleTime);
     console.log(`[SCANNER] Added ${pattern.name} for ${symbol} to duplicate prevention cache`);
     
     return signal;
@@ -338,3 +396,8 @@ export class ComprehensiveScanner {
 
 // Export singleton instance
 export const comprehensiveScanner = new ComprehensiveScanner();
+
+// Export accessor for candle history (used by AI Top Trades service)
+export function getCandleHistoryMap(): Map<string, CandleHistory> {
+  return historyBySymbol;
+}

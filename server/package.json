@@ -8,6 +8,8 @@
   "license": "No license",
   "private": true,
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@stoqey/ib": "^1.5.3",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/mongoose": "^5.11.97",
@@ -25,7 +27,14 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "dev": "nodemon --exec tsx server.ts",
-    "watch": "tsx watch server.ts"
+    "watch": "tsx watch server.ts",
+    "analyze-trades": "tsx src/analysis/runAnalysis.ts",
+    "test-analysis": "tsx src/analysis/testAnalysis.ts",
+    "regenerate-training": "tsx src/scripts/regenerateTrainingInsights.ts",
+    "backfill-trades": "tsx src/scripts/backfillTradeExitData.ts",
+    "replay-signals": "tsx src/scripts/replaySignals.ts",
+    "backfill-outcomes": "tsx src/scripts/backfillDecisionOutcomes.ts",
+    "analyze-decisions": "tsx src/scripts/analyzeDecisions.ts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

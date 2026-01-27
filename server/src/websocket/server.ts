@@ -6,6 +6,7 @@ import { logCandleActivity } from '../handlers/debugLogger.js';
 import { aggregate1MinTo5Min } from '../candlestick/aggregator.js';
 import { comprehensiveScanner } from '../candlestick/comprehensiveScanner.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
+import { evaluateSignalWithAI, isAIFilterEnabled, applyHardFilters } from '../services/aiSignalFilter.js';
 
 const clients = new Set<WebSocket>();
 const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensive signals
@@ -13,18 +14,70 @@ const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensiv
 // Auto-execution configuration
 const AUTO_EXECUTION_CONFIG = {
   enabled: true, // RE-ENABLED for automatic trading
-  highScoreThreshold: 60, // Lowered from 65 to get more trades
-  enableTrapFades: true
+  highScoreThreshold: 70, // Increased from 60 to filter low-quality signals
+  enableTrapFades: true,
+  requireTrendAlignment: false // DISABLED - trend detection unreliable with limited candle history
 };
+
+// Block trend-aligned trades (historical data shows 6.7% win rate vs 36.6% counter-trend)
+function isTrendAlignedTrade(signal: ComprehensiveSignal): boolean {
+  const trend = signal.context.trend;
+  const direction = signal.plan.direction;
+  
+  // Trend-aligned = going WITH the trend (historically loses)
+  // Long in uptrend OR Short in downtrend = trend-aligned = BLOCK
+  const isAligned = (trend === 'up' && direction === 'long') || 
+                    (trend === 'down' && direction === 'short');
+  
+  return isAligned;
+}
 
 // Auto-execution helper functions
 function shouldAutoExecute(signal: ComprehensiveSignal): boolean {
-  if (!AUTO_EXECUTION_CONFIG.enabled) return false;
+  console.log(`[AUTO-CHECK] ${signal.symbol} ${signal.pattern.name} score=${signal.score} checking auto-execution...`);
   
-  // High score signals (65+)
+  const now = new Date();
+  const ukHour = parseInt(now.toLocaleString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', hour12: false }));
+  const ukMinute = parseInt(now.toLocaleString('en-GB', { timeZone: 'Europe/London', minute: '2-digit' }));
+  const cutoffHour = 20;
+  const cutoffMinute = 45;
+  
+  if (ukHour > cutoffHour || (ukHour === cutoffHour && ukMinute >= cutoffMinute)) {
+    console.log(`[TIME-FILTER] BLOCKED: No new orders after ${cutoffHour}:${cutoffMinute.toString().padStart(2, '0')} UK time (current: ${ukHour}:${ukMinute.toString().padStart(2, '0')})`);
+    return false;
+  }
+  
+  // BLOCK afternoon/close trades - historical data shows 11.6% win rate at close, 21.7% afternoon vs 28.9% midday
+  // US market close period starts around 3PM UK time (10AM ET onwards = afternoon, after 3PM UK = close period)
+  if (ukHour >= 20) {
+    console.log(`[TIME-FILTER] ❌ BLOCKED: Close period trade (${ukHour}:${ukMinute.toString().padStart(2, '0')} UK). Historical: 11.6% win rate vs 28.9% midday.`);
+    return false;
+  }
+  
+  if (!AUTO_EXECUTION_CONFIG.enabled) {
+    console.log(`[AUTO-CHECK] BLOCKED: Auto-execution disabled`);
+    return false;
+  }
+  
+  // Check minimum volatility - only trade stocks that move enough
+  const atr = signal.context?.atr || 0;
+  const price = signal.currentPrice || signal.plan?.entry || 0;
+  const atrPercent = price > 0 ? (atr / price) * 100 : 0;
+  const minVolatilityPercent = 0.15; // Minimum 0.15% ATR
+  
+  if (atrPercent < minVolatilityPercent) {
+    console.log(`[VOLATILITY-FILTER] BLOCKED: ${signal.symbol} ATR ${atrPercent.toFixed(3)}% < ${minVolatilityPercent}% minimum`);
+    return false;
+  }
+  
+  // Counter-trend trades used to be preferred, but now we let the AI decide
+  // High score signals (70+) qualify for AI evaluation
   if (signal.score >= AUTO_EXECUTION_CONFIG.highScoreThreshold) {
-    console.log(`[AUTO-EXEC] High score signal (${signal.score}) qualifies for auto-execution: ${signal.pattern.name} for ${signal.symbol}`);
+    console.log(`[AUTO-EXEC] ✅ Signal (${signal.score} >= ${AUTO_EXECUTION_CONFIG.highScoreThreshold}) qualifies for auto-execution evaluation: ${signal.pattern.name} for ${signal.symbol}`);
+    console.log(`[AUTO-EXEC] AI_SIGNAL_FILTER enabled: ${isAIFilterEnabled()}`);
     return true;
+  } else {
+    console.log(`[AUTO-CHECK] Score ${signal.score} < threshold ${AUTO_EXECUTION_CONFIG.highScoreThreshold} - skipping`);
   }
   
   // Trap fade trades
@@ -90,12 +143,54 @@ async function executeSignalAutomatically(signal: ComprehensiveSignal): Promise<
     let signalToExecute = signal;
     let executionType = 'normal';
     
-    // Check if this is a trap fade candidate
-    if (isTrapFadeCandidate(signal)) {
+    // AI Filter - if enabled, ask Claude to evaluate the signal
+    if (isAIFilterEnabled()) {
+      console.log(`[AI-FILTER] AI filtering enabled - evaluating ${signal.symbol} ${signal.pattern.name}...`);
+      
+      const aiDecision = await evaluateSignalWithAI(signal);
+      
+      if (!aiDecision.execute) {
+        console.log(`🤖 [AI-FILTER] SKIPPED: ${signal.symbol} ${signal.pattern.name} - ${aiDecision.reasoning}`);
+        return;
+      }
+      
+      // Handle INVERT action - trade opposite direction
+      if (aiDecision.action === 'invert') {
+        console.log(`🔄 [AI-FILTER] INVERTING: ${signal.symbol} ${signal.pattern.name} - ${aiDecision.reasoning}`);
+        
+        const oppositeDirection = signal.plan.direction === 'long' ? 'short' : 'long';
+        const oppositePatternDirection = signal.pattern.direction === 'bullish' ? 'bearish' : 'bullish';
+        
+        signalToExecute = {
+          ...signal,
+          id: `${signal.symbol}-${Date.now()}-INVERT-${Math.random().toString(36).substr(2, 9)}`,
+          pattern: {
+            ...signal.pattern,
+            name: `Inverted ${signal.pattern.name}`,
+            direction: oppositePatternDirection
+          },
+          plan: {
+            ...signal.plan,
+            direction: oppositeDirection
+          }
+        };
+        
+        executionType = 'ai-inverted';
+        console.log(`[AI-FILTER] Inverting to ${oppositeDirection}...`);
+      } else {
+        console.log(`🤖 [AI-FILTER] APPROVED: ${signal.symbol} ${signal.pattern.name} (${aiDecision.confidence} confidence) - ${aiDecision.reasoning}`);
+        
+        signalToExecute = signal;
+        executionType = 'ai-approved';
+      }
+    }
+    
+    // Check if this is a trap fade candidate (only if not using AI filter)
+    if (!isAIFilterEnabled() && isTrapFadeCandidate(signal)) {
       signalToExecute = createFadeSignal(signal);
       executionType = 'trap-fade';
       console.log(`[AUTO-EXEC] Creating trap fade trade (opposite direction) for ${signal.pattern.name} on ${signal.symbol}`);
-    } else {
+    } else if (!isAIFilterEnabled()) {
       console.log(`[AUTO-EXEC] Attempting automatic execution for ${signal.pattern.name} on ${signal.symbol} (score: ${signal.score})`);
     }
     
@@ -241,20 +336,29 @@ export function handleCandle(candle: Candle, _deprecatedDetectPatterns?: any) {
       const detectedSignals = comprehensiveScanner.scan(aggregated5MinCandle);
       
       if (detectedSignals.length > 0) {
+        console.log(`[DEBUG] Found ${detectedSignals.length} signals to process`);
         detectedSignals.forEach(async (signal) => {
-          signals.push(signal);
-          
-          // Check for auto-execution
-          if (shouldAutoExecute(signal)) {
-            await executeSignalAutomatically(signal);
+          try {
+            console.log(`[DEBUG] Processing signal: ${signal.symbol} ${signal.pattern.name} score=${signal.score}`);
+            signals.push(signal);
+            
+            // Check for auto-execution
+            console.log(`[DEBUG] About to call shouldAutoExecute for ${signal.symbol}`);
+            const shouldExec = shouldAutoExecute(signal);
+            console.log(`[DEBUG] shouldAutoExecute returned: ${shouldExec}`);
+            if (shouldExec) {
+              await executeSignalAutomatically(signal);
+            }
+            
+            // Broadcast the comprehensive signal
+            console.log(`[WEBSOCKET] Broadcasting signal for ${signal.symbol} with ID: ${signal.id}`);
+            broadcast({ type: 'signal', payload: signal });
+            
+            console.log(`🚨 ${signal.pattern.name} detected for ${signal.symbol} (score: ${signal.score}) - ${signal.plan.direction.toUpperCase()}`);
+            console.log(`   Entry: $${signal.plan.entry}, Stop: $${signal.plan.stop}, Targets: $${signal.plan.targets.join(', $')}`);
+          } catch (err) {
+            console.error(`[ERROR] Failed to process signal ${signal.symbol}:`, err);
           }
-          
-          // Broadcast the comprehensive signal
-          console.log(`[WEBSOCKET] Broadcasting signal for ${signal.symbol} with ID: ${signal.id}`);
-          broadcast({ type: 'signal', payload: signal });
-          
-          console.log(`🚨 ${signal.pattern.name} detected for ${signal.symbol} (score: ${signal.score}) - ${signal.plan.direction.toUpperCase()}`);
-          console.log(`   Entry: $${signal.plan.entry}, Stop: $${signal.plan.stop}, Targets: $${signal.plan.targets.join(', $')}`);
         });
         
         // Keep only last 1000 signals in memory
@@ -273,9 +377,27 @@ export function handleCandle(candle: Candle, _deprecatedDetectPatterns?: any) {
       detectedSignals.forEach(async (signal) => {
         signals.push(signal);
         
+        // V6 HYBRID: AI Gatekeeper
+        // Only proceed if AI approves or we are in mock mode
+        let aiDecision = null;
+        try {
+          // This calls Anthropic Claude to review the trade aka "Gut Check"
+          // We use evaluateSignalWithAI which handles the full prompt and LLM call
+          aiDecision = await evaluateSignalWithAI(signal); 
+        } catch (e) {
+            console.error('[AI-GATEKEEPER] Failed:', e);
+        }
+
+        /* 
+           NOTE: AI is currently in PASSIVE MODE. 
+           It logs the decision but does not block execution yet.
+        */
+        
         // Check for auto-execution
         if (shouldAutoExecute(signal)) {
-          await executeSignalAutomatically(signal);
+             // For ACTIVE mode, uncomment:
+             // if (aiDecision && !aiDecision.execute) return;
+             await executeSignalAutomatically(signal);
         }
         
         broadcast({ type: 'signal', payload: signal });

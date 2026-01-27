@@ -239,22 +239,25 @@ export function detectTripleCandlePatterns(
   const morningStar = detectMorningStar(candle1, candle2, candle3, params, atr);
   if (morningStar) patterns.push(morningStar);
   
-  const eveningStar = detectEveningStar(candle1, candle2, candle3, params, atr);
-  if (eveningStar) patterns.push(eveningStar);
+  // V4 BETA REFINEMENT: TOXIC PATTERN PURGE
+  // Disabling Evening Star due to significant losses in V4 Alpha.
+  
+  // const eveningStar = detectEveningStar(candle1, candle2, candle3, params, atr);
+  // if (eveningStar) patterns.push(eveningStar);
   
   // Check for Soldiers/Crows
-  const whiteSoldiers = detectThreeWhiteSoldiers(candle1, candle2, candle3, params);
-  if (whiteSoldiers) patterns.push(whiteSoldiers);
+  // const whiteSoldiers = detectThreeWhiteSoldiers(candle1, candle2, candle3, params);
+  // if (whiteSoldiers) patterns.push(whiteSoldiers);
   
-  const blackCrows = detectThreeBlackCrows(candle1, candle2, candle3, params);
-  if (blackCrows) patterns.push(blackCrows);
+  // const blackCrows = detectThreeBlackCrows(candle1, candle2, candle3, params);
+  // if (blackCrows) patterns.push(blackCrows);
   
   // Check for Inside patterns
-  const insideUp = detectThreeInsideUp(candle1, candle2, candle3, params);
-  if (insideUp) patterns.push(insideUp);
+  // const insideUp = detectThreeInsideUp(candle1, candle2, candle3, params);
+  // if (insideUp) patterns.push(insideUp);
   
-  const insideDown = detectThreeInsideDown(candle1, candle2, candle3, params);
-  if (insideDown) patterns.push(insideDown);
+  // const insideDown = detectThreeInsideDown(candle1, candle2, candle3, params);
+  // if (insideDown) patterns.push(insideDown);
   
   return patterns;
 }

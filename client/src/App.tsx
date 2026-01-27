@@ -9,6 +9,7 @@ import HappyTwistsPage from './pages/HappyTwistsPage';
 import AnalysisPage from './pages/AnalysisPage';
 import StockScanPage from './pages/StockScanPage';
 import CircuitBreakerDashboard from './components/CircuitBreakerDashboard';
+import AiTopTradesPage from './pages/AiTopTradesPage';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
             <Route path="/analysis" element={<AnalysisPage />} />
             <Route path="/stock-scan" element={<StockScanPage />} />
             <Route path="/circuit-breaker" element={<CircuitBreakerDashboard />} />
+            <Route path="/ai-top-trades" element={<AiTopTradesPage />} />
           </Routes>
         </main>
       </div>

@@ -25,16 +25,16 @@ export const DEFAULT_PARAMS: TradingParameters = {
   srLookback: 200,
   srToleranceATR: 0.25,
   volSpikeFactor: 1.5,
-  minVolumeMultiplier: 1.2,
-  minBodyPct: 0.15,         // Further reduced for debugging
-  dojiBodyPctMax: 0.25,     // Even more liberal for debugging
-  longWickPctMin: 0.35,     // Further reduced for debugging
-  marubozuWickPctMax: 0.15, // More liberal for debugging
+  minVolumeMultiplier: 1.0,  // Relaxed from 1.2 - normal volume is fine
+  minBodyPct: 0.08,          // Relaxed from 0.15 - catch smaller patterns
+  dojiBodyPctMax: 0.35,      // Relaxed from 0.25 - more doji variations
+  longWickPctMin: 0.25,      // Relaxed from 0.35 - shorter wicks still valid
+  marubozuWickPctMax: 0.20,  // Relaxed from 0.15 - allow some wicks
   engulfLookback: 1,
-  starGapMinPctATR: 0.05,   // Very small gaps for debugging
+  starGapMinPctATR: 0.02,    // Relaxed from 0.05 - tiny gaps count
   confirmBars: 1,
-  rMultiple1: 1.5,  // Reduced from 2 for more achievable first target
-  rMultiple2: 2.5,  // Reduced from 3 for more realistic second target
+  rMultiple1: 2.0,           // First target - need larger wins to offset losses
+  rMultiple2: 3.0,           // Second target - extended profit taking  
   riskPerTradePct: 0.5
 };
 
@@ -62,6 +62,8 @@ export interface MarketContext {
   volumeFactor: number;
   isHighVolume: boolean;
   isWideRange: boolean;
+  maSlope: number; // Normalized slope (bps per candle)
+  h1Trend?: 'up' | 'down' | 'sideways';
 }
 
 export interface PatternDetails {
