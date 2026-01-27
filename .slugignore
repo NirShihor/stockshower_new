@@ -18,3 +18,39 @@ docs
 .yarn/cache
 .yarn/unplugged
 *.tsbuildinfo
+
+# Large data/export files not needed in production
+server/exports
+server/data_cache
+server/api
+
+# Test files at root
+test_*.js
+compare_symbols.js
+
+# Trade reports (development only)
+trade_reports
+
+# Server analysis/test files
+server/*.json
+server/analyze_*.ts
+server/test_*.ts
+server/test_*.js
+server/calculate_*.ts
+server/check_*.ts
+server/debug_*.js
+server/detailed_analysis.js
+server/force_connection.ts
+server/investigate_*.ts
+server/position_management_analysis.ts
+server/run_phase*.ts
+server/setup_*.ts
+server/validate_*.ts
+server/extended_backtest_validation.ts
+server/monitor_test.sh
+
+# MT5 bridge (not needed for Heroku)
+mt5_bridge
+
+# Stockshower subfolder
+stockshower
