@@ -162,6 +162,7 @@ const StockScanPage: React.FC = () => {
   const [canslimLoading, setCanslimLoading] = useState(false);
   const [canslimResult, setCanslimResult] = useState<any>(null);
   const [canslimDryRun, setCanslimDryRun] = useState(true);
+  const [canslimForce, setCanslimForce] = useState(false);
 
   // Sound alert when new signal detected  
   const playAlert = () => {
@@ -707,7 +708,7 @@ const StockScanPage: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           dryRun: canslimDryRun,
-          force: false,
+          force: canslimForce,
           margin: 25,
           maxTrades: 10,
           minScore: 4
@@ -925,6 +926,16 @@ const StockScanPage: React.FC = () => {
               <span>Dry Run</span>
             </label>
 
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={canslimForce}
+                onChange={(e) => setCanslimForce(e.target.checked)}
+                style={{ width: '16px', height: '16px' }}
+              />
+              <span>Force (ignore market hours)</span>
+            </label>
+
             <button
               onClick={runCanslimScan}
               disabled={canslimLoading}
@@ -951,6 +962,10 @@ const StockScanPage: React.FC = () => {
           {canslimResult && (
             <div style={{ marginTop: '15px' }}>
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                <span style={{ color: canslimResult.marketOpen ? '#28a745' : '#dc3545' }}>
+                  <strong>Market:</strong> {canslimResult.marketOpen ? 'OPEN' : 'CLOSED'}
+                  {canslimResult.currentTimeET && ` (${canslimResult.currentTimeET})`}
+                </span>
                 <span><strong>Scanned:</strong> {canslimResult.result?.scanned || 0}</span>
                 <span style={{ color: '#28a745' }}><strong>Executed:</strong> {canslimResult.result?.executed || 0}</span>
                 <span><strong>Positions:</strong> {canslimResult.broker?.positions || 0}</span>

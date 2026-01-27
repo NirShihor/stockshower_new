@@ -61,6 +61,34 @@ router.post('/scan', async (req: Request, res: Response) => {
 
     console.log(`[CANSLIM API] Scan triggered - dryRun: ${dryRun}, force: ${force}`);
 
+    // Check market hours first (unless force is true)
+    const { hour, minute } = getETTime();
+    const marketOpen = isMarketOpen();
+    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ET`;
+
+    if (!marketOpen && !force) {
+      console.log(`[CANSLIM API] Market CLOSED at ${timeStr} - skipping scan`);
+      res.json({
+        success: true,
+        mode: dryRun ? 'DRY RUN' : 'LIVE',
+        marketOpen: false,
+        currentTimeET: timeStr,
+        result: {
+          scanned: 0,
+          executed: 0,
+          skipped: 'Market closed'
+        },
+        dailyStats: { tradesPlaced: 0, activePositions: 0 },
+        broker: { positions: 0, orders: 0, positionDetails: [], orderDetails: [] },
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    if (!marketOpen && force) {
+      console.log(`[CANSLIM API] Market CLOSED but FORCE enabled - running scan anyway`);
+    }
+
     const exec = getExecutor({
       dryRun,
       targetMarginGBP: margin,
@@ -115,6 +143,7 @@ router.post('/scan', async (req: Request, res: Response) => {
       success: true,
       mode: dryRun ? 'DRY RUN' : 'LIVE',
       marketOpen: isMarketOpen(),
+      currentTimeET: timeStr,
       result: {
         scanned: result.scanned,
         executed: result.executed,
