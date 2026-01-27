@@ -158,6 +158,12 @@ const StockScanPage: React.FC = () => {
   const [soundVolume, setSoundVolume] = useState(0.3);
   const wsRef = useRef<WebSocket | null>(null);
 
+  // CAN SLIM Trading State
+  const [canslimLoading, setCanslimLoading] = useState(false);
+  const [canslimResult, setCanslimResult] = useState<any>(null);
+  const [canslimDryRun, setCanslimDryRun] = useState(true);
+  const [canslimForce, setCanslimForce] = useState(false);
+
   // Sound alert when new signal detected  
   const playAlert = () => {
     if (!soundEnabled) {
@@ -692,6 +698,37 @@ const StockScanPage: React.FC = () => {
     }
   };
 
+  // CAN SLIM Scan function
+  const runCanslimScan = async () => {
+    setCanslimLoading(true);
+    setCanslimResult(null);
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/canslim/scan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dryRun: canslimDryRun,
+          force: canslimForce,
+          margin: 25,
+          maxTrades: 10,
+          minScore: 4
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCanslimResult(data);
+    } catch (error) {
+      console.error('Error running CAN SLIM scan:', error);
+      alert('Error running CAN SLIM scan. Please try again.');
+    } finally {
+      setCanslimLoading(false);
+    }
+  };
+
   return (
     <div className="stock-scan-page">
       <div className="page-header">
@@ -870,6 +907,75 @@ const StockScanPage: React.FC = () => {
                   )}
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* CAN SLIM Trading Section */}
+        <div className="canslim-section" style={{ marginTop: '20px', padding: '15px', background: '#f8f9fa', borderRadius: '8px', border: '1px solid #dee2e6' }}>
+          <h3 style={{ margin: '0 0 15px 0', borderBottom: '2px solid #28a745', paddingBottom: '8px' }}>CAN SLIM Trading</h3>
+
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={canslimDryRun}
+                onChange={(e) => setCanslimDryRun(e.target.checked)}
+                style={{ width: '16px', height: '16px' }}
+              />
+              <span>Dry Run</span>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={canslimForce}
+                onChange={(e) => setCanslimForce(e.target.checked)}
+                style={{ width: '16px', height: '16px' }}
+              />
+              <span>Force (ignore market hours)</span>
+            </label>
+
+            <button
+              onClick={runCanslimScan}
+              disabled={canslimLoading}
+              style={{
+                background: canslimDryRun ? '#007bff' : '#28a745',
+                color: 'white',
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: canslimLoading ? 'not-allowed' : 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              {canslimLoading ? 'Scanning...' : canslimDryRun ? 'Run Test Scan' : 'Run LIVE Scan'}
+            </button>
+
+            {!canslimDryRun && (
+              <span style={{ color: '#dc3545', fontWeight: 'bold', fontSize: '14px' }}>
+                LIVE MODE - Real trades!
+              </span>
+            )}
+          </div>
+
+          {canslimResult && (
+            <div style={{ marginTop: '15px' }}>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                <span style={{ color: canslimResult.marketOpen ? '#28a745' : '#dc3545' }}>
+                  <strong>Market:</strong> {canslimResult.marketOpen ? 'OPEN' : 'CLOSED'}
+                  {canslimResult.currentTimeET && ` (${canslimResult.currentTimeET})`}
+                </span>
+                <span><strong>Scanned:</strong> {canslimResult.result?.scanned || 0}</span>
+                <span style={{ color: '#28a745' }}><strong>Executed:</strong> {canslimResult.result?.executed || 0}</span>
+                <span><strong>Positions:</strong> {canslimResult.broker?.positions || 0}</span>
+                <span><strong>Orders:</strong> {canslimResult.broker?.orders || 0}</span>
+              </div>
+              {canslimResult.result?.skipped && (
+                <div style={{ color: '#856404', fontSize: '13px' }}>
+                  Skipped: {canslimResult.result.skipped}
+                </div>
+              )}
             </div>
           )}
         </div>

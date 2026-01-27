@@ -137,6 +137,11 @@ const AnalysisPage: React.FC = () => {
   const [marketOverviewLoading, setMarketOverviewLoading] = useState<boolean>(false);
   const [marketOverview, setMarketOverview] = useState<MarketOverviewResult | null>(null);
 
+  // CAN SLIM Trading State
+  const [canslimLoading, setCanslimLoading] = useState<boolean>(false);
+  const [canslimResult, setCanslimResult] = useState<any>(null);
+  const [canslimDryRun, setCanslimDryRun] = useState<boolean>(true);
+
   const handleSectorChange = (sector: string) => {
     setSelectedSector(sector);
     setSelectedCompany('');
@@ -204,6 +209,36 @@ const AnalysisPage: React.FC = () => {
       console.error('Error fetching market overview:', error);
       alert('Error fetching market overview. Please try again.');
       setMarketOverviewLoading(false);
+    }
+  };
+
+  const runCanslimScan = async () => {
+    setCanslimLoading(true);
+    setCanslimResult(null);
+    try {
+      const response = await fetch('/api/canslim/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dryRun: canslimDryRun,
+          force: false,
+          margin: 25,
+          maxTrades: 10,
+          minScore: 4
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCanslimResult(data);
+    } catch (error) {
+      console.error('Error running CAN SLIM scan:', error);
+      alert('Error running CAN SLIM scan. Please try again.');
+    } finally {
+      setCanslimLoading(false);
     }
   };
 
@@ -377,6 +412,155 @@ const AnalysisPage: React.FC = () => {
               <div style={{ fontSize: '12px', color: '#666', marginTop: '15px', textAlign: 'right' }}>
                 Generated: {new Date(marketOverview.timestamp).toLocaleString()}
               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* CAN SLIM Trading Section */}
+      <div className="canslim-trading-section" style={{ marginBottom: '40px' }}>
+        <h2 style={{ borderBottom: '2px solid #28a745', paddingBottom: '10px' }}>CAN SLIM Trading</h2>
+        <p style={{ color: '#666', marginBottom: '20px' }}>Scan for CAN SLIM breakout opportunities and execute trades</p>
+
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={canslimDryRun}
+              onChange={(e) => setCanslimDryRun(e.target.checked)}
+              style={{ width: '18px', height: '18px' }}
+            />
+            <span>Dry Run (no real trades)</span>
+          </label>
+
+          <button
+            className={`analysis-button ${canslimLoading ? 'scanning' : ''}`}
+            onClick={runCanslimScan}
+            disabled={canslimLoading}
+            style={{
+              background: canslimDryRun ? '#007bff' : '#28a745',
+              color: 'white',
+              padding: '12px 24px',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            {canslimLoading ? 'Scanning...' : canslimDryRun ? 'Run Test Scan' : 'Run LIVE Scan'}
+          </button>
+
+          {!canslimDryRun && (
+            <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
+              LIVE MODE - Real trades will be placed!
+            </span>
+          )}
+        </div>
+
+        {canslimResult && (
+          <div style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #dee2e6' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0 }}>Scan Results</h3>
+              <span style={{
+                background: canslimResult.mode === 'LIVE' ? '#28a745' : '#007bff',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}>
+                {canslimResult.mode}
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+              <div style={{ background: 'white', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{canslimResult.result?.scanned || 0}</div>
+                <div style={{ color: '#666', fontSize: '14px' }}>Stocks Scanned</div>
+              </div>
+              <div style={{ background: 'white', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>{canslimResult.result?.executed || 0}</div>
+                <div style={{ color: '#666', fontSize: '14px' }}>Trades Executed</div>
+              </div>
+              <div style={{ background: 'white', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{canslimResult.broker?.positions || 0}</div>
+                <div style={{ color: '#666', fontSize: '14px' }}>Open Positions</div>
+              </div>
+              <div style={{ background: 'white', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{canslimResult.broker?.orders || 0}</div>
+                <div style={{ color: '#666', fontSize: '14px' }}>Pending Orders</div>
+              </div>
+            </div>
+
+            {canslimResult.result?.skipped && (
+              <div style={{ background: '#fff3cd', padding: '10px', borderRadius: '4px', marginBottom: '15px' }}>
+                <strong>Skipped:</strong> {canslimResult.result.skipped}
+              </div>
+            )}
+
+            {canslimResult.broker?.positionDetails?.length > 0 && (
+              <div style={{ marginBottom: '15px' }}>
+                <h4>Open Positions:</h4>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ background: '#e9ecef' }}>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Symbol</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>Entry</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>Current</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>P&L</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>SL</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>TP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {canslimResult.broker.positionDetails.map((pos: any, idx: number) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
+                          <td style={{ padding: '8px' }}>{pos.symbol}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>${pos.openPrice?.toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>${pos.currentPrice?.toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right', color: pos.profit >= 0 ? '#28a745' : '#dc3545' }}>
+                            ${pos.profit?.toFixed(2)}
+                          </td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>${pos.stopLoss?.toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>${pos.takeProfit?.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {canslimResult.broker?.orderDetails?.length > 0 && (
+              <div>
+                <h4>Pending Orders:</h4>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr style={{ background: '#e9ecef' }}>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Symbol</th>
+                        <th style={{ padding: '8px', textAlign: 'left' }}>Type</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>Entry</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>SL</th>
+                        <th style={{ padding: '8px', textAlign: 'right' }}>TP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {canslimResult.broker.orderDetails.map((ord: any, idx: number) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #dee2e6' }}>
+                          <td style={{ padding: '8px' }}>{ord.symbol}</td>
+                          <td style={{ padding: '8px' }}>{ord.type}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>${ord.openPrice?.toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>${ord.stopLoss?.toFixed(2)}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>${ord.takeProfit?.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '15px', textAlign: 'right' }}>
+              {canslimResult.marketOpen ? 'Market Open' : 'Market Closed'} | {new Date(canslimResult.timestamp).toLocaleString()}
             </div>
           </div>
         )}
