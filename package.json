@@ -1,6 +1,9 @@
 {
   "name": "stockshower",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "workspaces": [
     "client",
     "server"
