@@ -99,7 +99,14 @@ export interface CanslimSignal {
     volumeRatio: number;
     priceAbovePivot: boolean;
   } | null;
-  
+
+  // O'Neil-style pivot entry
+  pivotPrice: number;          // The breakout pivot point
+  currentPrice: number;        // Current market price
+  percentFromPivot: number;    // How far current price is from pivot
+  inBuyZone: boolean;          // True if within proper buy zone (at or below pivot+5%)
+  extended: boolean;           // True if too extended (>5% above pivot)
+
   entryPrice: number;
   stopLoss: number;
   stopPercent: number;
@@ -209,13 +216,28 @@ export async function analyseCanslimSignal(
   const volumeData = pivotPrice > 0 ? await checkVolumeBreakout(symbol, date, pivotPrice) : null;
   const volumePass = volumeData !== null && volumeData.pass;
   if (volumePass) score++;
-  
+
   const currentPrice = volumeData?.currentPrice || highData?.currentPrice || 0;
-  const stopLoss = currentPrice * (1 - config.stopLossPercent / 100);
-  const risk = currentPrice - stopLoss;
-  const target = currentPrice + (risk * config.targetMultiple);
-  
-  const pass = marketPass && rsPass && (highPass || basePass);
+
+  // O'Neil-style pivot entry calculation
+  // Buy zone: at or below pivot, or up to 5% above pivot
+  // Extended: more than 5% above pivot (don't chase)
+  const buyZoneMax = pivotPrice * 1.05;  // 5% above pivot is max buy zone
+  const percentFromPivot = pivotPrice > 0 ? ((currentPrice - pivotPrice) / pivotPrice) * 100 : 0;
+  const inBuyZone = currentPrice <= buyZoneMax && currentPrice > 0;
+  const extended = currentPrice > buyZoneMax;
+
+  // Entry price is the pivot point (breakout level), not current price
+  // This creates a BUY_STOP order that triggers when price breaks above pivot
+  const entryPrice = pivotPrice > 0 ? pivotPrice : currentPrice;
+
+  // Calculate stop and target based on pivot/entry price (O'Neil uses 7-8% stop from pivot)
+  const stopLoss = entryPrice * (1 - config.stopLossPercent / 100);
+  const risk = entryPrice - stopLoss;
+  const target = entryPrice + (risk * config.targetMultiple);
+
+  // Pass criteria: market direction + RS + (near high or base pattern) + NOT extended beyond buy zone
+  const pass = marketPass && rsPass && (highPass || basePass) && !extended;
   
   return {
     symbol,
@@ -262,8 +284,15 @@ export async function analyseCanslimSignal(
       volumeRatio: volumeData.volumeRatio,
       priceAbovePivot: volumeData.priceAbovePivot
     } : null,
-    
-    entryPrice: Math.round(currentPrice * 100) / 100,
+
+    // O'Neil-style pivot entry info
+    pivotPrice: Math.round(pivotPrice * 100) / 100,
+    currentPrice: Math.round(currentPrice * 100) / 100,
+    percentFromPivot: Math.round(percentFromPivot * 100) / 100,
+    inBuyZone,
+    extended,
+
+    entryPrice: Math.round(entryPrice * 100) / 100,
     stopLoss: Math.round(stopLoss * 100) / 100,
     stopPercent: config.stopLossPercent,
     target: Math.round(target * 100) / 100,
@@ -290,18 +319,25 @@ export async function scanForCanslimCandidates(
   }
   
   const candidates: CanslimSignal[] = [];
-  
+  let extendedCount = 0;
+
   for (const symbol of symbols) {
     const signal = await analyseCanslimSignal(symbol, date, config);
-    if (signal && signal.pass) {
-      candidates.push(signal);
+    if (signal) {
+      if (signal.extended) {
+        extendedCount++;
+        console.log(`[CANSLIM] ${symbol}: SKIPPED - Extended ${signal.percentFromPivot.toFixed(1)}% above pivot (max 5%)`);
+      } else if (signal.pass) {
+        candidates.push(signal);
+        console.log(`[CANSLIM] ${symbol}: PASS - Score ${signal.score}/${signal.maxScore}, Entry at pivot $${signal.entryPrice} (current $${signal.currentPrice})`);
+      }
     }
   }
-  
+
   candidates.sort((a, b) => b.score - a.score);
-  
-  console.log(`[CANSLIM] Found ${candidates.length} candidates`);
-  
+
+  console.log(`[CANSLIM] Found ${candidates.length} candidates (${extendedCount} stocks extended beyond buy zone)`);
+
   return candidates;
 }
 
@@ -347,11 +383,14 @@ export function formatCanslimSignalForDisplay(signal: CanslimSignal): string {
     output += `    Above Pivot: ${signal.volumeBreakout.priceAbovePivot}\n\n`;
   }
   
-  output += `TRADE PLAN:\n`;
-  output += `    Entry: $${signal.entryPrice}\n`;
+  output += `TRADE PLAN (O'Neil Pivot Method):\n`;
+  output += `    Pivot Point: $${signal.pivotPrice} (breakout level)\n`;
+  output += `    Current Price: $${signal.currentPrice} (${signal.percentFromPivot >= 0 ? '+' : ''}${signal.percentFromPivot}% from pivot)\n`;
+  output += `    Buy Zone: ${signal.inBuyZone ? 'YES - within buy zone' : 'NO'} ${signal.extended ? '(EXTENDED - do not chase!)' : ''}\n`;
+  output += `    Entry: $${signal.entryPrice} (BUY_STOP at pivot)\n`;
   output += `    Stop: $${signal.stopLoss} (-${signal.stopPercent}%)\n`;
   output += `    Target: $${signal.target} (${signal.riskRewardRatio}:1 R:R)\n`;
-  
+
   return output;
 }
 

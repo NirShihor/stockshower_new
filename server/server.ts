@@ -152,11 +152,13 @@ if (process.env.NODE_ENV === 'production') {
       if (process.env.METAAPI_TOKEN && process.env.METAAPI_ACCOUNT_ID) {
         console.log('Starting MT5 cleanup schedulers...');
 
-        // DISABLED: EOD cleanup - only CAN SLIM is active, positions should hold overnight
+        // DISABLED: All automatic cleanup - CAN SLIM positions should hold until SL/TP
         // metaApiHandler.startEndOfDayScheduler();
+        // metaApiHandler.startOrderCleanup();  // DISABLED - was cancelling orders unexpectedly
 
-        // Keep: 48-hour expiry for unfilled CAN SLIM orders
-        metaApiHandler.startOrderCleanup();
+        // Only run CAN SLIM 48-hour order expiry check
+        metaApiHandler.startCanslimOrderExpiry();
+        console.log('CAN SLIM 48-hour order expiry checker started');
 
         // DISABLED: Position monitor for day trading patterns (Trade model) - CAN SLIM uses CanslimTrade
         // positionMonitor.start();

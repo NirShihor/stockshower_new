@@ -13,6 +13,7 @@ import {
   convertMarketstackToPolygonFormat,
   convertMarketstackIntradayToPolygonFormat
 } from './marketstackAPI.js';
+import { getMarketContext, formatMarketContextForAI } from '../services/marketContextService.js';
 
 // Load environment variables
 dotenv.config();
@@ -2496,96 +2497,17 @@ export const getMarketOverview = async (req: Request, res: Response): Promise<vo
 		
 		const today = new Date().toISOString().split('T')[0];
 		
-		const polygonApiKey = process.env.POLYGON_API_KEY;
-		if (!polygonApiKey) {
-			res.status(500).json({ error: 'Polygon API key not configured' });
+		// Use the same marketContextService as CAN SLIM scanner for consistency
+		const marketContext = await getMarketContext(today);
+
+		if (!marketContext) {
+			res.status(500).json({ error: 'Failed to get market context' });
 			return;
 		}
-		
-		const endDate = today;
-		const startDateObj = new Date();
-		startDateObj.setDate(startDateObj.getDate() - 60);
-		const startDate = startDateObj.toISOString().split('T')[0];
-		
-		const fetchIndexData = async (symbol: string) => {
-			try {
-				const url = `https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${startDate}/${endDate}?adjusted=true&sort=asc&apiKey=${polygonApiKey}`;
-				const response = await axios.get(url);
-				return response.data.results || [];
-			} catch (error) {
-				console.error(`Error fetching ${symbol}:`, error);
-				return [];
-			}
-		};
-		
-		const [spyData, qqqData, vixyData] = await Promise.all([
-			fetchIndexData('SPY'),
-			fetchIndexData('QQQ'),
-			fetchIndexData('VIXY')
-		]);
-		
-		const calculateMetrics = (bars: any[]) => {
-			if (!bars || bars.length < 2) return null;
-			const latest = bars[bars.length - 1];
-			const prev = bars[bars.length - 2];
-			const weekAgo = bars[Math.max(0, bars.length - 6)];
-			const monthAgo = bars[Math.max(0, bars.length - 22)];
-			
-			const ema20 = bars.slice(-20).reduce((sum: number, b: any) => sum + b.c, 0) / Math.min(20, bars.length);
-			
-			return {
-				current: latest.c,
-				dayChange: ((latest.c - prev.c) / prev.c * 100).toFixed(2),
-				weekChange: ((latest.c - weekAgo.c) / weekAgo.c * 100).toFixed(2),
-				monthChange: ((latest.c - monthAgo.c) / monthAgo.c * 100).toFixed(2),
-				aboveEma20: latest.c > ema20,
-				ema20: ema20.toFixed(2)
-			};
-		};
-		
-		const spy = calculateMetrics(spyData);
-		const qqq = calculateMetrics(qqqData);
-		const vixy = calculateMetrics(vixyData);
-		
-		let regime = 'neutral';
-		let regimeReason = '';
-		
-		if (spy && qqq && vixy) {
-			const bullishSignals = [];
-			const bearishSignals = [];
-			
-			if (spy.aboveEma20) bullishSignals.push('SPY above 20 EMA');
-			else bearishSignals.push('SPY below 20 EMA');
-			
-			if (parseFloat(spy.weekChange) > 1) bullishSignals.push('SPY up on week');
-			else if (parseFloat(spy.weekChange) < -1) bearishSignals.push('SPY down on week');
-			
-			if (qqq.aboveEma20) bullishSignals.push('QQQ above 20 EMA');
-			else bearishSignals.push('QQQ below 20 EMA');
-			
-			const estimatedVix = parseFloat(vixy.weekChange) > 10 ? 25 : parseFloat(vixy.weekChange) > 5 ? 20 : 16;
-			if (estimatedVix < 18) bullishSignals.push('VIX low');
-			else if (estimatedVix > 22) bearishSignals.push('VIX elevated');
-			
-			if (bullishSignals.length >= 3) {
-				regime = 'risk-on';
-				regimeReason = bullishSignals.join(', ');
-			} else if (bearishSignals.length >= 3) {
-				regime = 'risk-off';
-				regimeReason = bearishSignals.join(', ');
-			} else {
-				regime = 'neutral';
-				regimeReason = [...bullishSignals, ...bearishSignals].join(', ');
-			}
-		}
-		
-		const marketDataSummary = `
-Current Market Data (${today}):
-- SPY: $${spy?.current?.toFixed(2) || 'N/A'} (Day: ${spy?.dayChange || 'N/A'}%, Week: ${spy?.weekChange || 'N/A'}%, Month: ${spy?.monthChange || 'N/A'}%) - ${spy?.aboveEma20 ? 'Above' : 'Below'} 20 EMA
-- QQQ: $${qqq?.current?.toFixed(2) || 'N/A'} (Day: ${qqq?.dayChange || 'N/A'}%, Week: ${qqq?.weekChange || 'N/A'}%, Month: ${qqq?.monthChange || 'N/A'}%) - ${qqq?.aboveEma20 ? 'Above' : 'Below'} 20 EMA
-- VIXY (VIX proxy): $${vixy?.current?.toFixed(2) || 'N/A'} (Week: ${vixy?.weekChange || 'N/A'}%)
-- Current Regime: ${regime.toUpperCase()} (${regimeReason})
-`;
+
+		const { spy, qqq, vix, regime, regimeReason } = marketContext;
+
+		const marketDataSummary = formatMarketContextForAI(marketContext);
 
 		const perplexityPrompt = `Based on the current market data and recent news, provide a comprehensive market outlook:
 
@@ -2716,9 +2638,27 @@ Keep each section concise (2-3 sentences) but actionable.`;
 		
 		res.json({
 			marketData: {
-				spy: spy ? { ...spy, symbol: 'SPY' } : null,
-				qqq: qqq ? { ...qqq, symbol: 'QQQ' } : null,
-				vix: vixy ? { ...vixy, symbol: 'VIX (proxy)' } : null
+				spy: spy ? {
+					symbol: spy.symbol,
+					current: spy.current,
+					dayChange: spy.changePercent.toFixed(2),
+					weekChange: spy.weekChangePercent.toFixed(2),
+					aboveEma20: spy.aboveEma20,
+					trend: spy.trend
+				} : null,
+				qqq: qqq ? {
+					symbol: qqq.symbol,
+					current: qqq.current,
+					dayChange: qqq.changePercent.toFixed(2),
+					weekChange: qqq.weekChangePercent.toFixed(2),
+					aboveEma20: qqq.aboveEma20,
+					trend: qqq.trend
+				} : null,
+				vix: vix ? {
+					symbol: vix.symbol,
+					current: vix.current,
+					weekChange: vix.weekChangePercent.toFixed(2)
+				} : null
 			},
 			regime: regime,
 			regimeReason: regimeReason,

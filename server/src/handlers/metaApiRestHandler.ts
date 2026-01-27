@@ -410,7 +410,20 @@ class MetaApiRestHandler {
           console.log(`[MetaApi] HIGH SCORE (${signal.score}) - Using MARKET SELL at ${currentMarketPrice}`);
         }
       } else if (isLong) {
-        if (plan.entry > currentMarketPrice && priceDiff >= minDistancePercent) {
+        // CAN SLIM: Always use BUY_STOP for breakout entries (O'Neil method)
+        const isCanSlimSignal = signal.pattern?.name?.includes('CAN SLIM');
+
+        if (isCanSlimSignal) {
+          // CAN SLIM breakout strategy - always use BUY_STOP above current price
+          actionType = 'ORDER_TYPE_BUY_STOP';
+          if (plan.entry <= currentMarketPrice) {
+            // Entry is at or below market - adjust to above market for breakout
+            adjustedEntry = currentMarketPrice + (currentMarketPrice * minDistancePercent);
+            console.log(`[MetaApi] CAN SLIM BUY_STOP: Entry ${plan.entry} <= Current ${currentMarketPrice}, adjusted to ${adjustedEntry.toFixed(2)} (breakout entry above market)`);
+          } else {
+            console.log(`[MetaApi] CAN SLIM BUY_STOP: Entry ${plan.entry} > Current ${currentMarketPrice} (breakout entry)`);
+          }
+        } else if (plan.entry > currentMarketPrice && priceDiff >= minDistancePercent) {
           actionType = 'ORDER_TYPE_BUY_STOP';
           console.log(`[MetaApi] Using BUY_STOP: Entry ${plan.entry} > Current ${currentMarketPrice}, diff ${(priceDiff*100).toFixed(2)}% >= ${(minDistancePercent*100).toFixed(1)}%`);
         } else if (plan.entry < currentMarketPrice && priceDiff >= minDistancePercent) {
@@ -560,8 +573,7 @@ class MetaApiRestHandler {
         volume: volume,
         stopLoss: roundedStopLoss,
         takeProfit: roundedTakeProfit,
-        comment: `Signal: ${signal.pattern.name}`.slice(0, 31),
-        clientId: signal.pattern.name.includes('CAN SLIM') ? `canslim-${Date.now()}` : undefined
+        comment: `Signal: ${signal.pattern.name}`.slice(0, 31)
       };
       
       // Create trade record before placing order
@@ -999,369 +1011,54 @@ class MetaApiRestHandler {
   }
 
   async closeAllPositions(): Promise<{ success: boolean; results: any[]; error?: string }> {
-    try {
-      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      
-      const positionsResponse = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
-        { headers: this.getHeaders() }
-      );
-
-      const positions = positionsResponse.data;
-      if (!positions || positions.length === 0) {
-        console.log('[MetaApi] No open positions to close');
-        return { success: true, results: [] };
-      }
-
-      console.log(`[MetaApi] Found ${positions.length} open positions to close`);
-      console.log(`[MetaApi] Position data:`, JSON.stringify(positions.map((p: any) => ({ id: p.id, symbol: p.symbol, comment: p.comment, clientId: p.clientId })), null, 2));
-      const closeResults = [];
-
-      for (const position of positions) {
-        try {
-          const hasCanSlimComment = position.comment && position.comment.includes('CAN SLIM');
-          const hasCanSlimClientId = position.clientId && position.clientId.includes('canslim');
-          
-          if (hasCanSlimComment || hasCanSlimClientId) {
-            console.log(`[MetaApi] Skipping CAN SLIM position ${position.id} for ${position.symbol} (swing trade) - comment: ${position.comment}, clientId: ${position.clientId}`);
-            continue;
-          }
-
-          const closeRequest = {
-            actionType: 'POSITION_CLOSE_ID',
-            positionId: position.id,
-            comment: 'End of day auto-close'
-          };
-
-          console.log(`[MetaApi] Closing position ${position.id} for ${position.symbol}`);
-          
-          const closeResponse = await this.axiosInstance.post(
-            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
-            closeRequest,
-            { headers: this.getHeaders() }
-          );
-
-          closeResults.push({
-            positionId: position.id,
-            symbol: position.symbol,
-            success: true,
-            result: closeResponse.data
-          });
-
-          console.log(`[MetaApi] Successfully closed position ${position.id}`);
-          
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          try {
-            const historicalData = await this.getClosedPosition(position.id);
-            if (historicalData && historicalData.closePrice) {
-              const trade = await Trade.findOne({ mt5PositionId: position.id });
-              if (trade) {
-                const entryPrice = trade.actualEntryPrice || trade.entryPrice;
-                const exitPrice = historicalData.closePrice;
-                const isLong = trade.direction === 'long';
-                
-                let pnlPercentage = 0;
-                if (entryPrice) {
-                  pnlPercentage = isLong
-                    ? ((exitPrice - entryPrice) / entryPrice) * 100
-                    : ((entryPrice - exitPrice) / entryPrice) * 100;
-                }
-                
-                await Trade.findByIdAndUpdate(trade._id, {
-                  status: 'closed',
-                  exitPrice: exitPrice,
-                  closedTime: new Date(),
-                  exitReason: 'end_of_day',
-                  pnlPercentage: pnlPercentage,
-                  pnlAmount: historicalData.profit || 0,
-                  commission: historicalData.commission || 0
-                });
-                
-                console.log(`[MetaApi] ✅ Database updated for ${position.symbol}: exit=${exitPrice}, P&L=${pnlPercentage.toFixed(2)}%`);
-              }
-            }
-          } catch (dbError) {
-            console.error(`[MetaApi] Failed to update database for position ${position.id}:`, dbError);
-          }
-        } catch (error: any) {
-          console.error(`[MetaApi] Failed to close position ${position.id}:`, error.response?.data);
-          closeResults.push({
-            positionId: position.id,
-            symbol: position.symbol,
-            success: false,
-            error: error.response?.data?.error || error.message
-          });
-        }
-      }
-
-      return { success: true, results: closeResults };
-    } catch (error: any) {
-      console.error('[MetaApi] Error closing all positions:', error.response?.data || error.message);
-      return {
-        success: false,
-        results: [],
-        error: error.response?.data?.error || error.message || 'Failed to close positions'
-      };
-    }
+    // ============================================================
+    // DISABLED - CAN SLIM positions should NEVER be auto-closed
+    // Positions will only close when they hit SL or TP
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: closeAllPositions() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - positions only close via SL/TP');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, results: [], error: 'DISABLED - CAN SLIM mode active' };
   }
 
   async cancelAllPendingOrders(): Promise<{ success: boolean; results: any[]; error?: string }> {
-    try {
-      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      
-      // Get all pending orders
-      const ordersResponse = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
-        { headers: this.getHeaders() }
-      );
-
-      const orders = ordersResponse.data;
-      if (!orders || orders.length === 0) {
-        console.log('[MetaApi] No pending orders to cancel');
-        return { success: true, results: [] };
-      }
-
-      console.log(`[MetaApi] Found ${orders.length} pending orders to cancel`);
-      const cancelResults = [];
-
-      for (const order of orders) {
-        try {
-          const isCanSlim = (order.comment && order.comment.includes('CAN SLIM')) ||
-                            (order.clientId && order.clientId.includes('canslim'));
-          if (isCanSlim) {
-            console.log(`[MetaApi] Skipping CAN SLIM order ${order.id} for ${order.symbol} (swing trade)`);
-            continue;
-          }
-
-          const cancelRequest = {
-            actionType: 'ORDER_CANCEL',
-            orderId: order.id
-          };
-
-          console.log(`[MetaApi] Canceling order ${order.id} for ${order.symbol}`);
-          
-          const cancelResponse = await this.axiosInstance.post(
-            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
-            cancelRequest,
-            { headers: this.getHeaders() }
-          );
-
-          cancelResults.push({
-            orderId: order.id,
-            symbol: order.symbol,
-            success: true,
-            result: cancelResponse.data
-          });
-
-          console.log(`[MetaApi] Successfully canceled order ${order.id}`);
-        } catch (error: any) {
-          console.error(`[MetaApi] Failed to cancel order ${order.id}:`, error.response?.data);
-          cancelResults.push({
-            orderId: order.id,
-            symbol: order.symbol,
-            success: false,
-            error: error.response?.data?.error || error.message
-          });
-        }
-      }
-
-      return { success: true, results: cancelResults };
-    } catch (error: any) {
-      console.error('[MetaApi] Error canceling all orders:', error.response?.data || error.message);
-      return {
-        success: false,
-        results: [],
-        error: error.response?.data?.error || error.message || 'Failed to cancel orders'
-      };
-    }
+    // ============================================================
+    // DISABLED - CAN SLIM orders should only be cancelled after 48h
+    // Use cancelExpiredCanslimOrders() for 48-hour expiry
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: cancelAllPendingOrders() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - only 48h expiry cancels orders');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, results: [], error: 'DISABLED - CAN SLIM mode active' };
   }
 
   async endOfDayCleanup(): Promise<{ success: boolean; closedPositions: number; canceledOrders: number; errors: string[] }> {
-    console.log('[MetaApi] Starting end-of-day cleanup...');
-    
-    const errors: string[] = [];
-    let closedPositions = 0;
-    let canceledOrders = 0;
-
-    try {
-      // Close all positions first
-      const closeResult = await this.closeAllPositions();
-      if (closeResult.success) {
-        closedPositions = closeResult.results.filter(r => r.success).length;
-        const closeErrors = closeResult.results.filter(r => !r.success);
-        closeErrors.forEach(e => errors.push(`Position ${e.positionId}: ${e.error}`));
-      } else {
-        errors.push(`Failed to close positions: ${closeResult.error}`);
-      }
-
-      // Cancel all pending orders
-      const cancelResult = await this.cancelAllPendingOrders();
-      if (cancelResult.success) {
-        canceledOrders = cancelResult.results.filter(r => r.success).length;
-        const cancelErrors = cancelResult.results.filter(r => !r.success);
-        cancelErrors.forEach(e => errors.push(`Order ${e.orderId}: ${e.error}`));
-      } else {
-        errors.push(`Failed to cancel orders: ${cancelResult.error}`);
-      }
-
-      console.log(`[MetaApi] End-of-day cleanup completed: ${closedPositions} positions closed, ${canceledOrders} orders canceled, ${errors.length} errors`);
-      
-      return {
-        success: errors.length === 0,
-        closedPositions,
-        canceledOrders,
-        errors
-      };
-    } catch (error: any) {
-      console.error('[MetaApi] End-of-day cleanup failed:', error);
-      return {
-        success: false,
-        closedPositions,
-        canceledOrders,
-        errors: [`Cleanup failed: ${error.message}`]
-      };
-    }
+    // ============================================================
+    // DISABLED - No EOD cleanup for CAN SLIM
+    // Positions close via SL/TP, orders expire after 48h
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: endOfDayCleanup() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - no EOD cleanup');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, closedPositions: 0, canceledOrders: 0, errors: ['DISABLED - CAN SLIM mode active'] };
   }
 
   async cancelOldOrders(): Promise<{ success: boolean; canceledCount: number; errors: string[] }> {
-    try {
-      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      
-      // Cancel orders older than 15 minutes - trading conditions change rapidly
-      // Get all pending orders
-      const ordersResponse = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
-        { headers: this.getHeaders() }
-      );
-
-      const orders = ordersResponse.data;
-      console.log(`[MetaApi] Found ${orders?.length || 0} pending orders to check`);
-      
-      if (!orders || orders.length === 0) {
-        console.log('[MetaApi] No pending orders found - nothing to cancel');
-        return { success: true, canceledCount: 0, errors: [] };
-      }
-
-      const fifteenMinutesAgo = Date.now() - (15 * 60 * 1000);
-      console.log(`[MetaApi] Will cancel orders placed before: ${new Date(fifteenMinutesAgo).toISOString()}`);
-      const errors: string[] = [];
-      let canceledCount = 0;
-
-      for (const order of orders) {
-        try {
-          const isCanSlim = (order.comment && order.comment.includes('CAN SLIM')) ||
-                            (order.clientId && order.clientId.includes('canslim'));
-          
-          if (isCanSlim) {
-            // CAN SLIM orders have longer expiry (48 hours) since they're swing trades
-            const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
-            let orderTime = null;
-            const timeFields = ['time', 'openTime', 'createdAt', 'timestamp', 'createTime'];
-            
-            for (const field of timeFields) {
-              if (order[field]) {
-                orderTime = new Date(order[field]).getTime();
-                if (!isNaN(orderTime)) break;
-              }
-            }
-            
-            if (orderTime && orderTime < fortyEightHoursAgo) {
-              const ageInHours = (Date.now() - orderTime) / (60 * 60 * 1000);
-              console.log(`[MetaApi] CAN SLIM order ${order.id} for ${order.symbol} is ${ageInHours.toFixed(1)} hours old - cancelling (48h expiry)`);
-              
-              const cancelRequest = {
-                actionType: 'ORDER_CANCEL',
-                orderId: order.id
-              };
-              
-              await this.axiosInstance.post(
-                `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
-                cancelRequest,
-                { headers: this.getHeaders() }
-              );
-              
-              canceledCount++;
-              console.log(`[MetaApi] Successfully canceled stale CAN SLIM order ${order.id}`);
-            } else {
-              console.log(`[MetaApi] Skipping CAN SLIM order ${order.id} for ${order.symbol} (within 48h window)`);
-            }
-            continue;
-          }
-
-          // Debug: Log the order structure to understand the time fields
-          console.log(`[MetaApi] Checking order ${order.id}:`, {
-            id: order.id,
-            symbol: order.symbol,
-            time: order.time,
-            openTime: order.openTime,
-            createdAt: order.createdAt,
-            timestamp: order.timestamp,
-            allKeys: Object.keys(order)
-          });
-          
-          // Try multiple possible time fields
-          let orderTime = null;
-          const timeFields = ['time', 'openTime', 'createdAt', 'timestamp', 'createTime'];
-          
-          for (const field of timeFields) {
-            if (order[field]) {
-              orderTime = new Date(order[field]).getTime();
-              if (!isNaN(orderTime)) {
-                console.log(`[MetaApi] Using ${field} for order time: ${new Date(orderTime).toISOString()}`);
-                break;
-              }
-            }
-          }
-          
-          if (!orderTime || isNaN(orderTime)) {
-            // If no valid time found, assume it's a new order (don't cancel)
-            console.log(`[MetaApi] No valid time found for order ${order.id}, skipping cancellation`);
-            continue;
-          }
-          
-          const ageInMinutes = (Date.now() - orderTime) / (60 * 1000);
-          console.log(`[MetaApi] Order ${order.id} age: ${ageInMinutes.toFixed(1)} minutes`);
-          
-          if (orderTime < fifteenMinutesAgo) {
-            const cancelRequest = {
-              actionType: 'ORDER_CANCEL',
-              orderId: order.id
-            };
-
-            console.log(`[MetaApi] Canceling old order ${order.id} for ${order.symbol} (placed at ${new Date(orderTime).toISOString()}, age: ${ageInMinutes.toFixed(1)} minutes)`);
-            
-            await this.axiosInstance.post(
-              `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
-              cancelRequest,
-              { headers: this.getHeaders() }
-            );
-
-            canceledCount++;
-            console.log(`[MetaApi] Successfully canceled old order ${order.id}`);
-          } else {
-            console.log(`[MetaApi] Order ${order.id} is only ${ageInMinutes.toFixed(1)} minutes old, keeping it`);
-          }
-        } catch (error: any) {
-          const errorMsg = `Failed to cancel order ${order.id}: ${error.response?.data?.error || error.message}`;
-          console.error(`[MetaApi] ${errorMsg}`);
-          errors.push(errorMsg);
-        }
-      }
-
-      if (canceledCount > 0) {
-        console.log(`[MetaApi] Canceled ${canceledCount} old orders`);
-      }
-
-      return { success: errors.length === 0, canceledCount, errors };
-    } catch (error: any) {
-      console.error('[MetaApi] Error checking for old orders:', error.response?.data || error.message);
-      return {
-        success: false,
-        canceledCount: 0,
-        errors: [`Failed to check orders: ${error.message}`]
-      };
-    }
+    // ============================================================
+    // DISABLED - CAN SLIM orders only expire after 48h via cancelExpiredCanslimOrders()
+    // ============================================================
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    console.log('[MetaApi] WARNING: cancelOldOrders() was called but is DISABLED');
+    console.log('[MetaApi] CAN SLIM mode - use cancelExpiredCanslimOrders() for 48h expiry');
+    console.log('[MetaApi] Caller stack:', new Error().stack);
+    console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!');
+    return { success: true, canceledCount: 0, errors: ['DISABLED - CAN SLIM mode active'] };
   }
 
   private orderCleanupInterval: NodeJS.Timeout | null = null;
@@ -1410,6 +1107,98 @@ class MetaApiRestHandler {
       clearInterval(this.orderCleanupInterval);
       this.orderCleanupInterval = null;
       console.log('[MetaApi] Order cleanup scheduler stopped');
+    }
+  }
+
+  // CAN SLIM order expiry - runs once at EOD (21:00 UK time)
+  // Cancels unfilled CAN SLIM orders older than 48 hours
+  // Does NOT touch positions or any other orders
+  private canslimExpiryTimeout: NodeJS.Timeout | null = null;
+
+  startCanslimOrderExpiry(): void {
+    const scheduleNextCheck = () => {
+      // Schedule for 21:00 UK time (after US market close)
+      const msUntilCheck = this.msUntilUKTime(21, 0);
+      const hoursUntil = Math.floor(msUntilCheck / 1000 / 60 / 60);
+      const minutesUntil = Math.floor((msUntilCheck / 1000 / 60) % 60);
+
+      console.log(`[MetaApi] CAN SLIM order expiry scheduled in ${hoursUntil}h ${minutesUntil}m (at 21:00 UK time)`);
+
+      this.canslimExpiryTimeout = setTimeout(async () => {
+        console.log('[MetaApi] Running CAN SLIM order expiry check (21:00 UK)...');
+        await this.cancelExpiredCanslimOrders();
+        // Schedule next check for tomorrow
+        scheduleNextCheck();
+      }, msUntilCheck);
+    };
+
+    scheduleNextCheck();
+  }
+
+  private async cancelExpiredCanslimOrders(): Promise<void> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+
+      const ordersResponse = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
+        { headers: this.getHeaders() }
+      );
+
+      const orders = ordersResponse.data;
+      if (!orders || orders.length === 0) {
+        console.log('[MetaApi] No pending orders found');
+        return;
+      }
+
+      const fortyEightHoursAgo = Date.now() - (48 * 60 * 60 * 1000);
+      let cancelledCount = 0;
+
+      for (const order of orders) {
+        // ONLY process CAN SLIM orders
+        const isCanSlim = order.comment && order.comment.includes('CAN SLIM');
+        if (!isCanSlim) continue;
+
+        // Check order age
+        let orderTime = null;
+        const timeFields = ['time', 'openTime', 'createdAt', 'timestamp', 'createTime'];
+        for (const field of timeFields) {
+          if (order[field]) {
+            orderTime = new Date(order[field]).getTime();
+            if (!isNaN(orderTime)) break;
+          }
+        }
+
+        if (orderTime && orderTime < fortyEightHoursAgo) {
+          const ageInHours = (Date.now() - orderTime) / (60 * 60 * 1000);
+          console.log(`[MetaApi] CAN SLIM order ${order.id} (${order.symbol}) expired after ${ageInHours.toFixed(1)} hours - cancelling`);
+
+          try {
+            await this.axiosInstance.post(
+              `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+              { actionType: 'ORDER_CANCEL', orderId: order.id },
+              { headers: this.getHeaders() }
+            );
+            console.log(`[MetaApi] Cancelled expired CAN SLIM order ${order.id}`);
+            cancelledCount++;
+          } catch (cancelError: any) {
+            console.error(`[MetaApi] Failed to cancel order ${order.id}:`, cancelError.message);
+          }
+        } else {
+          const ageInHours = orderTime ? (Date.now() - orderTime) / (60 * 60 * 1000) : 0;
+          console.log(`[MetaApi] CAN SLIM order ${order.id} (${order.symbol}) is ${ageInHours.toFixed(1)} hours old - keeping`);
+        }
+      }
+
+      console.log(`[MetaApi] CAN SLIM order expiry complete: ${cancelledCount} orders cancelled`);
+    } catch (error: any) {
+      console.error('[MetaApi] CAN SLIM expiry check error:', error.message);
+    }
+  }
+
+  stopCanslimOrderExpiry(): void {
+    if (this.canslimExpiryTimeout) {
+      clearTimeout(this.canslimExpiryTimeout);
+      this.canslimExpiryTimeout = null;
     }
   }
 

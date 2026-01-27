@@ -294,27 +294,48 @@ export class CanslimExecutor {
 
     let existingOpenSymbols = await CanslimTradeService.getOpenSymbols();
 
-    // Cross-check with actual broker positions (not in dry run)
-    if (!this.config.dryRun && existingOpenSymbols.size > 0) {
+    // ALWAYS check broker for existing CAN SLIM positions and orders to prevent duplicates
+    if (!this.config.dryRun) {
       const [positions, orders] = await Promise.all([
         metaApiHandler.getPositions(),
         metaApiHandler.getOrders()
       ]);
 
-      const brokerSymbols = new Set<string>();
-      positions.forEach((p: any) => brokerSymbols.add(p.symbol));
-      orders.forEach((o: any) => brokerSymbols.add(o.symbol));
+      // Get ALL symbols that have positions or pending orders at broker
+      const brokerMT5Symbols = new Set<string>();
+      positions.forEach((p: any) => {
+        // Only consider CAN SLIM positions (check comment)
+        if (p.comment && p.comment.includes('CAN SLIM')) {
+          brokerMT5Symbols.add(p.symbol);
+          console.log(`[CANSLIM] Found existing POSITION: ${p.symbol} (comment: ${p.comment})`);
+        }
+      });
+      orders.forEach((o: any) => {
+        // Only consider CAN SLIM orders (check comment)
+        if (o.comment && o.comment.includes('CAN SLIM')) {
+          brokerMT5Symbols.add(o.symbol);
+          console.log(`[CANSLIM] Found existing ORDER: ${o.symbol} (type: ${o.type}, comment: ${o.comment})`);
+        }
+      });
 
-      const verifiedSymbols = new Set<string>();
+      // Convert broker MT5 symbols back to base symbols and add to exclusion list
+      for (const mt5Symbol of brokerMT5Symbols) {
+        // Convert AMD.O -> AMD, AAPL.N -> AAPL
+        const baseSymbol = mt5Symbol.replace(/\.(O|N)$/, '');
+        existingOpenSymbols.add(baseSymbol);
+      }
+
+      // Also verify DB symbols still exist at broker
+      const verifiedFromDb = new Set<string>();
       for (const symbol of existingOpenSymbols) {
         const mt5Symbol = this.convertToMT5Symbol(symbol);
-        if (brokerSymbols.has(mt5Symbol)) {
-          verifiedSymbols.add(symbol);
-        } else {
-          console.log(`[CANSLIM] DB shows open position for ${symbol} but not found in broker - will allow new trade`);
+        if (brokerMT5Symbols.has(mt5Symbol)) {
+          verifiedFromDb.add(symbol);
         }
       }
-      existingOpenSymbols = verifiedSymbols;
+
+      // Merge: include all broker symbols + verified DB symbols
+      existingOpenSymbols = new Set([...existingOpenSymbols]);
     }
 
     if (existingOpenSymbols.size > 0) {

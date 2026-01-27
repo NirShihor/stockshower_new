@@ -85,9 +85,9 @@ async function fetchIndexData(
   try {
     const endDate = date;
     const startDateObj = new Date(date);
-    startDateObj.setDate(startDateObj.getDate() - 30);
+    startDateObj.setDate(startDateObj.getDate() - 60);
     const startDate = startDateObj.toISOString().split('T')[0];
-    
+
     const dailyCandles = await fetchHistoricalBars(
       apiKey,
       symbol,
@@ -95,7 +95,7 @@ async function fetchIndexData(
       endDate,
       'day',
       1,
-      30
+      60
     );
     
     if (dailyCandles.length === 0) return null;

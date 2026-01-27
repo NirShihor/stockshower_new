@@ -19,7 +19,7 @@ const tradingDelayMinutes = delayArg ? parseInt(delayArg.split('=')[1]) : 30;
 const config: Partial<CanslimTradeConfig> = {
   dryRun: !isLive,
   targetMarginGBP: marginArg ? parseFloat(marginArg.split('=')[1]) : 25,
-  maxDailyTrades: maxTradesArg ? parseInt(maxTradesArg.split('=')[1]) : 3,
+  maxDailyTrades: maxTradesArg ? parseInt(maxTradesArg.split('=')[1]) : 10,
   minScore: minScoreArg ? parseInt(minScoreArg.split('=')[1]) : 4,
   ignoreMarketRegime: forceOverride,
   useEarningsFilter: !noEarnings,
