@@ -27,15 +27,28 @@ function getExecutor(config: Partial<CanslimTradeConfig> = {}): CanslimExecutor 
 }
 
 function getETTime(): { hour: number; minute: number; dayOfWeek: number } {
-  const etString = new Date().toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    hour12: false,
-  });
-  const date = new Date(etString);
+  const now = new Date();
+  const etOptions: Intl.DateTimeFormatOptions = { 
+    timeZone: "America/New_York", 
+    hour: "2-digit", 
+    minute: "2-digit",
+    hour12: false 
+  };
+  const dayOptions: Intl.DateTimeFormatOptions = { 
+    timeZone: "America/New_York", 
+    weekday: "short" 
+  };
+  
+  const timeStr = now.toLocaleString("en-US", etOptions);
+  const [hourStr, minuteStr] = timeStr.split(":");
+  const dayStr = now.toLocaleString("en-US", dayOptions);
+  
+  const dayMap: { [key: string]: number } = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  
   return {
-    hour: date.getHours(),
-    minute: date.getMinutes(),
-    dayOfWeek: date.getDay()
+    hour: parseInt(hourStr, 10),
+    minute: parseInt(minuteStr, 10),
+    dayOfWeek: dayMap[dayStr] ?? new Date().getDay()
   };
 }
 

@@ -292,54 +292,42 @@ export class CanslimExecutor {
       }
     }
 
-    let existingOpenSymbols = await CanslimTradeService.getOpenSymbols();
+    // ALWAYS check LIVE broker for existing positions/orders - database may be stale
+    // This is the ONLY source of truth for what's actually open
+    let existingOpenSymbols = new Set<string>();
 
-    // ALWAYS check broker for existing CAN SLIM positions and orders to prevent duplicates
-    if (!this.config.dryRun) {
+    try {
       const [positions, orders] = await Promise.all([
         metaApiHandler.getPositions(),
         metaApiHandler.getOrders()
       ]);
 
-      // Get ALL symbols that have positions or pending orders at broker
-      const brokerMT5Symbols = new Set<string>();
+      console.log(`[CANSLIM] Broker check: ${positions.length} positions, ${orders.length} orders`);
+
+      // Get ALL symbols that have CAN SLIM positions or pending orders at broker
       positions.forEach((p: any) => {
-        // Only consider CAN SLIM positions (check comment)
         if (p.comment && p.comment.includes('CAN SLIM')) {
-          brokerMT5Symbols.add(p.symbol);
-          console.log(`[CANSLIM] Found existing POSITION: ${p.symbol} (comment: ${p.comment})`);
+          const baseSymbol = p.symbol.replace(/\.(O|N)$/, '');
+          existingOpenSymbols.add(baseSymbol);
+          console.log(`[CANSLIM] Found existing POSITION: ${p.symbol} -> ${baseSymbol} (comment: ${p.comment})`);
         }
       });
       orders.forEach((o: any) => {
-        // Only consider CAN SLIM orders (check comment)
         if (o.comment && o.comment.includes('CAN SLIM')) {
-          brokerMT5Symbols.add(o.symbol);
-          console.log(`[CANSLIM] Found existing ORDER: ${o.symbol} (type: ${o.type}, comment: ${o.comment})`);
+          const baseSymbol = o.symbol.replace(/\.(O|N)$/, '');
+          existingOpenSymbols.add(baseSymbol);
+          console.log(`[CANSLIM] Found existing ORDER: ${o.symbol} -> ${baseSymbol} (type: ${o.type}, comment: ${o.comment})`);
         }
       });
 
-      // Convert broker MT5 symbols back to base symbols and add to exclusion list
-      for (const mt5Symbol of brokerMT5Symbols) {
-        // Convert AMD.O -> AMD, AAPL.N -> AAPL
-        const baseSymbol = mt5Symbol.replace(/\.(O|N)$/, '');
-        existingOpenSymbols.add(baseSymbol);
+      if (existingOpenSymbols.size > 0) {
+        console.log(`[CANSLIM] Blocking ${existingOpenSymbols.size} symbols with existing positions/orders: ${[...existingOpenSymbols].join(', ')}`);
+      } else {
+        console.log(`[CANSLIM] No existing CAN SLIM positions or orders at broker`);
       }
-
-      // Also verify DB symbols still exist at broker
-      const verifiedFromDb = new Set<string>();
-      for (const symbol of existingOpenSymbols) {
-        const mt5Symbol = this.convertToMT5Symbol(symbol);
-        if (brokerMT5Symbols.has(mt5Symbol)) {
-          verifiedFromDb.add(symbol);
-        }
-      }
-
-      // Merge: include all broker symbols + verified DB symbols
-      existingOpenSymbols = new Set([...existingOpenSymbols]);
-    }
-
-    if (existingOpenSymbols.size > 0) {
-      console.log(`[CANSLIM] Found ${existingOpenSymbols.size} existing open positions: ${[...existingOpenSymbols].join(', ')}`);
+    } catch (brokerError) {
+      console.error(`[CANSLIM] Failed to check broker for existing positions:`, brokerError);
+      // Continue without blocking any symbols - better to risk duplicate than block everything
     }
 
     const signals = await this.scanForSignals();
