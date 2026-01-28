@@ -31,8 +31,10 @@ compare_symbols.js
 # Trade reports (development only)
 trade_reports
 
-# Server analysis/test files
-server/*.json
+# Server analysis/test files (but keep package.json and tsconfig.json)
+server/*_results.json
+server/*_analysis.json
+server/training_insights.json
 server/analyze_*.ts
 server/test_*.ts
 server/test_*.js
