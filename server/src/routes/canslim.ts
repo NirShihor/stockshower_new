@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { createCanslimExecutor, CanslimExecutor, CanslimTradeConfig } from '../brokers/canslimExecutor.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
+import { backendLogs, scanLogs, serverLogs, clearBackendLogs, clearScanLogs, clearServerLogs } from '../services/logCapture.js';
 
 const router = express.Router();
 
@@ -370,6 +371,54 @@ router.post('/reset', async (req: Request, res: Response) => {
       error: error instanceof Error ? error.message : 'Failed to reset'
     });
   }
+});
+
+// Get backend logs endpoint
+router.get('/logs/backend', (req: Request, res: Response) => {
+  const since = req.query.since as string;
+  let logs = backendLogs;
+  if (since) {
+    logs = backendLogs.filter(l => l.timestamp > since);
+  }
+  res.json({ success: true, logs, count: logs.length });
+});
+
+// Get scan logs endpoint
+router.get('/logs/scan', (req: Request, res: Response) => {
+  const since = req.query.since as string;
+  let logs = scanLogs;
+  if (since) {
+    logs = scanLogs.filter(l => l.timestamp > since);
+  }
+  res.json({ success: true, logs, count: logs.length });
+});
+
+// Get server logs endpoint
+router.get('/logs/server', (req: Request, res: Response) => {
+  const since = req.query.since as string;
+  let logs = serverLogs;
+  if (since) {
+    logs = serverLogs.filter(l => l.timestamp > since);
+  }
+  res.json({ success: true, logs, count: logs.length });
+});
+
+// Clear backend logs
+router.post('/logs/backend/clear', (req: Request, res: Response) => {
+  clearBackendLogs();
+  res.json({ success: true, message: 'Backend logs cleared' });
+});
+
+// Clear scan logs
+router.post('/logs/scan/clear', (req: Request, res: Response) => {
+  clearScanLogs();
+  res.json({ success: true, message: 'Scan logs cleared' });
+});
+
+// Clear server logs
+router.post('/logs/server/clear', (req: Request, res: Response) => {
+  clearServerLogs();
+  res.json({ success: true, message: 'Server logs cleared' });
 });
 
 export default router;

@@ -1,3 +1,6 @@
+// Log capture must be imported FIRST to capture all console output
+import './src/services/logCapture.js';
+
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
