@@ -214,6 +214,8 @@ router.get('/status', async (req: Request, res: Response) => {
       marketOpen: isMarketOpen(),
       currentTimeET: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
       schedulerRunning: schedulerInterval !== null,
+      schedulerStartTime: schedulerStartTime?.toISOString() || null,
+      nextScanTime: nextScanTime?.toISOString() || null,
       config: {
         dryRun: config.dryRun,
         targetMarginGBP: config.targetMarginGBP,
@@ -238,48 +240,89 @@ router.get('/status', async (req: Request, res: Response) => {
   }
 });
 
+// Scheduler state
+let schedulerStartTime: Date | null = null;
+let nextScanTime: Date | null = null;
+
+function getMinutesSinceMarketOpen(): number {
+  const { hour, minute } = getETTime();
+  const currentMinutes = hour * 60 + minute;
+  const marketOpenMinutes = 9 * 60 + 30;
+  return currentMinutes - marketOpenMinutes;
+}
+
+function shouldRunScan(delayMinutes: number): boolean {
+  if (!isMarketOpen()) return false;
+  const minutesSinceOpen = getMinutesSinceMarketOpen();
+  return minutesSinceOpen >= delayMinutes;
+}
+
 // Start scheduler
 router.post('/scheduler/start', async (req: Request, res: Response) => {
   try {
     if (schedulerInterval) {
-      res.json({ success: true, message: 'Scheduler already running' });
+      res.json({ 
+        success: true, 
+        message: 'Scheduler already running',
+        schedulerRunning: true,
+        nextScanTime: nextScanTime?.toISOString()
+      });
       return;
     }
 
-    const { intervalMinutes = 30, dryRun = false, force = false } = req.body;
+    const { 
+      intervalMinutes = 30, 
+      delayMinutes = 30,
+      dryRun = false, 
+      force = false 
+    } = req.body;
 
     const exec = getExecutor({
       dryRun,
       ignoreMarketRegime: force
     });
 
-    console.log(`[CANSLIM API] Starting scheduler - interval: ${intervalMinutes}min, dryRun: ${dryRun}`);
+    schedulerStartTime = new Date();
+    console.log(`[CANSLIM API] Starting scheduler - interval: ${intervalMinutes}min, delay: ${delayMinutes}min, dryRun: ${dryRun}`);
 
-    // Run immediately
-    if (isMarketOpen()) {
-      exec.scanAndExecute().catch(console.error);
-    }
-
-    // Schedule periodic runs
-    schedulerInterval = setInterval(async () => {
+    const runScanIfReady = async () => {
       const today = new Date().toISOString().split('T')[0];
       if (today !== lastResetDate) {
         exec.resetDailyStats();
         lastResetDate = today;
       }
 
-      if (isMarketOpen()) {
+      if (force || shouldRunScan(delayMinutes)) {
         console.log('[CANSLIM SCHEDULER] Running scheduled scan...');
-        await exec.scanAndExecute();
-      } else {
+        try {
+          await exec.scanAndExecute();
+        } catch (e) {
+          console.error('[CANSLIM SCHEDULER] Scan error:', e);
+        }
+        nextScanTime = new Date(Date.now() + intervalMinutes * 60 * 1000);
+      } else if (!isMarketOpen()) {
         console.log('[CANSLIM SCHEDULER] Market closed, skipping scan');
+        nextScanTime = null;
+      } else {
+        const minutesSinceOpen = getMinutesSinceMarketOpen();
+        const waitMinutes = delayMinutes - minutesSinceOpen;
+        console.log(`[CANSLIM SCHEDULER] Waiting ${waitMinutes} more minutes after market open`);
+        nextScanTime = new Date(Date.now() + waitMinutes * 60 * 1000);
       }
-    }, intervalMinutes * 60 * 1000);
+    };
+
+    // Run check immediately
+    await runScanIfReady();
+
+    // Schedule periodic runs
+    schedulerInterval = setInterval(runScanIfReady, intervalMinutes * 60 * 1000);
 
     res.json({
       success: true,
-      message: `Scheduler started - running every ${intervalMinutes} minutes during market hours`,
-      mode: dryRun ? 'DRY RUN' : 'LIVE'
+      message: `Scheduler started - running every ${intervalMinutes} minutes, ${delayMinutes}min delay after market open`,
+      mode: dryRun ? 'DRY RUN' : 'LIVE',
+      schedulerRunning: true,
+      nextScanTime: nextScanTime?.toISOString()
     });
   } catch (error) {
     console.error('[CANSLIM API] Scheduler start error:', error);
@@ -296,10 +339,12 @@ router.post('/scheduler/stop', async (req: Request, res: Response) => {
     if (schedulerInterval) {
       clearInterval(schedulerInterval);
       schedulerInterval = null;
+      schedulerStartTime = null;
+      nextScanTime = null;
       console.log('[CANSLIM API] Scheduler stopped');
-      res.json({ success: true, message: 'Scheduler stopped' });
+      res.json({ success: true, message: 'Scheduler stopped', schedulerRunning: false });
     } else {
-      res.json({ success: true, message: 'Scheduler was not running' });
+      res.json({ success: true, message: 'Scheduler was not running', schedulerRunning: false });
     }
   } catch (error) {
     console.error('[CANSLIM API] Scheduler stop error:', error);
