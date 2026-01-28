@@ -80,7 +80,7 @@ router.get('/insights', async (req: Request, res: Response) => {
 // Pattern-specific deep dive
 router.get('/pattern/:patternName', async (req: Request, res: Response) => {
   try {
-    const { patternName } = req.params;
+    const patternName = req.params.patternName as string;
     const { days = 30 } = req.query;
     
     const cutoff = new Date();
@@ -97,7 +97,7 @@ router.get('/pattern/:patternName', async (req: Request, res: Response) => {
     
     // Find the specific pattern
     const patternData = results.patternAnalysis.find(p => 
-      p.patternName.toLowerCase() === patternName.toLowerCase()
+      p.patternName.toLowerCase() === (patternName as string).toLowerCase()
     );
     
     if (!patternData) {
@@ -111,7 +111,7 @@ router.get('/pattern/:patternName', async (req: Request, res: Response) => {
     const patternMarketConditions = results.marketConditions
       .map(condition => ({
         ...condition,
-        patternData: condition.patterns[patternName] || { trades: 0, winRate: 0 }
+        patternData: condition.patterns[patternName as string] || { trades: 0, winRate: 0 }
       }))
       .filter(c => c.patternData.trades > 0)
       .sort((a, b) => b.patternData.winRate - a.patternData.winRate);
@@ -137,7 +137,7 @@ router.get('/pattern/:patternName', async (req: Request, res: Response) => {
 // Symbol performance analysis
 router.get('/symbol/:symbol', async (req: Request, res: Response) => {
   try {
-    const { symbol } = req.params;
+    const symbol = req.params.symbol as string;
     const { days = 30 } = req.query;
     
     const cutoff = new Date();
@@ -154,7 +154,7 @@ router.get('/symbol/:symbol', async (req: Request, res: Response) => {
     
     // Find the specific symbol
     const symbolData = results.symbolPerformance.find(s => 
-      s.symbol.toLowerCase() === symbol.toLowerCase()
+      s.symbol.toLowerCase() === (symbol as string).toLowerCase()
     );
     
     if (!symbolData) {

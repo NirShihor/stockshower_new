@@ -120,7 +120,7 @@ router.post('/run', async (req: Request, res: Response) => {
 
 // Get backtest status
 router.get('/status/:backtestId', (req: Request, res: Response) => {
-  const { backtestId } = req.params;
+  const backtestId = req.params.backtestId as string;
   const backtest = runningBacktests.get(backtestId);
 
   if (!backtest) {
@@ -144,7 +144,7 @@ router.get('/status/:backtestId', (req: Request, res: Response) => {
 
 // Get backtest results
 router.get('/results/:backtestId', (req: Request, res: Response) => {
-  const { backtestId } = req.params;
+  const backtestId = req.params.backtestId as string;
   const backtest = runningBacktests.get(backtestId);
 
   if (!backtest) {
@@ -171,7 +171,7 @@ router.get('/results/:backtestId', (req: Request, res: Response) => {
 
 // Get detailed performance report
 router.get('/report/:backtestId', (req: Request, res: Response) => {
-  const { backtestId } = req.params;
+  const backtestId = req.params.backtestId as string;
   const backtest = runningBacktests.get(backtestId);
 
   if (!backtest || backtest.status !== 'completed') {
@@ -187,7 +187,7 @@ router.get('/report/:backtestId', (req: Request, res: Response) => {
 
 // Get performance metrics
 router.get('/metrics/:backtestId', (req: Request, res: Response) => {
-  const { backtestId } = req.params;
+  const backtestId = req.params.backtestId as string;
   const backtest = runningBacktests.get(backtestId);
 
   if (!backtest || backtest.status !== 'completed') {
@@ -211,7 +211,7 @@ router.get('/metrics/:backtestId', (req: Request, res: Response) => {
 
 // Export trades to CSV
 router.get('/export/:backtestId', (req: Request, res: Response) => {
-  const { backtestId } = req.params;
+  const backtestId = req.params.backtestId as string;
   const backtest = runningBacktests.get(backtestId);
 
   if (!backtest || backtest.status !== 'completed') {
