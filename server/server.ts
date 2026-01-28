@@ -43,6 +43,23 @@ import { startSwingExecutor, stopSwingExecutor } from './src/services/swingTrade
   const app = express();
   const PORT = process.env.PORT || 5002;
 
+  // Basic Auth middleware (only in production)
+  if (process.env.NODE_ENV === 'production' && process.env.BASIC_AUTH_CREDENTIALS) {
+    app.use((req, res, next) => {
+      const auth = req.headers.authorization;
+      const [expectedUser, expectedPass] = (process.env.BASIC_AUTH_CREDENTIALS || 'admin:password').split(':');
+      const expectedAuth = 'Basic ' + Buffer.from(`${expectedUser}:${expectedPass}`).toString('base64');
+      
+      if (!auth || auth !== expectedAuth) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="StockShower"');
+        res.status(401).send('Authentication required');
+        return;
+      }
+      next();
+    });
+    console.log('Basic Auth enabled for production');
+  }
+
   // Middleware
   app.use(cors({
     origin: [
