@@ -11,6 +11,10 @@ import { evaluateSignalWithAI, isAIFilterEnabled, applyHardFilters } from '../se
 const clients = new Set<WebSocket>();
 const signals: ComprehensiveSignal[] = []; // In-memory storage for comprehensive signals
 
+// Heartbeat interval to keep connections alive on Heroku (30s < 55s timeout)
+const HEARTBEAT_INTERVAL = 30000;
+let heartbeatTimer: NodeJS.Timeout | null = null;
+
 // Auto-execution configuration
 const AUTO_EXECUTION_CONFIG = {
   enabled: true, // RE-ENABLED for automatic trading
@@ -287,12 +291,33 @@ export function setupWebSocketServer(server: Server) {
     path: '/ws'
   });
   
+  // Start heartbeat to keep all client connections alive on Heroku
+  if (heartbeatTimer) {
+    clearInterval(heartbeatTimer);
+  }
+  heartbeatTimer = setInterval(() => {
+    clients.forEach(ws => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    });
+    if (clients.size > 0) {
+      console.log(`💓 WebSocket heartbeat sent to ${clients.size} client(s)`);
+    }
+  }, HEARTBEAT_INTERVAL);
+  console.log(`💓 WebSocket server heartbeat started (every ${HEARTBEAT_INTERVAL / 1000}s)`);
+  
   wss.on('connection', (ws: WebSocket) => {
     console.log('New WebSocket client connected');
     clients.add(ws);
     
     // Send initial hello message
     ws.send(JSON.stringify({ type: 'hello', message: 'Connected to candlestick analysis server' }));
+    
+    // Handle pong responses (client is alive)
+    ws.on('pong', () => {
+      // Client responded to ping - connection is alive
+    });
     
     ws.on('close', () => {
       console.log('WebSocket client disconnected');
