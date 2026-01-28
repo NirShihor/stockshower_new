@@ -13,6 +13,8 @@ let isShuttingDown = true; // START AS SHUTDOWN to prevent any automatic connect
 let lastConnectionAttempt = 0;
 const CONNECTION_COOLDOWN = 5000; // 5 second cooldown between attempts
 let isConnecting = false; // GLOBAL LOCK: Prevent simultaneous connection attempts
+let heartbeatInterval: NodeJS.Timeout | null = null; // Keep-alive for Heroku
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds - well under Heroku's 55 second timeout
 
 // FORCE CLEANUP ON MODULE LOAD
 if (reconnectTimeout) {
@@ -84,6 +86,18 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     isConnected = true;
     isConnecting = false; // Clear connection lock on successful open
     reconnectAttempts = 0; // Reset on successful connection
+    
+    // Start heartbeat to keep connection alive on Heroku
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+    }
+    heartbeatInterval = setInterval(() => {
+      if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+        wsClient.ping();
+        console.log('💓 Polygon heartbeat ping sent');
+      }
+    }, HEARTBEAT_INTERVAL);
+    console.log(`💓 Heartbeat started (every ${HEARTBEAT_INTERVAL / 1000}s)`);
     
     // Authenticate
     wsClient!.send(JSON.stringify({
@@ -161,6 +175,13 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     isConnected = false;
     isConnecting = false; // Clear connection lock on close
     wsClient = null; // CRITICAL: Clear the client reference to allow new connections
+    
+    // Stop heartbeat
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+      console.log('💓 Heartbeat stopped');
+    }
     
     // Clear any existing reconnect timeout
     if (reconnectTimeout) {
@@ -248,6 +269,13 @@ export function disconnectPolygon() {
   // Prevent reconnection attempts
   isShuttingDown = true;
   isConnecting = false; // Clear connection lock
+  
+  // Stop heartbeat
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+    heartbeatInterval = null;
+    console.log('💓 Heartbeat stopped');
+  }
   
   if (reconnectTimeout) {
     clearTimeout(reconnectTimeout);

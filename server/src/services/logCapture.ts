@@ -49,7 +49,8 @@ console.log = (...args: any[]) => {
       message.includes('Disconnect') || message.includes('connect') || message.includes('Connect') || 
       message.includes('status') || message.includes('topics') || message.includes('symbols') ||
       message.includes('auth') || message.includes('🔌') || message.includes('🚨') || message.includes('✅') ||
-      message.includes('❌') || message.includes('🚫') || message.includes('🧹') || message.includes('🔐')) {
+      message.includes('❌') || message.includes('🚫') || message.includes('🧹') || message.includes('🔐') ||
+      message.includes('💓') || message.includes('🔴') || message.includes('heartbeat') || message.includes('ping')) {
     addServerLog('info', message);
   }
   
