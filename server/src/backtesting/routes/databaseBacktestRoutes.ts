@@ -249,7 +249,7 @@ router.post('/optimize-threshold', async (req: Request, res: Response) => {
 
 // Get backtest status (works for both types)
 router.get('/status/:backtestId', (req: Request, res: Response) => {
-  const { backtestId } = req.params;
+  const backtestId = req.params.backtestId as string;
   const backtest = runningBacktests.get(backtestId);
 
   if (!backtest) {
@@ -274,7 +274,7 @@ router.get('/status/:backtestId', (req: Request, res: Response) => {
 
 // Get results (works for both types)
 router.get('/results/:backtestId', (req: Request, res: Response) => {
-  const { backtestId } = req.params;
+  const backtestId = req.params.backtestId as string;
   const backtest = runningBacktests.get(backtestId);
 
   if (!backtest) {

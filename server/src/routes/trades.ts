@@ -36,7 +36,7 @@ router.post('/:mt5OrderId/fill', async (req: Request, res: Response) => {
   try {
     const { fillPrice, fillTime } = req.body;
     const trade = await TradeService.updateTradeFilled(
-      req.params.mt5OrderId,
+      req.params.mt5OrderId as string,
       fillPrice,
       fillTime ? new Date(fillTime) : undefined
     );
@@ -57,7 +57,7 @@ router.post('/:mt5PositionId/close', async (req: Request, res: Response) => {
   try {
     const { exitPrice, exitReason, commission } = req.body;
     const trade = await TradeService.closeTrade(
-      req.params.mt5PositionId,
+      req.params.mt5PositionId as string,
       exitPrice,
       exitReason,
       commission
@@ -77,7 +77,7 @@ router.post('/:mt5PositionId/close', async (req: Request, res: Response) => {
 // Get pattern analytics
 router.get('/analytics/pattern/:patternName', async (req: Request, res: Response) => {
   try {
-    const analytics = await TradeService.getPatternAnalytics(req.params.patternName);
+    const analytics = await TradeService.getPatternAnalytics(req.params.patternName as string);
     res.json(analytics);
   } catch (error) {
     console.error('Error fetching pattern analytics:', error);
