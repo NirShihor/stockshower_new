@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config/api';
 
 interface Sector {
@@ -141,6 +141,8 @@ const AnalysisPage: React.FC = () => {
   const [canslimLoading, setCanslimLoading] = useState<boolean>(false);
   const [canslimResult, setCanslimResult] = useState<any>(null);
   const [canslimDryRun, setCanslimDryRun] = useState<boolean>(true);
+  const [schedulerRunning, setSchedulerRunning] = useState<boolean>(false);
+  const [nextScanTime, setNextScanTime] = useState<string | null>(null);
 
   const handleSectorChange = (sector: string) => {
     setSelectedSector(sector);
@@ -212,7 +214,61 @@ const AnalysisPage: React.FC = () => {
     }
   };
 
-  const runCanslimScan = async () => {
+  const startScheduler = async () => {
+    setCanslimLoading(true);
+    try {
+      const response = await fetch('/api/canslim/scheduler/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          intervalMinutes: 30,
+          delayMinutes: 30,
+          dryRun: canslimDryRun,
+          force: false
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setSchedulerRunning(data.schedulerRunning);
+      setNextScanTime(data.nextScanTime);
+      setCanslimResult(data);
+    } catch (error) {
+      console.error('Error starting CAN SLIM scheduler:', error);
+      alert('Error starting CAN SLIM scheduler. Please try again.');
+    } finally {
+      setCanslimLoading(false);
+    }
+  };
+
+  const stopScheduler = async () => {
+    setCanslimLoading(true);
+    try {
+      const response = await fetch('/api/canslim/scheduler/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setSchedulerRunning(data.schedulerRunning);
+      setNextScanTime(null);
+      setCanslimResult(data);
+    } catch (error) {
+      console.error('Error stopping CAN SLIM scheduler:', error);
+      alert('Error stopping CAN SLIM scheduler. Please try again.');
+    } finally {
+      setCanslimLoading(false);
+    }
+  };
+
+  const runSingleScan = async () => {
     setCanslimLoading(true);
     setCanslimResult(null);
     try {
@@ -241,6 +297,25 @@ const AnalysisPage: React.FC = () => {
       setCanslimLoading(false);
     }
   };
+
+  const checkSchedulerStatus = async () => {
+    try {
+      const response = await fetch('/api/canslim/status');
+      if (response.ok) {
+        const data = await response.json();
+        setSchedulerRunning(data.schedulerRunning);
+        setNextScanTime(data.nextScanTime);
+      }
+    } catch (error) {
+      console.error('Error checking scheduler status:', error);
+    }
+  };
+
+  useEffect(() => {
+    checkSchedulerStatus();
+    const interval = setInterval(checkSchedulerStatus, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getCompaniesForSector = (): Company[] => {
     const sector = sectors.find(s => s.name === selectedSector);
@@ -433,20 +508,75 @@ const AnalysisPage: React.FC = () => {
             <span>Dry Run (no real trades)</span>
           </label>
 
-          <button
-            className={`analysis-button ${canslimLoading ? 'scanning' : ''}`}
-            onClick={runCanslimScan}
-            disabled={canslimLoading}
-            style={{
-              background: canslimDryRun ? '#007bff' : '#28a745',
-              color: 'white',
-              padding: '12px 24px',
-              fontSize: '16px',
-              fontWeight: 'bold'
-            }}
-          >
-            {canslimLoading ? 'Scanning...' : canslimDryRun ? 'Run Test Scan' : 'Run LIVE Scan'}
-          </button>
+          {!schedulerRunning ? (
+            <>
+              <button
+                className={`analysis-button ${canslimLoading ? 'scanning' : ''}`}
+                onClick={runSingleScan}
+                disabled={canslimLoading || schedulerRunning}
+                style={{
+                  background: canslimDryRun ? '#007bff' : '#28a745',
+                  color: 'white',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  marginRight: '15px'
+                }}
+              >
+                {canslimLoading ? 'Scanning...' : canslimDryRun ? 'Run Test Scan' : 'Run LIVE Scan'}
+              </button>
+              
+              <button
+                className={`analysis-button ${canslimLoading ? 'scanning' : ''}`}
+                onClick={startScheduler}
+                disabled={canslimLoading}
+                style={{
+                  background: '#17a2b8',
+                  color: 'white',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {canslimLoading ? 'Starting...' : 'Start Continuous Trading'}
+              </button>
+            </>
+          ) : (
+            <>
+              <div style={{ 
+                background: '#d4edda', 
+                border: '1px solid #c3e6cb', 
+                borderRadius: '4px', 
+                padding: '12px 20px',
+                marginRight: '15px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                <span style={{ color: '#155724', fontWeight: 'bold' }}>🔄 Scheduler Running</span>
+                {nextScanTime && (
+                  <span style={{ color: '#155724', fontSize: '14px' }}>
+                    Next scan: {new Date(nextScanTime).toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              
+              <button
+                className={`analysis-button ${canslimLoading ? 'scanning' : ''}`}
+                onClick={stopScheduler}
+                disabled={canslimLoading}
+                style={{
+                  background: '#dc3545',
+                  color: 'white',
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {canslimLoading ? 'Stopping...' : 'Stop Scheduler'}
+              </button>
+            </>
+          )}
 
           {!canslimDryRun && (
             <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
