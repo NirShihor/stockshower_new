@@ -163,6 +163,15 @@ const StockScanPage: React.FC = () => {
   const [canslimResult, setCanslimResult] = useState<any>(null);
   const [canslimDryRun, setCanslimDryRun] = useState(true);
   const [canslimForce, setCanslimForce] = useState(false);
+  const [showWatchlist, setShowWatchlist] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [backendLogs, setBackendLogs] = useState<{timestamp: string; level: string; message: string}[]>([]);
+  const [scanLogs, setScanLogs] = useState<{timestamp: string; level: string; message: string}[]>([]);
+  const [serverLogs, setServerLogs] = useState<{timestamp: string; level: string; message: string}[]>([]);
+  const [autoScrollLogs, setAutoScrollLogs] = useState(true);
+  const backendLogRef = useRef<HTMLDivElement>(null);
+  const scanLogRef = useRef<HTMLDivElement>(null);
+  const serverLogRef = useRef<HTMLDivElement>(null);
 
   // Sound alert when new signal detected  
   const playAlert = () => {
@@ -729,6 +738,94 @@ const StockScanPage: React.FC = () => {
     }
   };
 
+  // Fetch logs
+  const fetchBackendLogs = async () => {
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/canslim/logs/backend`);
+      if (response.ok) {
+        const data = await response.json();
+        setBackendLogs(data.logs || []);
+      }
+    } catch (error) {
+      console.error('Error fetching backend logs:', error);
+    }
+  };
+
+  const fetchScanLogs = async () => {
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/canslim/logs/scan`);
+      if (response.ok) {
+        const data = await response.json();
+        setScanLogs(data.logs || []);
+      }
+    } catch (error) {
+      console.error('Error fetching scan logs:', error);
+    }
+  };
+
+  const clearBackendLogs = async () => {
+    try {
+      await fetch(`${getBaseUrl()}/api/canslim/logs/backend/clear`, { method: 'POST' });
+      setBackendLogs([]);
+    } catch (error) {
+      console.error('Error clearing backend logs:', error);
+    }
+  };
+
+  const clearScanLogs = async () => {
+    try {
+      await fetch(`${getBaseUrl()}/api/canslim/logs/scan/clear`, { method: 'POST' });
+      setScanLogs([]);
+    } catch (error) {
+      console.error('Error clearing scan logs:', error);
+    }
+  };
+
+  const fetchServerLogs = async () => {
+    try {
+      const response = await fetch(`${getBaseUrl()}/api/canslim/logs/server`);
+      if (response.ok) {
+        const data = await response.json();
+        setServerLogs(data.logs || []);
+      }
+    } catch (error) {
+      console.error('Error fetching server logs:', error);
+    }
+  };
+
+  const clearServerLogs = async () => {
+    try {
+      await fetch(`${getBaseUrl()}/api/canslim/logs/server/clear`, { method: 'POST' });
+      setServerLogs([]);
+    } catch (error) {
+      console.error('Error clearing server logs:', error);
+    }
+  };
+
+  // Auto-fetch logs when log panel is open
+  useEffect(() => {
+    if (showLogs) {
+      fetchBackendLogs();
+      fetchScanLogs();
+      fetchServerLogs();
+      const interval = setInterval(() => {
+        fetchBackendLogs();
+        fetchScanLogs();
+        fetchServerLogs();
+      }, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [showLogs]);
+
+  // Auto-scroll logs
+  useEffect(() => {
+    if (autoScrollLogs) {
+      if (backendLogRef.current) backendLogRef.current.scrollTop = backendLogRef.current.scrollHeight;
+      if (scanLogRef.current) scanLogRef.current.scrollTop = scanLogRef.current.scrollHeight;
+      if (serverLogRef.current) serverLogRef.current.scrollTop = serverLogRef.current.scrollHeight;
+    }
+  }, [backendLogs, scanLogs, serverLogs, autoScrollLogs]);
+
   return (
     <div className="stock-scan-page">
       <div className="page-header">
@@ -770,17 +867,21 @@ const StockScanPage: React.FC = () => {
 
       <div className="scanner-controls">
         <div className="watchlist-section">
-          <h3>Watchlist ({watchlist.length} stocks)</h3>
           <div className="controls-row">
-            <form onSubmit={handleAddSymbol} className="add-symbol-form">
-              <input
-                value={customSymbol}
-                onChange={(e) => setCustomSymbol(e.target.value)}
-                placeholder="Add symbol..."
-                className="symbol-input"
-              />
-              <button type="submit" className="add-button">Add</button>
-            </form>
+            <button
+              onClick={() => setShowWatchlist(true)}
+              style={{
+                background: '#6c757d',
+                color: 'white',
+                padding: '8px 16px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                marginRight: '10px'
+              }}
+            >
+              Watchlist ({watchlist.length})
+            </button>
             <div className="connection-controls">
               <button
                 className={`control-button-compact ${polygonConnected ? 'stop' : 'start'}`}
@@ -796,20 +897,6 @@ const StockScanPage: React.FC = () => {
                 {realDataEnabled ? 'Stop Data' : 'Get Data'}
               </button>
             </div>
-          </div>
-          <div className="watchlist-chips">
-            {watchlist.map(symbol => (
-              <span key={symbol} className="symbol-chip">
-                {symbol}
-                <button
-                  onClick={() => handleRemoveSymbol(symbol)}
-                  className="remove-chip"
-                  aria-label={`Remove ${symbol}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
           </div>
           {realDataEnabled && (
             <div className="data-status">
@@ -827,6 +914,72 @@ const StockScanPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Watchlist Popup */}
+        {showWatchlist && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }} onClick={() => setShowWatchlist(false)}>
+            <div style={{
+              background: 'white',
+              padding: '20px',
+              borderRadius: '8px',
+              maxWidth: '90%',
+              maxHeight: '80%',
+              overflow: 'auto',
+              position: 'relative'
+            }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0 }}>Watchlist ({watchlist.length} stocks)</h3>
+                <button
+                  onClick={() => setShowWatchlist(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    fontSize: '24px',
+                    cursor: 'pointer',
+                    padding: '0 5px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <form onSubmit={handleAddSymbol} style={{ marginBottom: '15px', display: 'flex', gap: '10px' }}>
+                <input
+                  value={customSymbol}
+                  onChange={(e) => setCustomSymbol(e.target.value)}
+                  placeholder="Add symbol..."
+                  className="symbol-input"
+                  style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                />
+                <button type="submit" className="add-button">Add</button>
+              </form>
+              <div className="watchlist-chips">
+                {watchlist.map(symbol => (
+                  <span key={symbol} className="symbol-chip">
+                    {symbol}
+                    <button
+                      onClick={() => handleRemoveSymbol(symbol)}
+                      className="remove-chip"
+                      aria-label={`Remove ${symbol}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="filter-section">
           <label>Filter signals:</label>
@@ -978,8 +1131,171 @@ const StockScanPage: React.FC = () => {
               )}
             </div>
           )}
+
+          {/* Log Viewer Toggle */}
+          <button
+            onClick={() => setShowLogs(!showLogs)}
+            style={{
+              marginTop: '15px',
+              background: showLogs ? '#6c757d' : '#17a2b8',
+              color: 'white',
+              padding: '8px 16px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            {showLogs ? 'Hide Logs' : 'Show Logs'}
+          </button>
         </div>
       </div>
+
+      {/* Log Viewers - Full Width */}
+      {showLogs && (
+        <div style={{ margin: '20px 0', padding: '0 20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+            {/* CAN SLIM Logs */}
+            <div style={{
+              background: '#1e1e1e',
+              borderRadius: '8px',
+              border: '1px solid #333',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 15px',
+                background: '#2d2d2d',
+                borderBottom: '1px solid #333'
+              }}>
+                <span style={{ color: '#61afef', fontWeight: 'bold' }}>CAN SLIM API ({backendLogs.length})</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={fetchBackendLogs} style={{ background: '#007bff', color: 'white', padding: '3px 8px', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>Refresh</button>
+                  <button onClick={clearBackendLogs} style={{ background: '#dc3545', color: 'white', padding: '3px 8px', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>Clear</button>
+                </div>
+              </div>
+              <div
+                ref={backendLogRef}
+                style={{
+                  height: '200px',
+                  overflow: 'auto',
+                  padding: '10px 15px',
+                  fontFamily: 'Monaco, Consolas, monospace',
+                  fontSize: '11px',
+                  lineHeight: '1.4'
+                }}
+              >
+                {backendLogs.length === 0 ? (
+                  <div style={{ color: '#666' }}>No CAN SLIM API logs yet.</div>
+                ) : (
+                  backendLogs.map((log, idx) => (
+                    <div key={idx} style={{ color: log.level === 'error' ? '#ff6b6b' : log.level === 'warn' ? '#ffd93d' : '#61afef', marginBottom: '2px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                      <span style={{ color: '#666' }}>{new Date(log.timestamp).toLocaleTimeString()}</span> {log.message}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Scan Logs */}
+            <div style={{
+              background: '#1e1e1e',
+              borderRadius: '8px',
+              border: '1px solid #333',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '10px 15px',
+                background: '#2d2d2d',
+                borderBottom: '1px solid #333'
+              }}>
+                <span style={{ color: '#98c379', fontWeight: 'bold' }}>CAN SLIM Scanner ({scanLogs.length})</span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button onClick={fetchScanLogs} style={{ background: '#007bff', color: 'white', padding: '3px 8px', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>Refresh</button>
+                  <button onClick={clearScanLogs} style={{ background: '#dc3545', color: 'white', padding: '3px 8px', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>Clear</button>
+                </div>
+              </div>
+              <div
+                ref={scanLogRef}
+                style={{
+                  height: '200px',
+                  overflow: 'auto',
+                  padding: '10px 15px',
+                  fontFamily: 'Monaco, Consolas, monospace',
+                  fontSize: '11px',
+                  lineHeight: '1.4'
+                }}
+              >
+                {scanLogs.length === 0 ? (
+                  <div style={{ color: '#666' }}>No scan logs yet. Run a scan to see output here.</div>
+                ) : (
+                  scanLogs.map((log, idx) => (
+                    <div key={idx} style={{ color: log.level === 'error' ? '#ff6b6b' : log.level === 'warn' ? '#ffd93d' : '#98c379', marginBottom: '2px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                      <span style={{ color: '#666' }}>{new Date(log.timestamp).toLocaleTimeString()}</span> {log.message}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Server Logs - Full Width */}
+          <div style={{
+            background: '#1e1e1e',
+            borderRadius: '8px',
+            border: '1px solid #333',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '10px 15px',
+              background: '#2d2d2d',
+              borderBottom: '1px solid #333'
+            }}>
+              <span style={{ color: '#e5c07b', fontWeight: 'bold' }}>Server / Polygon / Aggregator ({serverLogs.length})</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={fetchServerLogs} style={{ background: '#007bff', color: 'white', padding: '3px 8px', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>Refresh</button>
+                <button onClick={clearServerLogs} style={{ background: '#dc3545', color: 'white', padding: '3px 8px', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '11px' }}>Clear</button>
+              </div>
+            </div>
+            <div
+              ref={serverLogRef}
+              style={{
+                height: '200px',
+                overflow: 'auto',
+                padding: '10px 15px',
+                fontFamily: 'Monaco, Consolas, monospace',
+                fontSize: '11px',
+                lineHeight: '1.4'
+              }}
+            >
+              {serverLogs.length === 0 ? (
+                <div style={{ color: '#666' }}>No server logs yet. Connect to Polygon to see activity.</div>
+              ) : (
+                serverLogs.map((log, idx) => (
+                  <div key={idx} style={{ color: log.level === 'error' ? '#ff6b6b' : log.level === 'warn' ? '#ffd93d' : '#e5c07b', marginBottom: '2px', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                    <span style={{ color: '#666' }}>{new Date(log.timestamp).toLocaleTimeString()}</span> {log.message}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Auto-scroll toggle */}
+          <div style={{ marginTop: '10px' }}>
+            <label style={{ color: '#666', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <input type="checkbox" checked={autoScrollLogs} onChange={(e) => setAutoScrollLogs(e.target.checked)} />
+              Auto-scroll logs
+            </label>
+          </div>
+        </div>
+      )}
 
       <div className="signals-container">
         <h2>Pattern Alerts</h2>
