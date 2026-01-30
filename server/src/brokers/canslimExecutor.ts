@@ -277,6 +277,16 @@ export class CanslimExecutor {
 
     if (!marketCheck.canTrade && !this.config.ignoreMarketRegime) {
       console.log(`\n[CANSLIM] Market is ${marketCheck.regime} - not trading`);
+
+      // Cancel any pending CAN SLIM orders since market conditions have changed
+      if (!this.config.dryRun) {
+        console.log(`[CANSLIM] Checking for pending orders to cancel (market turned risk-off)...`);
+        const cancelResult = await metaApiHandler.cancelAllCanslimOrders();
+        if (cancelResult.cancelledCount > 0) {
+          console.log(`[CANSLIM] Cancelled ${cancelResult.cancelledCount} pending orders due to risk-off market`);
+        }
+      }
+
       return { scanned: 0, executed: 0, skipped: `Market ${marketCheck.regime}` };
     }
 

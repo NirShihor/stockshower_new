@@ -1202,6 +1202,55 @@ class MetaApiRestHandler {
     }
   }
 
+  // Cancel all pending CAN SLIM orders (used when market turns risk-off)
+  async cancelAllCanslimOrders(): Promise<{ success: boolean; cancelledCount: number; errors: string[] }> {
+    const errors: string[] = [];
+    let cancelledCount = 0;
+
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+
+      const ordersResponse = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
+        { headers: this.getHeaders() }
+      );
+
+      const orders = ordersResponse.data;
+      if (!orders || orders.length === 0) {
+        console.log('[MetaApi] No pending orders to cancel');
+        return { success: true, cancelledCount: 0, errors: [] };
+      }
+
+      for (const order of orders) {
+        // ONLY cancel CAN SLIM orders
+        const isCanSlim = order.comment && order.comment.includes('CAN SLIM');
+        if (!isCanSlim) continue;
+
+        console.log(`[MetaApi] Cancelling CAN SLIM order ${order.id} (${order.symbol}) - market turned risk-off`);
+
+        try {
+          await this.axiosInstance.post(
+            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+            { actionType: 'ORDER_CANCEL', orderId: order.id },
+            { headers: this.getHeaders() }
+          );
+          console.log(`[MetaApi] Cancelled CAN SLIM order ${order.id}`);
+          cancelledCount++;
+        } catch (cancelError: any) {
+          const errorMsg = `Failed to cancel order ${order.id}: ${cancelError.message}`;
+          console.error(`[MetaApi] ${errorMsg}`);
+          errors.push(errorMsg);
+        }
+      }
+
+      console.log(`[MetaApi] Risk-off cleanup complete: ${cancelledCount} CAN SLIM orders cancelled`);
+      return { success: errors.length === 0, cancelledCount, errors };
+    } catch (error: any) {
+      console.error('[MetaApi] Error cancelling CAN SLIM orders:', error.message);
+      return { success: false, cancelledCount, errors: [error.message] };
+    }
+  }
+
   // Helper to get current ET hour and minute
   private getETTime(): { hour: number; minute: number; dayOfWeek: number } {
     // Create a date in ET timezone

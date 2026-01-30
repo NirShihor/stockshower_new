@@ -1090,7 +1090,7 @@
       "wins": 60,
       "losses": 72,
       "winRate": 45.45454545454545,
-      "avgPnlPercent": -0.10082716801797709
+      "avgPnlPercent": -0.10082716801797706
     },
     "skip": {
       "count": 186,
@@ -1109,7 +1109,7 @@
     "inversionAccuracy": 45.45454545454545,
     "skipAccuracy": 57.52688172043011
   },
-  "generatedAt": "2026-01-27T21:10:00.742Z",
+  "generatedAt": "2026-01-29T21:10:01.155Z",
   "totalTradesAnalyzed": 120,
   "dataDateRange": {
     "from": "1970-01-01",
