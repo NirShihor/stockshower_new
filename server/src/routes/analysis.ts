@@ -1,5 +1,5 @@
 import express, { Request, Response, Router } from 'express';
-import { scanGapUps, scanGapDowns, testPolygon, getChartData, getAvailableStocks, getLivePrice, getRiskAssessment, getPreMarketAnalysis, getHappyTwists, getFundamentalAnalysis, getMarketOverview } from '../handlers/stockAnalysis.js';
+import { scanGapUps, scanGapDowns, testPolygon, getChartData, getAvailableStocks, getLivePrice, getRiskAssessment, getPreMarketAnalysis, getHappyTwists, getFundamentalAnalysis, getMarketOverview, getGoldAnalysis } from '../handlers/stockAnalysis.js';
 
 const router: Router = express.Router();
 
@@ -45,6 +45,10 @@ router.post('/fundamental', (req: Request, res: Response) => {
 
 router.get('/market-overview', (req: Request, res: Response) => {
   getMarketOverview(req, res);
+});
+
+router.get('/gold-analysis', (req: Request, res: Response) => {
+  getGoldAnalysis(req, res);
 });
 
 export default router;

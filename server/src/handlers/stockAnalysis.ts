@@ -14,6 +14,7 @@ import {
   convertMarketstackIntradayToPolygonFormat
 } from './marketstackAPI.js';
 import { getMarketContext, formatMarketContextForAI } from '../services/marketContextService.js';
+import { analyzeGold } from '../services/goldBreakoutService.js';
 
 // Load environment variables
 dotenv.config();
@@ -2669,6 +2670,37 @@ Keep each section concise (2-3 sentences) but actionable.`;
 	} catch (error: any) {
 		console.error('Error getting market overview:', error);
 		res.status(500).json({ error: 'Failed to get market overview' });
+	}
+};
+
+export const getGoldAnalysis = async (req: Request, res: Response) => {
+	try {
+		console.log('[GOLD-ANALYSIS] Fetching gold analysis...');
+		const analysis = await analyzeGold();
+
+		if (!analysis) {
+			return res.status(500).json({ error: 'Failed to analyze gold' });
+		}
+
+		res.json({
+			symbol: analysis.symbol,
+			currentPrice: analysis.currentPrice,
+			ema20: analysis.ema20,
+			trend: analysis.trend,
+			score: analysis.score,
+			maxScore: analysis.maxScore,
+			vixLevel: analysis.vixLevel,
+			vixElevated: analysis.vixElevated,
+			consolidation: analysis.consolidation,
+			breakoutLevel: analysis.breakoutLevel,
+			equityMarketRegime: analysis.equityMarketRegime,
+			recommendation: analysis.recommendation,
+			reasons: analysis.reasons,
+			timestamp: analysis.timestamp
+		});
+	} catch (error: any) {
+		console.error('Error getting gold analysis:', error);
+		res.status(500).json({ error: 'Failed to get gold analysis' });
 	}
 };
 

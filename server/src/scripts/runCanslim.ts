@@ -3,12 +3,14 @@ dotenv.config();
 
 import { connectDatabase } from '../db/connection.js';
 import { createCanslimExecutor, CanslimTradeConfig } from '../brokers/canslimExecutor.js';
+import { createGoldExecutor, GoldTradeConfig } from '../brokers/goldExecutor.js';
 
 const args = process.argv.slice(2);
 const isLive = args.includes('--live');
 const forceOverride = args.includes('--force');
 const scheduleMode = args.includes('--schedule');
 const noEarnings = args.includes('--no-earnings');
+const noGold = args.includes('--no-gold');
 const marginArg = args.find(a => a.startsWith('--margin='));
 const maxTradesArg = args.find(a => a.startsWith('--max-trades='));
 const minScoreArg = args.find(a => a.startsWith('--min-score='));
@@ -23,6 +25,14 @@ const config: Partial<CanslimTradeConfig> = {
   minScore: minScoreArg ? parseInt(minScoreArg.split('=')[1]) : 4,
   ignoreMarketRegime: forceOverride,
   useEarningsFilter: !noEarnings,
+};
+
+const goldConfig: Partial<GoldTradeConfig> = {
+  dryRun: !isLive,
+  targetMarginGBP: marginArg ? parseFloat(marginArg.split('=')[1]) : 25,
+  maxOpenPositions: 2,
+  stopLossPercent: 3,
+  targetMultiple: 2,
 };
 
 const intervalMinutes = intervalArg ? parseInt(intervalArg.split('=')[1]) : 30;
@@ -95,6 +105,7 @@ if (forceOverride) {
   console.log(`Force Override: YES (ignoring market regime)`);
 }
 console.log(`Earnings Filter: ${config.useEarningsFilter ? 'ON' : 'OFF'}`);
+console.log(`Gold Fallback: ${noGold ? 'OFF' : 'ON (when market not risk-on)'}`);
 console.log(`Trading Delay: ${tradingDelayMinutes} minutes after market open (starts 10:${tradingDelayMinutes === 30 ? '00' : (tradingDelayMinutes - 30).toString().padStart(2, '0')} AM ET)`);
 if (scheduleMode) {
   console.log(`Scheduler: ON (every ${intervalMinutes} minutes during market hours)`);
@@ -113,6 +124,7 @@ if (isLive) {
 }
 
 let executor: ReturnType<typeof createCanslimExecutor>;
+let goldExecutor: ReturnType<typeof createGoldExecutor> | null = null;
 let lastResetDate: string = '';
 
 async function runScan() {
@@ -139,7 +151,16 @@ async function runScan() {
     if (result.skipped) {
       console.log(`  Skipped reason: ${result.skipped}`);
     }
-    
+
+    if (goldExecutor && result.skipped && (result.skipped.includes('neutral') || result.skipped.includes('risk-off'))) {
+      console.log('\n[GOLD] CAN SLIM paused - checking gold fallback...');
+      const goldResult = await goldExecutor.runScan();
+      console.log(`\nGold Summary:`);
+      console.log(`  Recommendation: ${goldResult.analysis?.recommendation || 'N/A'}`);
+      console.log(`  Traded: ${goldResult.traded ? 'YES' : 'NO'}`);
+      console.log(`  Reason: ${goldResult.reason}`);
+    }
+
     const newStats = executor.getDailyStats();
     console.log(`\nDaily Stats:`);
     console.log(`  Total trades today: ${newStats.trades}`);
@@ -218,6 +239,9 @@ async function main() {
   await connectDatabase();
   
   executor = createCanslimExecutor(config);
+  if (!noGold) {
+    goldExecutor = createGoldExecutor(goldConfig);
+  }
   lastResetDate = new Date().toISOString().split('T')[0];
   
   if (scheduleMode) {
