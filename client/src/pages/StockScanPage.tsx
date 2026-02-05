@@ -169,9 +169,35 @@ const StockScanPage: React.FC = () => {
   const [scanLogs, setScanLogs] = useState<{timestamp: string; level: string; message: string}[]>([]);
   const [serverLogs, setServerLogs] = useState<{timestamp: string; level: string; message: string}[]>([]);
   const [autoScrollLogs, setAutoScrollLogs] = useState(true);
+  const [backendLogHeight, setBackendLogHeight] = useState(200);
+  const [scanLogHeight, setScanLogHeight] = useState(200);
+  const [serverLogHeight, setServerLogHeight] = useState(200);
   const backendLogRef = useRef<HTMLDivElement>(null);
   const scanLogRef = useRef<HTMLDivElement>(null);
   const serverLogRef = useRef<HTMLDivElement>(null);
+
+  // Resize handlers for log windows
+  const createResizeHandler = (setHeight: React.Dispatch<React.SetStateAction<number>>) => {
+    return (e: React.MouseEvent) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const startHeight = (e.target as HTMLElement).parentElement?.querySelector('[data-log-content]')?.clientHeight || 200;
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const deltaY = moveEvent.clientY - startY;
+        const newHeight = Math.max(100, Math.min(600, startHeight + deltaY));
+        setHeight(newHeight);
+      };
+
+      const onMouseUp = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    };
+  };
 
   // Sound alert when new signal detected  
   const playAlert = () => {
@@ -1177,8 +1203,9 @@ const StockScanPage: React.FC = () => {
               </div>
               <div
                 ref={backendLogRef}
+                data-log-content
                 style={{
-                  height: '200px',
+                  height: `${backendLogHeight}px`,
                   overflow: 'auto',
                   padding: '10px 15px',
                   fontFamily: 'Monaco, Consolas, monospace',
@@ -1196,6 +1223,18 @@ const StockScanPage: React.FC = () => {
                   ))
                 )}
               </div>
+              <div
+                onMouseDown={createResizeHandler(setBackendLogHeight)}
+                style={{
+                  height: '6px',
+                  background: '#333',
+                  cursor: 'ns-resize',
+                  borderTop: '1px solid #444',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.background = '#007bff'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.background = '#333'}
+              />
             </div>
 
             {/* Scan Logs */}
@@ -1221,8 +1260,9 @@ const StockScanPage: React.FC = () => {
               </div>
               <div
                 ref={scanLogRef}
+                data-log-content
                 style={{
-                  height: '200px',
+                  height: `${scanLogHeight}px`,
                   overflow: 'auto',
                   padding: '10px 15px',
                   fontFamily: 'Monaco, Consolas, monospace',
@@ -1240,6 +1280,18 @@ const StockScanPage: React.FC = () => {
                   ))
                 )}
               </div>
+              <div
+                onMouseDown={createResizeHandler(setScanLogHeight)}
+                style={{
+                  height: '6px',
+                  background: '#333',
+                  cursor: 'ns-resize',
+                  borderTop: '1px solid #444',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.background = '#28a745'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.background = '#333'}
+              />
             </div>
           </div>
 
@@ -1266,8 +1318,9 @@ const StockScanPage: React.FC = () => {
             </div>
             <div
               ref={serverLogRef}
+              data-log-content
               style={{
-                height: '200px',
+                height: `${serverLogHeight}px`,
                 overflow: 'auto',
                 padding: '10px 15px',
                 fontFamily: 'Monaco, Consolas, monospace',
@@ -1285,6 +1338,18 @@ const StockScanPage: React.FC = () => {
                 ))
               )}
             </div>
+            <div
+              onMouseDown={createResizeHandler(setServerLogHeight)}
+              style={{
+                height: '6px',
+                background: '#333',
+                cursor: 'ns-resize',
+                borderTop: '1px solid #444',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => (e.target as HTMLElement).style.background = '#ffc107'}
+              onMouseLeave={(e) => (e.target as HTMLElement).style.background = '#333'}
+            />
           </div>
 
           {/* Auto-scroll toggle */}

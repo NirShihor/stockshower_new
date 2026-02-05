@@ -1,14 +1,35 @@
 import express, { Request, Response } from 'express';
 import { createCanslimExecutor, CanslimExecutor, CanslimTradeConfig } from '../brokers/canslimExecutor.js';
+import { createGoldExecutor, GoldExecutor, GoldTradeConfig } from '../brokers/goldExecutor.js';
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
+import { updateTrailingStops } from '../services/trailingStopService.js';
 import { backendLogs, scanLogs, serverLogs, clearBackendLogs, clearScanLogs, clearServerLogs } from '../services/logCapture.js';
 
 const router = express.Router();
 
-// Singleton executor instance
+// Singleton executor instances
 let executor: CanslimExecutor | null = null;
+let goldExecutor: GoldExecutor | null = null;
 let schedulerInterval: NodeJS.Timeout | null = null;
 let lastResetDate: string = '';
+
+const defaultGoldConfig: Partial<GoldTradeConfig> = {
+  dryRun: false,
+  targetMarginGBP: 25,
+  maxOpenPositions: 2,
+  stopLossPercent: 3,
+  targetMultiple: 2,
+};
+
+function getGoldExecutor(config: Partial<GoldTradeConfig> = {}): GoldExecutor {
+  if (!goldExecutor) {
+    goldExecutor = createGoldExecutor({
+      ...defaultGoldConfig,
+      ...config
+    });
+  }
+  return goldExecutor;
+}
 
 function getExecutor(config: Partial<CanslimTradeConfig> = {}): CanslimExecutor {
   if (!executor) {
@@ -119,7 +140,41 @@ router.post('/scan', async (req: Request, res: Response) => {
       lastResetDate = today;
     }
 
+    // Update trailing stops on existing positions before scanning for new trades
+    if (!dryRun) {
+      try {
+        const trailingResult = await updateTrailingStops();
+        if (trailingResult.stopsAdjusted > 0) {
+          console.log(`\n[TRAILING-STOP] Adjusted ${trailingResult.stopsAdjusted} stop(s):`);
+          for (const adj of trailingResult.adjustments) {
+            console.log(`  ${adj.symbol}: Stop $${adj.oldStop.toFixed(2)} -> $${adj.newStop.toFixed(2)} (profit: +${adj.profitPercent.toFixed(1)}%)`);
+          }
+        }
+        if (trailingResult.errors.length > 0) {
+          console.log(`[TRAILING-STOP] Errors: ${trailingResult.errors.join(', ')}`);
+        }
+      } catch (trailError) {
+        console.error('[TRAILING-STOP] Error updating trailing stops:', trailError);
+      }
+    }
+
     const result = await exec.scanAndExecute();
+
+    // Gold fallback: if CAN SLIM skipped due to neutral/risk-off market, check gold
+    let goldResult = null;
+    if (result.skipped && (result.skipped.includes('neutral') || result.skipped.includes('risk-off'))) {
+      console.log('\n[GOLD] CAN SLIM paused - checking gold fallback...');
+      try {
+        const gold = getGoldExecutor({ dryRun });
+        goldResult = await gold.runScan();
+        console.log(`\nGold Summary:`);
+        console.log(`  Recommendation: ${goldResult.analysis?.recommendation || 'N/A'}`);
+        console.log(`  Traded: ${goldResult.traded ? 'YES' : 'NO'}`);
+        console.log(`  Reason: ${goldResult.reason}`);
+      } catch (goldError) {
+        console.error('[GOLD] Error running gold fallback:', goldError);
+      }
+    }
 
     // Get broker status
     let brokerStatus = { positions: 0, orders: 0, positionDetails: [] as any[], orderDetails: [] as any[] };
@@ -163,6 +218,11 @@ router.post('/scan', async (req: Request, res: Response) => {
         executed: result.executed,
         skipped: result.skipped
       },
+      goldFallback: goldResult ? {
+        recommendation: goldResult.analysis?.recommendation || 'N/A',
+        traded: goldResult.traded,
+        reason: goldResult.reason
+      } : null,
       dailyStats: {
         tradesPlaced: stats.trades,
         activePositions: stats.active
