@@ -32,13 +32,22 @@ const originalConsoleWarn = console.warn;
 console.log = (...args: any[]) => {
   const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
   
-  // CAN SLIM API/Scheduler logs
-  if (message.includes('[CANSLIM API]') || message.includes('[CANSLIM SCHEDULER]') || message.includes('[SCHEDULER]')) {
+  // CAN SLIM API/Scheduler logs (including Gold fallback and Trailing Stops)
+  if (message.includes('[CANSLIM API]') || message.includes('[CANSLIM SCHEDULER]') || message.includes('[SCHEDULER]') || message.includes('[GOLD]') || message.includes('[TRAILING-STOP]')) {
     addBackendLog('info', message);
   }
   
-  // CAN SLIM Scanner logs
-  if (message.includes('[CANSLIM]') || message.includes('CAN SLIM') || message.includes('Score:') || message.includes('RS Rating:') || message.includes('Market Regime') || message.includes('SCAN COMPLETE')) {
+  // CAN SLIM Scanner logs (including Gold fallback, Trailing Stops, and all scan-related output)
+  if (message.includes('[CANSLIM]') || message.includes('CAN SLIM') || message.includes('Score:') ||
+      message.includes('RS Rating:') || message.includes('Market Regime') || message.includes('SCAN COMPLETE') ||
+      message.includes('[GOLD]') || message.includes('[TRAILING-STOP]') || message.includes('[MARKET-CONTEXT]') ||
+      message.includes('Summary:') || message.includes('Daily Stats:') || message.includes('Broker Status:') ||
+      message.includes('Gold Summary:') || message.includes('Stocks scanned:') || message.includes('Trades executed:') ||
+      message.includes('Skipped reason:') || message.includes('Open positions:') || message.includes('Pending orders:') ||
+      message.includes('Recommendation:') || message.includes('Traded:') || message.includes('Reason:') ||
+      message.includes('EMA') || message.includes('Trend:') || message.includes('VIX') ||
+      message.includes('consolidation') || message.includes('breakout') || message.includes('Active positions') ||
+      message.includes('Total trades') || message.includes('[MetaApi]') || message.includes('LIVE SCANNER')) {
     addScanLog('info', message);
   }
   
@@ -60,10 +69,11 @@ console.log = (...args: any[]) => {
 console.error = (...args: any[]) => {
   const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
   
-  if (message.includes('[CANSLIM API]') || message.includes('[CANSLIM SCHEDULER]') || message.includes('[SCHEDULER]')) {
+  if (message.includes('[CANSLIM API]') || message.includes('[CANSLIM SCHEDULER]') || message.includes('[SCHEDULER]') || message.includes('[GOLD]') || message.includes('[TRAILING-STOP]')) {
     addBackendLog('error', message);
   }
-  if (message.includes('[CANSLIM]') || message.includes('CAN SLIM')) {
+  if (message.includes('[CANSLIM]') || message.includes('CAN SLIM') || message.includes('[GOLD]') ||
+      message.includes('[TRAILING-STOP]') || message.includes('[MARKET-CONTEXT]') || message.includes('[MetaApi]')) {
     addScanLog('error', message);
   }
   // Capture all errors in server logs
@@ -75,10 +85,11 @@ console.error = (...args: any[]) => {
 console.warn = (...args: any[]) => {
   const message = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');;
   
-  if (message.includes('[CANSLIM API]') || message.includes('[CANSLIM SCHEDULER]') || message.includes('[SCHEDULER]')) {
+  if (message.includes('[CANSLIM API]') || message.includes('[CANSLIM SCHEDULER]') || message.includes('[SCHEDULER]') || message.includes('[GOLD]') || message.includes('[TRAILING-STOP]')) {
     addBackendLog('warn', message);
   }
-  if (message.includes('[CANSLIM]') || message.includes('CAN SLIM')) {
+  if (message.includes('[CANSLIM]') || message.includes('CAN SLIM') || message.includes('[GOLD]') ||
+      message.includes('[TRAILING-STOP]') || message.includes('[MARKET-CONTEXT]') || message.includes('[MetaApi]')) {
     addScanLog('warn', message);
   }
   addServerLog('warn', message);
