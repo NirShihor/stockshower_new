@@ -1010,6 +1010,27 @@ class MetaApiRestHandler {
     }
   }
 
+  async getHistoricalCandles(symbol: string, timeframe: string = '1d', limit: number = 100): Promise<any> {
+    try {
+      const marketDataUrl = 'https://mt-market-data-client-api-v1.london.agiliumtrade.ai';
+      const response = await this.axiosInstance.get(
+        `${marketDataUrl}/users/current/accounts/${this.accountId}/historical-market-data/symbols/${symbol}/timeframes/${timeframe}/candles?limit=${limit}`,
+        { headers: this.getHeaders() }
+      );
+
+      return {
+        success: true,
+        candles: response.data
+      };
+    } catch (error: any) {
+      console.error(`Error getting historical candles for ${symbol}:`, error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.response?.data?.error || error.message || 'Failed to get historical candles'
+      };
+    }
+  }
+
   async closeAllPositions(): Promise<{ success: boolean; results: any[]; error?: string }> {
     // ============================================================
     // DISABLED - CAN SLIM positions should NEVER be auto-closed

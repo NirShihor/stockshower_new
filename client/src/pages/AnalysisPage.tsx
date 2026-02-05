@@ -50,6 +50,31 @@ interface MarketOverviewResult {
   timestamp: string;
 }
 
+interface GoldConsolidation {
+  detected: boolean;
+  high: number;
+  low: number;
+  days: number;
+  rangePercent: number;
+}
+
+interface GoldAnalysisResult {
+  symbol: string;
+  currentPrice: number;
+  ema20: number;
+  trend: 'bullish' | 'bearish';
+  score: number;
+  maxScore: number;
+  vixLevel: number;
+  vixElevated: boolean;
+  consolidation: GoldConsolidation | null;
+  breakoutLevel: number | null;
+  equityMarketRegime: string;
+  recommendation: 'buy_stop' | 'wait' | 'not_favorable';
+  reasons: string[];
+  timestamp: string;
+}
+
 const sectors: Sector[] = [
   {
     name: 'Technology',
@@ -137,6 +162,10 @@ const AnalysisPage: React.FC = () => {
   const [marketOverviewLoading, setMarketOverviewLoading] = useState<boolean>(false);
   const [marketOverview, setMarketOverview] = useState<MarketOverviewResult | null>(null);
 
+  // Gold Analysis State
+  const [goldLoading, setGoldLoading] = useState<boolean>(false);
+  const [goldAnalysis, setGoldAnalysis] = useState<GoldAnalysisResult | null>(null);
+
   // CAN SLIM Trading State
   const [canslimLoading, setCanslimLoading] = useState<boolean>(false);
   const [canslimResult, setCanslimResult] = useState<any>(null);
@@ -199,11 +228,11 @@ const AnalysisPage: React.FC = () => {
     setMarketOverviewLoading(true);
     try {
       const response = await fetch(API_ENDPOINTS.marketOverview);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data = await response.json();
       setMarketOverview(data);
       setMarketOverviewLoading(false);
@@ -211,6 +240,26 @@ const AnalysisPage: React.FC = () => {
       console.error('Error fetching market overview:', error);
       alert('Error fetching market overview. Please try again.');
       setMarketOverviewLoading(false);
+    }
+  };
+
+  const fetchGoldAnalysis = async () => {
+    setGoldAnalysis(null);
+    setGoldLoading(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.goldAnalysis);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setGoldAnalysis(data);
+      setGoldLoading(false);
+    } catch (error) {
+      console.error('Error fetching gold analysis:', error);
+      alert('Error fetching gold analysis. Please try again.');
+      setGoldLoading(false);
     }
   };
 
@@ -487,6 +536,150 @@ const AnalysisPage: React.FC = () => {
               <div style={{ fontSize: '12px', color: '#666', marginTop: '15px', textAlign: 'right' }}>
                 Generated: {new Date(marketOverview.timestamp).toLocaleString()}
               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Gold Analysis Section */}
+      <div className="gold-analysis-section" style={{ marginBottom: '40px' }}>
+        <h2 style={{ borderBottom: '2px solid #FFD700', paddingBottom: '10px' }}>Gold Analysis (Fallback Strategy)</h2>
+        <p style={{ color: '#666', marginBottom: '20px' }}>Gold breakout analysis for when equity markets are not favorable for CAN SLIM</p>
+
+        <button
+          className={`analysis-button ${goldLoading ? 'scanning' : ''}`}
+          onClick={fetchGoldAnalysis}
+          disabled={goldLoading}
+          style={{ marginBottom: '20px', background: '#FFD700', color: '#333' }}
+        >
+          {goldLoading ? 'Loading Gold Data...' : 'Get Gold Analysis'}
+        </button>
+
+        {goldAnalysis && (
+          <div className="gold-analysis-results">
+            <div className="market-data-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '15px',
+              marginBottom: '20px'
+            }}>
+              <div className="market-card" style={{
+                background: '#f8f9fa',
+                padding: '15px',
+                borderRadius: '8px',
+                border: '1px solid #dee2e6'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0' }}>Gold Price</h4>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>${goldAnalysis.currentPrice.toFixed(2)}</div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  20 EMA: ${goldAnalysis.ema20.toFixed(2)}
+                </div>
+              </div>
+
+              <div className="market-card" style={{
+                background: goldAnalysis.trend === 'bullish' ? '#d4edda' : '#f8d7da',
+                padding: '15px',
+                borderRadius: '8px',
+                border: `1px solid ${goldAnalysis.trend === 'bullish' ? '#c3e6cb' : '#f5c6cb'}`
+              }}>
+                <h4 style={{ margin: '0 0 10px 0' }}>Trend</h4>
+                <div style={{
+                  fontSize: '20px',
+                  fontWeight: 'bold',
+                  color: goldAnalysis.trend === 'bullish' ? '#155724' : '#721c24',
+                  textTransform: 'uppercase'
+                }}>
+                  {goldAnalysis.trend}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  {goldAnalysis.trend === 'bullish' ? 'Above 20 EMA' : 'Below 20 EMA'}
+                </div>
+              </div>
+
+              <div className="market-card" style={{
+                background: '#f8f9fa',
+                padding: '15px',
+                borderRadius: '8px',
+                border: '1px solid #dee2e6'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0' }}>Score</h4>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{goldAnalysis.score}/{goldAnalysis.maxScore}</div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  VIX: {goldAnalysis.vixLevel.toFixed(1)} {goldAnalysis.vixElevated ? '(Elevated)' : ''}
+                </div>
+              </div>
+
+              <div className="market-card" style={{
+                background: goldAnalysis.recommendation === 'buy_stop' ? '#d4edda' :
+                  goldAnalysis.recommendation === 'wait' ? '#fff3cd' : '#f8d7da',
+                padding: '15px',
+                borderRadius: '8px',
+                border: `1px solid ${goldAnalysis.recommendation === 'buy_stop' ? '#c3e6cb' :
+                  goldAnalysis.recommendation === 'wait' ? '#ffc107' : '#f5c6cb'}`
+              }}>
+                <h4 style={{ margin: '0 0 10px 0' }}>Recommendation</h4>
+                <div style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: goldAnalysis.recommendation === 'buy_stop' ? '#155724' :
+                    goldAnalysis.recommendation === 'wait' ? '#856404' : '#721c24',
+                  textTransform: 'uppercase'
+                }}>
+                  {goldAnalysis.recommendation.replace('_', ' ')}
+                </div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  Equity Market: {goldAnalysis.equityMarketRegime}
+                </div>
+              </div>
+            </div>
+
+            {goldAnalysis.consolidation && (
+              <div className="analysis-card" style={{
+                background: '#e7f3ff',
+                border: '1px solid #b3d7ff',
+                padding: '15px',
+                borderRadius: '8px',
+                marginBottom: '15px'
+              }}>
+                <h4 style={{ margin: '0 0 10px 0' }}>Consolidation Pattern Detected</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
+                  <div>
+                    <strong>Days:</strong> {goldAnalysis.consolidation.days}
+                  </div>
+                  <div>
+                    <strong>Range:</strong> {goldAnalysis.consolidation.rangePercent.toFixed(2)}%
+                  </div>
+                  <div>
+                    <strong>High:</strong> ${goldAnalysis.consolidation.high.toFixed(2)}
+                  </div>
+                  <div>
+                    <strong>Low:</strong> ${goldAnalysis.consolidation.low.toFixed(2)}
+                  </div>
+                </div>
+                {goldAnalysis.breakoutLevel && (
+                  <div style={{ marginTop: '10px', fontWeight: 'bold', color: '#155724' }}>
+                    Breakout Level (Buy Stop): ${goldAnalysis.breakoutLevel.toFixed(2)}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="analysis-card" style={{
+              background: '#f8f9fa',
+              padding: '15px',
+              borderRadius: '8px',
+              border: '1px solid #dee2e6'
+            }}>
+              <h4 style={{ margin: '0 0 10px 0' }}>Analysis Reasons</h4>
+              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                {goldAnalysis.reasons.map((reason, idx) => (
+                  <li key={idx} style={{ marginBottom: '5px' }}>{reason}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '15px', textAlign: 'right' }}>
+              Generated: {new Date(goldAnalysis.timestamp).toLocaleString()}
             </div>
           </div>
         )}
