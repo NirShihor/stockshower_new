@@ -4,6 +4,7 @@ dotenv.config();
 import { connectDatabase } from '../db/connection.js';
 import { createCanslimExecutor, CanslimTradeConfig } from '../brokers/canslimExecutor.js';
 import { createGoldExecutor, GoldTradeConfig } from '../brokers/goldExecutor.js';
+import { updateTrailingStops } from '../services/trailingStopService.js';
 
 const args = process.argv.slice(2);
 const isLive = args.includes('--live');
@@ -11,6 +12,7 @@ const forceOverride = args.includes('--force');
 const scheduleMode = args.includes('--schedule');
 const noEarnings = args.includes('--no-earnings');
 const noGold = args.includes('--no-gold');
+const noTrailing = args.includes('--no-trailing');
 const marginArg = args.find(a => a.startsWith('--margin='));
 const maxTradesArg = args.find(a => a.startsWith('--max-trades='));
 const minScoreArg = args.find(a => a.startsWith('--min-score='));
@@ -106,6 +108,7 @@ if (forceOverride) {
 }
 console.log(`Earnings Filter: ${config.useEarningsFilter ? 'ON' : 'OFF'}`);
 console.log(`Gold Fallback: ${noGold ? 'OFF' : 'ON (when market not risk-on)'}`);
+console.log(`Trailing Stops: ${noTrailing ? 'OFF' : 'ON (stocks 8%, gold 3%)'}`);
 console.log(`Trading Delay: ${tradingDelayMinutes} minutes after market open (starts 10:${tradingDelayMinutes === 30 ? '00' : (tradingDelayMinutes - 30).toString().padStart(2, '0')} AM ET)`);
 if (scheduleMode) {
   console.log(`Scheduler: ON (every ${intervalMinutes} minutes during market hours)`);
@@ -140,6 +143,24 @@ async function runScan() {
   if (stats.trades >= (config.maxDailyTrades || 3)) {
     console.log(`\n[SCHEDULER] Daily trade limit already reached (${stats.trades}/${config.maxDailyTrades})`);
     return;
+  }
+
+  // Update trailing stops on existing positions before scanning for new trades
+  if (isLive && !noTrailing) {
+    try {
+      const trailingResult = await updateTrailingStops();
+      if (trailingResult.stopsAdjusted > 0) {
+        console.log(`\n[TRAILING-STOP] Adjusted ${trailingResult.stopsAdjusted} stop(s):`);
+        for (const adj of trailingResult.adjustments) {
+          console.log(`  ${adj.symbol}: Stop $${adj.oldStop.toFixed(2)} -> $${adj.newStop.toFixed(2)} (profit: +${adj.profitPercent.toFixed(1)}%)`);
+        }
+      }
+      if (trailingResult.errors.length > 0) {
+        console.log(`[TRAILING-STOP] Errors: ${trailingResult.errors.join(', ')}`);
+      }
+    } catch (trailError) {
+      console.error('[TRAILING-STOP] Error updating trailing stops:', trailError);
+    }
   }
 
   try {
