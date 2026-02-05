@@ -843,14 +843,49 @@ const StockScanPage: React.FC = () => {
     }
   }, [showLogs]);
 
-  // Auto-scroll logs
+  // Track if user has manually scrolled up (for each log window)
+  const [userScrolledBackend, setUserScrolledBackend] = useState(false);
+  const [userScrolledScan, setUserScrolledScan] = useState(false);
+  const [userScrolledServer, setUserScrolledServer] = useState(false);
+
+  // Check if scrolled to bottom (with small tolerance)
+  const isScrolledToBottom = (el: HTMLElement) => {
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+  };
+
+  // Scroll handlers - detect manual scroll
+  const handleBackendScroll = () => {
+    if (backendLogRef.current) {
+      setUserScrolledBackend(!isScrolledToBottom(backendLogRef.current));
+    }
+  };
+
+  const handleScanScroll = () => {
+    if (scanLogRef.current) {
+      setUserScrolledScan(!isScrolledToBottom(scanLogRef.current));
+    }
+  };
+
+  const handleServerScroll = () => {
+    if (serverLogRef.current) {
+      setUserScrolledServer(!isScrolledToBottom(serverLogRef.current));
+    }
+  };
+
+  // Auto-scroll logs only if user hasn't manually scrolled up
   useEffect(() => {
     if (autoScrollLogs) {
-      if (backendLogRef.current) backendLogRef.current.scrollTop = backendLogRef.current.scrollHeight;
-      if (scanLogRef.current) scanLogRef.current.scrollTop = scanLogRef.current.scrollHeight;
-      if (serverLogRef.current) serverLogRef.current.scrollTop = serverLogRef.current.scrollHeight;
+      if (backendLogRef.current && !userScrolledBackend) {
+        backendLogRef.current.scrollTop = backendLogRef.current.scrollHeight;
+      }
+      if (scanLogRef.current && !userScrolledScan) {
+        scanLogRef.current.scrollTop = scanLogRef.current.scrollHeight;
+      }
+      if (serverLogRef.current && !userScrolledServer) {
+        serverLogRef.current.scrollTop = serverLogRef.current.scrollHeight;
+      }
     }
-  }, [backendLogs, scanLogs, serverLogs, autoScrollLogs]);
+  }, [backendLogs, scanLogs, serverLogs, autoScrollLogs, userScrolledBackend, userScrolledScan, userScrolledServer]);
 
   return (
     <div className="stock-scan-page">
@@ -1204,6 +1239,7 @@ const StockScanPage: React.FC = () => {
               <div
                 ref={backendLogRef}
                 data-log-content
+                onScroll={handleBackendScroll}
                 style={{
                   height: `${backendLogHeight}px`,
                   overflow: 'auto',
@@ -1261,6 +1297,7 @@ const StockScanPage: React.FC = () => {
               <div
                 ref={scanLogRef}
                 data-log-content
+                onScroll={handleScanScroll}
                 style={{
                   height: `${scanLogHeight}px`,
                   overflow: 'auto',
@@ -1319,6 +1356,7 @@ const StockScanPage: React.FC = () => {
             <div
               ref={serverLogRef}
               data-log-content
+              onScroll={handleServerScroll}
               style={{
                 height: `${serverLogHeight}px`,
                 overflow: 'auto',
