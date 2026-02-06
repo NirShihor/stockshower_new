@@ -843,49 +843,49 @@ const StockScanPage: React.FC = () => {
     }
   }, [showLogs]);
 
-  // Track if user has manually scrolled up (for each log window)
-  const [userScrolledBackend, setUserScrolledBackend] = useState(false);
-  const [userScrolledScan, setUserScrolledScan] = useState(false);
-  const [userScrolledServer, setUserScrolledServer] = useState(false);
+  // Track if user has manually scrolled up (using refs to avoid re-render issues)
+  const userScrolledBackend = useRef(false);
+  const userScrolledScan = useRef(false);
+  const userScrolledServer = useRef(false);
 
   // Check if scrolled to bottom (with small tolerance)
   const isScrolledToBottom = (el: HTMLElement) => {
-    return el.scrollHeight - el.scrollTop - el.clientHeight < 30;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 50;
   };
 
   // Scroll handlers - detect manual scroll
   const handleBackendScroll = () => {
     if (backendLogRef.current) {
-      setUserScrolledBackend(!isScrolledToBottom(backendLogRef.current));
+      userScrolledBackend.current = !isScrolledToBottom(backendLogRef.current);
     }
   };
 
   const handleScanScroll = () => {
     if (scanLogRef.current) {
-      setUserScrolledScan(!isScrolledToBottom(scanLogRef.current));
+      userScrolledScan.current = !isScrolledToBottom(scanLogRef.current);
     }
   };
 
   const handleServerScroll = () => {
     if (serverLogRef.current) {
-      setUserScrolledServer(!isScrolledToBottom(serverLogRef.current));
+      userScrolledServer.current = !isScrolledToBottom(serverLogRef.current);
     }
   };
 
   // Auto-scroll logs only if user hasn't manually scrolled up
   useEffect(() => {
     if (autoScrollLogs) {
-      if (backendLogRef.current && !userScrolledBackend) {
+      if (backendLogRef.current && !userScrolledBackend.current) {
         backendLogRef.current.scrollTop = backendLogRef.current.scrollHeight;
       }
-      if (scanLogRef.current && !userScrolledScan) {
+      if (scanLogRef.current && !userScrolledScan.current) {
         scanLogRef.current.scrollTop = scanLogRef.current.scrollHeight;
       }
-      if (serverLogRef.current && !userScrolledServer) {
+      if (serverLogRef.current && !userScrolledServer.current) {
         serverLogRef.current.scrollTop = serverLogRef.current.scrollHeight;
       }
     }
-  }, [backendLogs, scanLogs, serverLogs, autoScrollLogs, userScrolledBackend, userScrolledScan, userScrolledServer]);
+  }, [backendLogs, scanLogs, serverLogs, autoScrollLogs]);
 
   return (
     <div className="stock-scan-page">
