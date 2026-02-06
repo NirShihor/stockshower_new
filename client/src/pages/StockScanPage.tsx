@@ -843,12 +843,17 @@ const StockScanPage: React.FC = () => {
     }
   }, [showLogs]);
 
-  // Track if user has manually scrolled up (using refs to avoid re-render issues)
+  // Track previous log counts to only scroll when NEW logs arrive
+  const prevBackendCount = useRef(0);
+  const prevScanCount = useRef(0);
+  const prevServerCount = useRef(0);
+
+  // Track if user has manually scrolled up
   const userScrolledBackend = useRef(false);
   const userScrolledScan = useRef(false);
   const userScrolledServer = useRef(false);
 
-  // Check if scrolled to bottom (with small tolerance)
+  // Check if scrolled to bottom (with tolerance)
   const isScrolledToBottom = (el: HTMLElement) => {
     return el.scrollHeight - el.scrollTop - el.clientHeight < 50;
   };
@@ -872,19 +877,33 @@ const StockScanPage: React.FC = () => {
     }
   };
 
-  // Auto-scroll logs only if user hasn't manually scrolled up
+  // Auto-scroll only when NEW logs arrive AND user hasn't scrolled up
   useEffect(() => {
-    if (autoScrollLogs) {
-      if (backendLogRef.current && !userScrolledBackend.current) {
+    if (!autoScrollLogs) return;
+
+    // Only scroll backend if new logs AND user at bottom
+    if (backendLogs.length > prevBackendCount.current && !userScrolledBackend.current) {
+      if (backendLogRef.current) {
         backendLogRef.current.scrollTop = backendLogRef.current.scrollHeight;
       }
-      if (scanLogRef.current && !userScrolledScan.current) {
+    }
+    prevBackendCount.current = backendLogs.length;
+
+    // Only scroll scan if new logs AND user at bottom
+    if (scanLogs.length > prevScanCount.current && !userScrolledScan.current) {
+      if (scanLogRef.current) {
         scanLogRef.current.scrollTop = scanLogRef.current.scrollHeight;
       }
-      if (serverLogRef.current && !userScrolledServer.current) {
+    }
+    prevScanCount.current = scanLogs.length;
+
+    // Only scroll server if new logs AND user at bottom
+    if (serverLogs.length > prevServerCount.current && !userScrolledServer.current) {
+      if (serverLogRef.current) {
         serverLogRef.current.scrollTop = serverLogRef.current.scrollHeight;
       }
     }
+    prevServerCount.current = serverLogs.length;
   }, [backendLogs, scanLogs, serverLogs, autoScrollLogs]);
 
   return (
