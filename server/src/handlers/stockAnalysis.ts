@@ -2494,12 +2494,13 @@ Keep each section concise but informative, suitable for day traders who need qui
 
 export const getMarketOverview = async (req: Request, res: Response): Promise<void> => {
 	try {
-		console.log('Getting market overview analysis...');
-		
+		const market = (req.query.market as string)?.toUpperCase() === 'UK' ? 'UK' : 'US';
+		console.log(`Getting ${market} market overview analysis...`);
+
 		const today = new Date().toISOString().split('T')[0];
-		
+
 		// Use the same marketContextService as CAN SLIM scanner for consistency
-		const marketContext = await getMarketContext(today);
+		const marketContext = await getMarketContext(today, market);
 
 		if (!marketContext) {
 			res.status(500).json({ error: 'Failed to get market context' });
@@ -2510,24 +2511,27 @@ export const getMarketOverview = async (req: Request, res: Response): Promise<vo
 
 		const marketDataSummary = formatMarketContextForAI(marketContext);
 
-		const perplexityPrompt = `Based on the current market data and recent news, provide a comprehensive market outlook:
+		const marketName = market === 'UK' ? 'UK/FTSE' : 'US';
+		const marketIndex = market === 'UK' ? 'FTSE 100' : 'S&P 500';
+
+		const perplexityPrompt = `Based on the current ${marketName} market data and recent news, provide a comprehensive market outlook:
 
 ${marketDataSummary}
 
-Please analyze:
-1. CURRENT MARKET CONDITIONS: What is the overall market sentiment right now? Bull market, bear market, or sideways/consolidation? Support with data.
+Please analyze for the ${marketName} market:
+1. CURRENT MARKET CONDITIONS: What is the overall ${marketIndex} market sentiment right now? Bull market, bear market, or sideways/consolidation? Support with data.
 
-2. RECENT TRENDS: What have been the key market movements and drivers over the past week? Any significant sector rotations or themes?
+2. RECENT TRENDS: What have been the key ${marketName} market movements and drivers over the past week? Any significant sector rotations or themes?
 
-3. PREDICTION - NEXT DAY: What is likely to happen tomorrow? Key levels to watch, expected volatility, any catalysts?
+3. PREDICTION - NEXT DAY: What is likely to happen tomorrow in the ${marketName} market? Key levels to watch, expected volatility, any catalysts?
 
-4. PREDICTION - NEXT 7 DAYS: Short-term outlook for the coming week. Key events (earnings, economic data), technical levels, expected direction.
+4. PREDICTION - NEXT 7 DAYS: Short-term ${marketName} outlook for the coming week. Key events (earnings, economic data), technical levels, expected direction.
 
-5. PREDICTION - NEXT 30 DAYS: Medium-term outlook. Major themes, seasonal patterns, upcoming Fed meetings or economic releases.
+5. PREDICTION - NEXT 30 DAYS: Medium-term ${marketName} outlook. Major themes, seasonal patterns, upcoming central bank meetings or economic releases.
 
-6. PREDICTION - NEXT 180 DAYS: Longer-term outlook. Economic cycle positioning, major risks and opportunities, strategic considerations.
+6. PREDICTION - NEXT 180 DAYS: Longer-term ${marketName} outlook. Economic cycle positioning, major risks and opportunities, strategic considerations.
 
-7. CAN SLIM TRADING CONDITIONS: Based on the "M" (Market Direction) component of CAN SLIM methodology, assess:
+7. CAN SLIM TRADING CONDITIONS: Based on the "M" (Market Direction) component of CAN SLIM methodology for ${marketName} stocks, assess:
    - Is this a good environment for swing trading breakouts?
    - Are leading stocks breaking out of bases successfully or failing?
    - What percentage of new positions should traders take (0%, 25%, 50%, 75%, 100%)?
@@ -2638,9 +2642,11 @@ Keep each section concise (2-3 sentences) but actionable.`;
 		};
 		
 		res.json({
+			market,
 			marketData: {
 				spy: spy ? {
 					symbol: spy.symbol,
+					name: market === 'UK' ? 'FTSE Proxy (SHEL)' : 'SPY (S&P 500)',
 					current: spy.current,
 					dayChange: spy.changePercent.toFixed(2),
 					weekChange: spy.weekChangePercent.toFixed(2),
@@ -2649,6 +2655,7 @@ Keep each section concise (2-3 sentences) but actionable.`;
 				} : null,
 				qqq: qqq ? {
 					symbol: qqq.symbol,
+					name: market === 'UK' ? 'UK Large Cap (AZN)' : 'QQQ (Nasdaq 100)',
 					current: qqq.current,
 					dayChange: qqq.changePercent.toFixed(2),
 					weekChange: qqq.weekChangePercent.toFixed(2),
@@ -2657,6 +2664,7 @@ Keep each section concise (2-3 sentences) but actionable.`;
 				} : null,
 				vix: vix ? {
 					symbol: vix.symbol,
+					name: market === 'UK' ? 'UK Volatility (BARC)' : 'VIX',
 					current: vix.current,
 					weekChange: vix.weekChangePercent.toFixed(2)
 				} : null

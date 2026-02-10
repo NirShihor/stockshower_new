@@ -1,10 +1,12 @@
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
+import { fetchUKHistoricalBars } from '../handlers/ukDataAPI.js';
 
 export interface RelativeStrengthResult {
   symbol: string;
   date: string;
   stockReturn12M: number;
-  spyReturn12M: number;
+  benchmarkReturn12M: number;  // SPY for US, ISF for UK
+  benchmark: string;
   relativeReturn: number;
   rsRating: number;
   rsRank: number;
@@ -74,31 +76,132 @@ const FXPRO_NASDAQ = [
 // Combined universe - all FxPro US stocks (duplicates removed)
 const RS_UNIVERSE = [...new Set([...FXPRO_NYSE, ...FXPRO_NASDAQ])];
 
+// UK stocks available on FxPro MT5 (.L suffix for LSE)
+// Based on actual FxPro availability check - 254 UK stocks
+const FXPRO_UK = [
+  'AAF', 'AAIF', 'AAL', 'ABDN', 'ABF', 'ADML', 'AHT', 'AJBA', 'AML', 'ANTO', 'AO', 'ASHM', 'ASL', 'AUTOA', 'AV', 'AVON', 'AZN',
+  'BAB', 'BAES', 'BAG', 'BALF', 'BARC', 'BATS', 'BBOXT', 'BEZG', 'BHPB', 'BKGH', 'BLND', 'BMEB', 'BNZL', 'BOY', 'BP', 'BRBY', 'BT', 'BTRW', 'BVC', 'BWY', 'BYG', 'BYIT',
+  'CBRO', 'CCC', 'CCH', 'CCL', 'CHG', 'CHRY', 'CKN', 'CMCX', 'CNA', 'COA', 'CPG', 'CPI', 'CRDA', 'CRST', 'CTEC', 'CTY', 'CWK',
+  'DCC', 'DGE', 'DLN', 'DNLM', 'DOCS', 'DOM', 'DPLM', 'DRX',
+  'ELM', 'EMG', 'ENOG', 'ENT', 'EOTE', 'ESNT', 'EVOK', 'EXPN', 'EZJ',
+  'FAN', 'FDM', 'FERG', 'FEV', 'FGP', 'FGT', 'FORT', 'FOUR', 'FRAS', 'FRES', 'FXPO',
+  'GAW', 'GCC', 'GENG', 'GENL', 'GFTU_u', 'GKP', 'GLEN', 'GNC', 'GNS', 'GPEG', 'GRG', 'GRI', 'GSK', 'GYM',
+  'HAYS', 'HBR', 'HFD', 'HFEL', 'HFG', 'HICL', 'HIK', 'HILS', 'HLMA', 'HMSO', 'HOCM', 'HSBA', 'HSL', 'HSX', 'HTWS', 'HWDN',
+  'IBST', 'ICAG', 'ICGIN', 'IGG', 'IHG', 'IHPI', 'III', 'IMB', 'IMI', 'INCH', 'INF', 'INPP', 'INVP', 'IPO', 'ITRK', 'ITV', 'IWG',
+  'JD', 'JDW', 'JMAT', 'JUP', 'JUSTJ',
+  'KGF', 'KNOS',
+  'LAND', 'LGEN', 'LIO', 'LLOY', 'LMPL', 'LRE', 'LSEG',
+  'MAB', 'MARS', 'MCG', 'MGAMM', 'MGNS', 'MKS', 'MNDI', 'MNG', 'MNKS', 'MONY', 'MRON', 'MSLH', 'MTO', 'MYI',
+  'N91', 'NCCG', 'NG', 'NWG', 'NXT',
+  'OCDO', 'OSBO', 'OXB', 'OXIG',
+  'PAGE', 'PAGPA', 'PAYP', 'PCT', 'PETSP', 'PFD', 'PHNX', 'PHP', 'PLUSP', 'PNN', 'PRTC', 'PRU', 'PSN', 'PSON', 'PTEC', 'PZC',
+  'QLT', 'QQ',
+  'RCH', 'REL', 'RHIM', 'RIO', 'RKT', 'RMV', 'ROR', 'RR', 'RS1R', 'RSW', 'RTO',
+  'S32', 'SAFE', 'SBRY', 'SCTS', 'SDR', 'SGE', 'SGRO', 'SHCS', 'SHEL', 'SJP', 'SMIN', 'SMT', 'SMWH', 'SN', 'SNR', 'SOLG', 'SPI', 'SPX', 'SRET', 'SRP', 'SSE', 'SSPG', 'STAN', 'STEMS', 'SVS', 'SVT', 'SYNTS',
+  'TATE', 'TCAPI', 'TEP', 'THG', 'TLW', 'TPK', 'TRIG', 'TRNT', 'TRST', 'TRY', 'TSCO', 'TW',
+  'UKWG', 'ULVR', 'UTG', 'UU',
+  'VCTX', 'VOD', 'VSVS', 'VTYV',
+  'WEIR', 'WG', 'WIZZ', 'WKP', 'WOSG', 'WPP', 'WTB', 'WWH',
+  'XPP',
+  'ZIG'
+];
+
+// UK universe for CAN SLIM scanning
+const UK_UNIVERSE = FXPRO_UK;
+
+// Major UK stocks used to create synthetic FTSE 100 benchmark
+// These are the largest/most liquid FTSE 100 constituents available on FxPro
+const UK_BENCHMARK_STOCKS = [
+  'SHEL',  // Shell
+  'AZN',   // AstraZeneca
+  'HSBA',  // HSBC
+  'BP',    // BP
+  'GSK',   // GSK
+  'RIO',   // Rio Tinto
+  'ULVR',  // Unilever
+  'BARC',  // Barclays
+  'LLOY',  // Lloyds
+  'VOD'    // Vodafone
+];
+
+// Cache for UK benchmark return to avoid recalculating
+const ukBenchmarkCache = new Map<string, number>();
+
+async function calculateUKBenchmarkReturn(endDate: string): Promise<number | null> {
+  // Check cache first
+  if (ukBenchmarkCache.has(endDate)) {
+    return ukBenchmarkCache.get(endDate)!;
+  }
+
+  console.log('[RS] Calculating synthetic UK benchmark from major FTSE 100 stocks...');
+
+  const returns: number[] = [];
+
+  for (const symbol of UK_BENCHMARK_STOCKS) {
+    const ret = await calculate12MonthReturn(symbol, endDate, 'UK');
+    if (ret !== null) {
+      returns.push(ret);
+    }
+  }
+
+  if (returns.length < 5) {
+    console.error('[RS] Not enough UK benchmark stocks with data');
+    return null;
+  }
+
+  // Calculate average return (equal-weighted)
+  const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+  console.log(`[RS] UK benchmark: ${avgReturn.toFixed(2)}% (avg of ${returns.length} stocks)`);
+
+  // Cache the result
+  ukBenchmarkCache.set(endDate, avgReturn);
+
+  return avgReturn;
+}
+
 async function calculate12MonthReturn(
-  apiKey: string,
   symbol: string,
-  endDate: string
+  endDate: string,
+  market: 'US' | 'UK' = 'US'
 ): Promise<number | null> {
   const end = new Date(endDate);
   const start = new Date(endDate);
   start.setFullYear(start.getFullYear() - 1);
-  
+
   try {
-    const candles = await fetchHistoricalBars(
-      apiKey,
-      symbol,
-      start.toISOString().split('T')[0],
-      end.toISOString().split('T')[0],
-      'day',
-      1,
-      300
-    );
-    
+    let candles;
+
+    if (market === 'UK') {
+      candles = await fetchUKHistoricalBars(
+        symbol,
+        start.toISOString().split('T')[0],
+        end.toISOString().split('T')[0],
+        'day',
+        300
+      );
+    } else {
+      const apiKey = process.env.POLYGON_API_KEY;
+      if (!apiKey) {
+        console.error('[RS] No Polygon API key');
+        return null;
+      }
+
+      candles = await fetchHistoricalBars(
+        apiKey,
+        symbol,
+        start.toISOString().split('T')[0],
+        end.toISOString().split('T')[0],
+        'day',
+        1,
+        300
+      );
+    }
+
     if (candles.length < 200) return null;
-    
+
     const oldestPrice = candles[0].close;
     const latestPrice = candles[candles.length - 1].close;
-    
+
     return ((latestPrice - oldestPrice) / oldestPrice) * 100;
   } catch (error) {
     console.error(`[RS] Error fetching ${symbol}:`, error);
@@ -109,46 +212,58 @@ async function calculate12MonthReturn(
 export async function calculateRelativeStrength(
   symbol: string,
   date: string,
-  universe: string[] = RS_UNIVERSE
+  universe: string[] = RS_UNIVERSE,
+  market: 'US' | 'UK' = 'US'
 ): Promise<RelativeStrengthResult | null> {
-  const apiKey = process.env.POLYGON_API_KEY;
-  if (!apiKey) {
-    console.error('[RS] No Polygon API key');
+  // Use appropriate benchmark: SPY for US, synthetic FTSE (avg of major stocks) for UK
+  const benchmark = market === 'UK' ? 'FTSE-Synthetic' : 'SPY';
+  const effectiveUniverse = market === 'UK' ? UK_UNIVERSE : universe;
+
+  console.log(`[RS] Calculating relative strength for ${symbol} (${market}) on ${date} vs ${benchmark}`);
+
+  let stockReturn: number | null;
+  let benchmarkReturn: number | null;
+
+  if (market === 'UK') {
+    // For UK, use synthetic benchmark calculated from major FTSE 100 stocks
+    [stockReturn, benchmarkReturn] = await Promise.all([
+      calculate12MonthReturn(symbol, date, 'UK'),
+      calculateUKBenchmarkReturn(date)
+    ]);
+  } else {
+    // For US, use SPY directly
+    [stockReturn, benchmarkReturn] = await Promise.all([
+      calculate12MonthReturn(symbol, date, 'US'),
+      calculate12MonthReturn('SPY', date, 'US')
+    ]);
+  }
+
+  if (stockReturn === null || benchmarkReturn === null) {
     return null;
   }
-  
-  console.log(`[RS] Calculating relative strength for ${symbol} on ${date}`);
-  
-  const [stockReturn, spyReturn] = await Promise.all([
-    calculate12MonthReturn(apiKey, symbol, date),
-    calculate12MonthReturn(apiKey, 'SPY', date)
-  ]);
-  
-  if (stockReturn === null || spyReturn === null) {
-    return null;
-  }
-  
-  const relativeReturn = stockReturn - spyReturn;
-  
+
+  const relativeReturn = stockReturn - benchmarkReturn;
+
   const allReturns: { symbol: string; return12M: number }[] = [];
-  
-  for (const sym of universe) {
-    const ret = await calculate12MonthReturn(apiKey, sym, date);
+
+  for (const sym of effectiveUniverse) {
+    const ret = await calculate12MonthReturn(sym, date, market);
     if (ret !== null) {
       allReturns.push({ symbol: sym, return12M: ret });
     }
   }
-  
+
   allReturns.sort((a, b) => b.return12M - a.return12M);
-  
+
   const rank = allReturns.findIndex(s => s.symbol === symbol) + 1;
   const rsRating = Math.round(((allReturns.length - rank) / allReturns.length) * 99);
-  
+
   return {
     symbol,
     date,
     stockReturn12M: Math.round(stockReturn * 100) / 100,
-    spyReturn12M: Math.round(spyReturn * 100) / 100,
+    benchmarkReturn12M: Math.round(benchmarkReturn * 100) / 100,
+    benchmark,
     relativeReturn: Math.round(relativeReturn * 100) / 100,
     rsRating,
     rsRank: rank,
@@ -158,22 +273,22 @@ export async function calculateRelativeStrength(
 
 export async function getRSRankings(
   date: string,
-  universe: string[] = RS_UNIVERSE
+  universe: string[] = RS_UNIVERSE,
+  market: 'US' | 'UK' = 'US'
 ): Promise<{ symbol: string; return12M: number; rsRating: number }[]> {
-  const apiKey = process.env.POLYGON_API_KEY;
-  if (!apiKey) return [];
-  
+  const effectiveUniverse = market === 'UK' ? UK_UNIVERSE : universe;
+
   const allReturns: { symbol: string; return12M: number }[] = [];
-  
-  for (const sym of universe) {
-    const ret = await calculate12MonthReturn(apiKey, sym, date);
+
+  for (const sym of effectiveUniverse) {
+    const ret = await calculate12MonthReturn(sym, date, market);
     if (ret !== null) {
       allReturns.push({ symbol: sym, return12M: ret });
     }
   }
-  
+
   allReturns.sort((a, b) => b.return12M - a.return12M);
-  
+
   return allReturns.map((s, i) => ({
     symbol: s.symbol,
     return12M: Math.round(s.return12M * 100) / 100,
@@ -181,4 +296,4 @@ export async function getRSRankings(
   }));
 }
 
-export { RS_UNIVERSE };
+export { RS_UNIVERSE, UK_UNIVERSE };

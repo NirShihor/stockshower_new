@@ -82,6 +82,51 @@ function isMarketOpen(): boolean {
   return totalMinutes >= marketOpen && totalMinutes < marketClose;
 }
 
+function getUKTime(): { hour: number; minute: number; dayOfWeek: number } {
+  const now = new Date();
+  const ukOptions: Intl.DateTimeFormatOptions = {
+    timeZone: "Europe/London",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  };
+  const dayOptions: Intl.DateTimeFormatOptions = {
+    timeZone: "Europe/London",
+    weekday: "short"
+  };
+
+  const timeStr = now.toLocaleString("en-GB", ukOptions);
+  const [hourStr, minuteStr] = timeStr.split(":");
+  const dayStr = now.toLocaleString("en-GB", dayOptions);
+
+  const dayMap: { [key: string]: number } = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+  return {
+    hour: parseInt(hourStr, 10),
+    minute: parseInt(minuteStr, 10),
+    dayOfWeek: dayMap[dayStr] ?? new Date().getDay()
+  };
+}
+
+function isUKMarketOpen(): boolean {
+  const { hour, minute, dayOfWeek } = getUKTime();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+  const totalMinutes = hour * 60 + minute;
+  const marketOpen = 8 * 60;        // 08:00
+  const marketClose = 16 * 60 + 30; // 16:30
+  return totalMinutes >= marketOpen && totalMinutes < marketClose;
+}
+
+function getCurrentMarket(): 'UK' | 'US' | 'BOTH' | 'CLOSED' {
+  const ukOpen = isUKMarketOpen();
+  const usOpen = isMarketOpen();
+
+  if (ukOpen && usOpen) return 'BOTH';
+  if (ukOpen) return 'UK';
+  if (usOpen) return 'US';
+  return 'CLOSED';
+}
+
 // Run a single CAN SLIM scan
 router.post('/scan', async (req: Request, res: Response) => {
   try {
@@ -91,27 +136,49 @@ router.post('/scan', async (req: Request, res: Response) => {
       margin = 25,
       maxTrades = 10,
       minScore = 4,
-      noEarnings = false
+      noEarnings = false,
+      market = 'auto'
     } = req.body;
 
-    console.log(`[CANSLIM API] Scan triggered - dryRun: ${dryRun}, force: ${force}`);
+    // Determine which market to scan
+    const currentMarket = getCurrentMarket();
+    let targetMarket: 'US' | 'UK' = 'US';
+
+    if (market === 'auto') {
+      if (currentMarket === 'UK') targetMarket = 'UK';
+      else if (currentMarket === 'BOTH') targetMarket = 'US'; // During overlap, prioritize US
+      else targetMarket = 'US';
+    } else {
+      targetMarket = market as 'US' | 'UK';
+    }
+
+    console.log(`[CANSLIM API] Scan triggered - market: ${targetMarket}, dryRun: ${dryRun}, force: ${force}`);
 
     // Check market hours first (unless force is true)
-    const { hour, minute } = getETTime();
-    const marketOpen = isMarketOpen();
-    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ET`;
+    const { hour: ukHour, minute: ukMinute } = getUKTime();
+    const { hour: usHour, minute: usMinute } = getETTime();
+    const ukOpen = isUKMarketOpen();
+    const usOpen = isMarketOpen();
 
-    if (!marketOpen && !force) {
-      console.log(`[CANSLIM API] Market CLOSED at ${timeStr} - skipping scan`);
+    const ukTimeStr = `${ukHour.toString().padStart(2, '0')}:${ukMinute.toString().padStart(2, '0')} GMT`;
+    const usTimeStr = `${usHour.toString().padStart(2, '0')}:${usMinute.toString().padStart(2, '0')} ET`;
+
+    const isTargetMarketOpen = targetMarket === 'UK' ? ukOpen : usOpen;
+
+    if (!isTargetMarketOpen && !force) {
+      console.log(`[CANSLIM API] ${targetMarket} market CLOSED - skipping scan`);
       res.json({
         success: true,
         mode: dryRun ? 'DRY RUN' : 'LIVE',
+        market: targetMarket,
+        marketStatus: { uk: ukOpen, us: usOpen, current: currentMarket },
         marketOpen: false,
-        currentTimeET: timeStr,
+        currentTimeUK: ukTimeStr,
+        currentTimeET: usTimeStr,
         result: {
           scanned: 0,
           executed: 0,
-          skipped: 'Market closed'
+          skipped: `${targetMarket} market closed`
         },
         dailyStats: { tradesPlaced: 0, activePositions: 0 },
         broker: { positions: 0, orders: 0, positionDetails: [], orderDetails: [] },
@@ -120,8 +187,8 @@ router.post('/scan', async (req: Request, res: Response) => {
       return;
     }
 
-    if (!marketOpen && force) {
-      console.log(`[CANSLIM API] Market CLOSED but FORCE enabled - running scan anyway`);
+    if (!isTargetMarketOpen && force) {
+      console.log(`[CANSLIM API] ${targetMarket} market CLOSED but FORCE enabled - running scan anyway`);
     }
 
     const exec = getExecutor({
@@ -158,7 +225,7 @@ router.post('/scan', async (req: Request, res: Response) => {
       }
     }
 
-    const result = await exec.scanAndExecute();
+    const result = await exec.scanAndExecute(targetMarket);
 
     // Gold fallback: if CAN SLIM skipped due to neutral/risk-off market, check gold
     let goldResult = null;
@@ -211,8 +278,11 @@ router.post('/scan', async (req: Request, res: Response) => {
     res.json({
       success: true,
       mode: dryRun ? 'DRY RUN' : 'LIVE',
-      marketOpen: isMarketOpen(),
-      currentTimeET: timeStr,
+      market: targetMarket,
+      marketStatus: { uk: ukOpen, us: usOpen, current: currentMarket },
+      marketOpen: isTargetMarketOpen,
+      currentTimeUK: ukTimeStr,
+      currentTimeET: usTimeStr,
       result: {
         scanned: result.scanned,
         executed: result.executed,
@@ -314,6 +384,29 @@ router.get('/status', async (req: Request, res: Response) => {
   }
 });
 
+// Get market status for both UK and US
+router.get('/market-status', (req: Request, res: Response) => {
+  const { hour: ukHour, minute: ukMinute } = getUKTime();
+  const { hour: usHour, minute: usMinute } = getETTime();
+  const currentMarket = getCurrentMarket();
+
+  res.json({
+    success: true,
+    currentMarket,
+    uk: {
+      open: isUKMarketOpen(),
+      time: `${ukHour.toString().padStart(2, '0')}:${ukMinute.toString().padStart(2, '0')} GMT`,
+      marketHours: '08:00-16:30 GMT'
+    },
+    us: {
+      open: isMarketOpen(),
+      time: `${usHour.toString().padStart(2, '0')}:${usMinute.toString().padStart(2, '0')} ET`,
+      marketHours: '09:30-16:00 ET'
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Scheduler state
 let schedulerStartTime: Date | null = null;
 let nextScanTime: Date | null = null;
@@ -369,7 +462,10 @@ router.post('/scheduler/start', async (req: Request, res: Response) => {
       if (force || shouldRunScan(delayMinutes)) {
         console.log('[CANSLIM SCHEDULER] Running scheduled scan...');
         try {
-          await exec.scanAndExecute();
+          // Determine market based on current hours
+          const scheduledMarket = getCurrentMarket();
+          const market: 'US' | 'UK' = scheduledMarket === 'UK' ? 'UK' : 'US';
+          await exec.scanAndExecute(market);
         } catch (e) {
           console.error('[CANSLIM SCHEDULER] Scan error:', e);
         }

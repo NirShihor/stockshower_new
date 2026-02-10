@@ -125,4 +125,4 @@ GoldTradeSchema.pre('save', function(next) {
   next();
 });
 
-export const GoldTrade = model<IGoldTrade>('GoldTrade', GoldTradeSchema);
+export const GoldTrade = model<IGoldTrade>('GoldTrade', GoldTradeSchema as any);

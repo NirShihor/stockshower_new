@@ -1,4 +1,5 @@
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
+import { fetchUKHistoricalBars } from '../handlers/ukDataAPI.js';
 
 export interface FiftyTwoWeekHighResult {
   symbol: string;
@@ -16,28 +17,41 @@ export interface FiftyTwoWeekHighResult {
 
 export async function getFiftyTwoWeekHighData(
   symbol: string,
-  date: string
+  date: string,
+  market: 'US' | 'UK' = 'US'
 ): Promise<FiftyTwoWeekHighResult | null> {
-  const apiKey = process.env.POLYGON_API_KEY;
-  if (!apiKey) {
-    console.error('[52WK] No Polygon API key');
-    return null;
-  }
-  
   const end = new Date(date);
   const start = new Date(date);
   start.setFullYear(start.getFullYear() - 1);
-  
+
   try {
-    const candles = await fetchHistoricalBars(
-      apiKey,
-      symbol,
-      start.toISOString().split('T')[0],
-      end.toISOString().split('T')[0],
-      'day',
-      1,
-      300
-    );
+    let candles;
+
+    if (market === 'UK') {
+      candles = await fetchUKHistoricalBars(
+        symbol,
+        start.toISOString().split('T')[0],
+        end.toISOString().split('T')[0],
+        'day',
+        300
+      );
+    } else {
+      const apiKey = process.env.POLYGON_API_KEY;
+      if (!apiKey) {
+        console.error('[52WK] No Polygon API key');
+        return null;
+      }
+
+      candles = await fetchHistoricalBars(
+        apiKey,
+        symbol,
+        start.toISOString().split('T')[0],
+        end.toISOString().split('T')[0],
+        'day',
+        1,
+        300
+      );
+    }
     
     if (candles.length < 200) {
       console.log(`[52WK] Insufficient data for ${symbol}: ${candles.length} candles`);
@@ -91,18 +105,19 @@ export async function getFiftyTwoWeekHighData(
 export async function getStocksNear52WeekHigh(
   symbols: string[],
   date: string,
-  maxPercentFromHigh: number = 15
+  maxPercentFromHigh: number = 15,
+  market: 'US' | 'UK' = 'US'
 ): Promise<FiftyTwoWeekHighResult[]> {
   const results: FiftyTwoWeekHighResult[] = [];
-  
+
   for (const symbol of symbols) {
-    const data = await getFiftyTwoWeekHighData(symbol, date);
+    const data = await getFiftyTwoWeekHighData(symbol, date, market);
     if (data && data.percentFromHigh >= -maxPercentFromHigh) {
       results.push(data);
     }
   }
-  
+
   results.sort((a, b) => b.percentFromHigh - a.percentFromHigh);
-  
+
   return results;
 }

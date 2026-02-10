@@ -13,15 +13,22 @@ export class CanslimTradeService {
     forceOverride: boolean,
     dryRun: boolean,
     earningsData?: EarningsCheckResult,
-    floatData?: SharesFloatData
+    floatData?: SharesFloatData,
+    market: 'US' | 'UK' = 'US'
   ): Promise<ICanslimTrade> {
     try {
-      console.log(`[CanslimTradeService] Creating trade for ${signal.symbol} - Score: ${signal.score}/${signal.maxScore}`);
-      
+      console.log(`[CanslimTradeService] Creating ${market} trade for ${signal.symbol} - Score: ${signal.score}/${signal.maxScore}`);
+
+      const exchange = market === 'UK' ? 'LSE' : (mt5Symbol.endsWith('.O') ? 'NASDAQ' : 'NYSE');
+      const currency = market === 'UK' ? 'GBP' : 'USD';
+
       const trade = new CanslimTrade({
         symbol: signal.symbol,
         mt5Symbol: mt5Symbol,
-        
+        market: market,
+        exchange: exchange,
+        currency: currency,
+
         entryPrice: signal.entryPrice,
         stopLoss: signal.stopLoss,
         takeProfit: signal.target,
@@ -195,6 +202,21 @@ export class CanslimTradeService {
   static async getOpenSymbols(): Promise<Set<string>> {
     const openTrades = await CanslimTrade.find({
       status: { $in: ['pending', 'placed', 'filled'] }
+    }).select('symbol');
+    return new Set(openTrades.map(t => t.symbol));
+  }
+
+  static async getOpenTradesByMarket(market: 'US' | 'UK'): Promise<ICanslimTrade[]> {
+    return await CanslimTrade.find({
+      status: { $in: ['pending', 'placed', 'filled'] },
+      market: market
+    }).sort({ signalTime: -1 });
+  }
+
+  static async getOpenSymbolsByMarket(market: 'US' | 'UK'): Promise<Set<string>> {
+    const openTrades = await CanslimTrade.find({
+      status: { $in: ['pending', 'placed', 'filled'] },
+      market: market
     }).select('symbol');
     return new Set(openTrades.map(t => t.symbol));
   }

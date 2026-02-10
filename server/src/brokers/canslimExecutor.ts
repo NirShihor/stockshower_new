@@ -7,7 +7,7 @@ import {
   clearCanslimCache
 } from '../services/canslimService.js';
 import { getMarketContext } from '../services/marketContextService.js';
-import { RS_UNIVERSE } from '../services/relativeStrengthService.js';
+import { RS_UNIVERSE, UK_UNIVERSE } from '../services/relativeStrengthService.js';
 import { CanslimTradeService } from '../db/services/canslimTradeService.js';
 import { checkEarningsWithPerplexity, EarningsCheckResult, getSharesFloat, SharesFloatData } from '../services/earningsFilterService.js';
 
@@ -57,7 +57,11 @@ export class CanslimExecutor {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
-  private convertToMT5Symbol(symbol: string): string {
+  private convertToMT5Symbol(symbol: string, market: 'US' | 'UK' = 'US'): string {
+    if (market === 'UK') {
+      return symbol.endsWith('.L') ? symbol : `${symbol}.L`;
+    }
+
     const nasdaqStocks = new Set([
       'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'AVGO', 'COST',
       'CSCO', 'ADBE', 'AMD', 'NFLX', 'INTC', 'QCOM', 'INTU', 'AMAT', 'MU',
@@ -100,22 +104,23 @@ export class CanslimExecutor {
     };
   }
 
-  async scanForSignals(): Promise<CanslimSignal[]> {
+  async scanForSignals(market: 'US' | 'UK' = 'US'): Promise<CanslimSignal[]> {
     const today = new Date().toISOString().split('T')[0];
-    console.log(`[CANSLIM] Scanning for signals on ${today}...`);
-    
-    const candidates = await scanForCanslimCandidates(today, RS_UNIVERSE, this.config, this.config.ignoreMarketRegime);
-    
-    const filtered = candidates.filter(c => 
-      c.score >= this.config.minScore && 
+    const universe = market === 'UK' ? UK_UNIVERSE : RS_UNIVERSE;
+    console.log(`[CANSLIM] Scanning ${universe.length} ${market} symbols for signals on ${today}...`);
+
+    const candidates = await scanForCanslimCandidates(today, universe, this.config, this.config.ignoreMarketRegime, market);
+
+    const filtered = candidates.filter(c =>
+      c.score >= this.config.minScore &&
       !this.activeTrades.has(c.symbol)
     );
 
-    console.log(`[CANSLIM] Found ${filtered.length} candidates with score >= ${this.config.minScore}`);
+    console.log(`[CANSLIM] Found ${filtered.length} ${market} candidates with score >= ${this.config.minScore}`);
     return filtered;
   }
 
-  async executeTrade(signal: CanslimSignal, marketRegime: string, marketRegimeReason: string, earningsData?: EarningsCheckResult, floatData?: SharesFloatData): Promise<boolean> {
+  async executeTrade(signal: CanslimSignal, marketRegime: string, marketRegimeReason: string, earningsData?: EarningsCheckResult, floatData?: SharesFloatData, market: 'US' | 'UK' = 'US'): Promise<boolean> {
     if (this.dailyTradeCount >= this.config.maxDailyTrades) {
       console.log(`[CANSLIM] Daily trade limit reached (${this.config.maxDailyTrades})`);
       return false;
@@ -126,7 +131,7 @@ export class CanslimExecutor {
       return false;
     }
 
-    const mt5Symbol = this.convertToMT5Symbol(signal.symbol);
+    const mt5Symbol = this.convertToMT5Symbol(signal.symbol, market);
     const entryPrice = signal.entryPrice;
     const stopLoss = signal.stopLoss;
     const takeProfit = signal.target;
@@ -149,7 +154,8 @@ export class CanslimExecutor {
         this.config.ignoreMarketRegime,
         this.config.dryRun,
         earningsData,
-        floatData
+        floatData,
+        market
       );
       dbTradeId = dbTrade._id?.toString();
       console.log(`   [DB] Trade saved with ID: ${dbTradeId}`);
@@ -182,7 +188,7 @@ export class CanslimExecutor {
 
     const orderSignal = {
       id: `canslim-${Date.now()}`,
-      symbol: signal.symbol,
+      symbol: mt5Symbol, // Use pre-converted MT5 symbol to preserve market suffix (.L for UK, .O/.N for US)
       timeframe: 'day',
       time: new Date().toISOString(),
       pattern: {
@@ -266,9 +272,16 @@ export class CanslimExecutor {
     }
   }
 
-  async scanAndExecute(): Promise<{ scanned: number; executed: number; skipped: string }> {
+  async scanAndExecute(market: 'US' | 'UK' = 'US'): Promise<{ scanned: number; executed: number; skipped: string }> {
+    const universe = market === 'UK' ? UK_UNIVERSE : RS_UNIVERSE;
+
+    const scanStartTime = new Date();
     console.log('\n' + '='.repeat(60));
-    console.log(`CAN SLIM LIVE SCANNER ${this.config.dryRun ? '[DRY RUN]' : '[LIVE]'}`);
+    console.log(`CAN SLIM ${market} SCANNER ${this.config.dryRun ? '[DRY RUN]' : '[LIVE]'}`);
+    console.log('='.repeat(60));
+    console.log(`  Start time: ${scanStartTime.toLocaleString('en-GB', { timeZone: 'Europe/London' })} GMT`);
+    console.log(`  Universe: ${universe.length} ${market} stocks`);
+    console.log(`  Min score: ${this.config.minScore}/6`);
     console.log('='.repeat(60));
 
     const marketCheck = await this.checkMarketRegime();
@@ -304,7 +317,14 @@ export class CanslimExecutor {
 
     // ALWAYS check LIVE broker for existing positions/orders - database may be stale
     // This is the ONLY source of truth for what's actually open
+    // Track symbols with their market to avoid blocking same ticker on different exchanges
+    // e.g., JD.L (JD Sports UK) and JD.O (JD.com US) are different companies
     let existingOpenSymbols = new Set<string>();
+
+    const getMarketFromMT5Symbol = (mt5Symbol: string): 'US' | 'UK' => {
+      if (mt5Symbol.endsWith('.L')) return 'UK';
+      return 'US'; // .O and .N are both US
+    };
 
     try {
       const [positions, orders] = await Promise.all([
@@ -315,18 +335,23 @@ export class CanslimExecutor {
       console.log(`[CANSLIM] Broker check: ${positions.length} positions, ${orders.length} orders`);
 
       // Get ALL symbols that have CAN SLIM positions or pending orders at broker
+      // Store as "symbol:market" to distinguish same ticker on different exchanges
       positions.forEach((p: any) => {
         if (p.comment && p.comment.includes('CAN SLIM')) {
-          const baseSymbol = p.symbol.replace(/\.(O|N)$/, '');
-          existingOpenSymbols.add(baseSymbol);
-          console.log(`[CANSLIM] Found existing POSITION: ${p.symbol} -> ${baseSymbol} (comment: ${p.comment})`);
+          const baseSymbol = p.symbol.replace(/\.(O|N|L)$/, '');
+          const symbolMarket = getMarketFromMT5Symbol(p.symbol);
+          const symbolKey = `${baseSymbol}:${symbolMarket}`;
+          existingOpenSymbols.add(symbolKey);
+          console.log(`[CANSLIM] Found existing POSITION: ${p.symbol} -> ${symbolKey} (comment: ${p.comment})`);
         }
       });
       orders.forEach((o: any) => {
         if (o.comment && o.comment.includes('CAN SLIM')) {
-          const baseSymbol = o.symbol.replace(/\.(O|N)$/, '');
-          existingOpenSymbols.add(baseSymbol);
-          console.log(`[CANSLIM] Found existing ORDER: ${o.symbol} -> ${baseSymbol} (type: ${o.type}, comment: ${o.comment})`);
+          const baseSymbol = o.symbol.replace(/\.(O|N|L)$/, '');
+          const symbolMarket = getMarketFromMT5Symbol(o.symbol);
+          const symbolKey = `${baseSymbol}:${symbolMarket}`;
+          existingOpenSymbols.add(symbolKey);
+          console.log(`[CANSLIM] Found existing ORDER: ${o.symbol} -> ${symbolKey} (type: ${o.type}, comment: ${o.comment})`);
         }
       });
 
@@ -340,11 +365,11 @@ export class CanslimExecutor {
       // Continue without blocking any symbols - better to risk duplicate than block everything
     }
 
-    const signals = await this.scanForSignals();
-    
+    const signals = await this.scanForSignals(market);
+
     if (signals.length === 0) {
-      console.log('[CANSLIM] No valid signals found');
-      return { scanned: RS_UNIVERSE.length, executed: 0, skipped: 'No signals' };
+      console.log(`[CANSLIM] No valid ${market} signals found`);
+      return { scanned: universe.length, executed: 0, skipped: 'No signals' };
     }
 
     let executed = 0;
@@ -357,8 +382,9 @@ export class CanslimExecutor {
         break;
       }
 
-      if (existingOpenSymbols.has(signal.symbol)) {
-        console.log(`[CANSLIM] SKIPPED ${signal.symbol} - already has open position in database`);
+      const symbolKey = `${signal.symbol}:${market}`;
+      if (existingOpenSymbols.has(symbolKey)) {
+        console.log(`[CANSLIM] SKIPPED ${signal.symbol} - already has open ${market} position/order`);
         skippedDuplicate++;
         continue;
       }
@@ -387,7 +413,7 @@ export class CanslimExecutor {
         console.log(`[CANSLIM] ${signal.symbol} Float: ${(floatData.floatShares / 1e9).toFixed(2)}B shares`);
       }
 
-      const success = await this.executeTrade(signal, marketCheck.regime, marketCheck.reason, earningsCheck, floatData);
+      const success = await this.executeTrade(signal, marketCheck.regime, marketCheck.reason, earningsCheck, floatData, market);
       if (success) executed++;
     }
     
@@ -398,12 +424,24 @@ export class CanslimExecutor {
       console.log(`[CANSLIM] Skipped ${skippedDuplicate} stocks due to existing open positions`);
     }
 
+    const scanEndTime = new Date();
+    const scanDurationSec = ((scanEndTime.getTime() - scanStartTime.getTime()) / 1000).toFixed(1);
+
     console.log('\n' + '='.repeat(60));
-    console.log(`SCAN COMPLETE: ${executed} trades executed`);
-    console.log(`Time: ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}`);
+    console.log(`${market} SCAN COMPLETE`);
+    console.log('='.repeat(60));
+    console.log(`  Market: ${market}`);
+    console.log(`  Time: ${scanEndTime.toLocaleString('en-GB', { timeZone: 'Europe/London' })} GMT`);
+    console.log(`  Duration: ${scanDurationSec}s`);
+    console.log(`  Stocks scanned: ${universe.length}`);
+    console.log(`  Candidates found: ${signals.length}`);
+    console.log(`  Trades executed: ${executed}`);
+    if (skippedEarnings > 0) console.log(`  Skipped (earnings): ${skippedEarnings}`);
+    if (skippedDuplicate > 0) console.log(`  Skipped (duplicate): ${skippedDuplicate}`);
+    console.log(`  Market regime: ${marketCheck.regime.toUpperCase()}`);
     console.log('='.repeat(60) + '\n');
 
-    return { scanned: RS_UNIVERSE.length, executed, skipped: '' };
+    return { scanned: universe.length, executed, skipped: '' };
   }
 
   getActiveTrades(): Map<string, ActiveCanslimTrade> {

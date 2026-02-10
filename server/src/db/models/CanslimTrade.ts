@@ -4,7 +4,10 @@ export interface ICanslimTrade {
   _id?: any;
   symbol: string;
   mt5Symbol: string;
-  
+  market: 'US' | 'UK';
+  exchange?: string;
+  currency: 'USD' | 'GBP';
+
   entryPrice: number;
   actualEntryPrice?: number;
   stopLoss: number;
@@ -69,7 +72,10 @@ export interface ICanslimTrade {
 const CanslimTradeSchema = new Schema({
   symbol: { type: String, required: true, index: true },
   mt5Symbol: { type: String, required: true },
-  
+  market: { type: String, enum: ['US', 'UK'], default: 'US', index: true },
+  exchange: { type: String },
+  currency: { type: String, enum: ['USD', 'GBP'], default: 'USD' },
+
   entryPrice: { type: Number, required: true },
   actualEntryPrice: { type: Number },
   stopLoss: { type: Number, required: true },
@@ -151,4 +157,4 @@ CanslimTradeSchema.pre('save', function(next) {
   next();
 });
 
-export const CanslimTrade = model<ICanslimTrade>('CanslimTrade', CanslimTradeSchema);
+export const CanslimTrade = model<ICanslimTrade>('CanslimTrade', CanslimTradeSchema as any);
