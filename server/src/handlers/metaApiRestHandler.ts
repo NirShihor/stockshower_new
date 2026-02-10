@@ -705,7 +705,10 @@ class MetaApiRestHandler {
             console.error('[MetaApi] Error updating trade record:', updateError);
           }
         }
-        
+
+        // Invalidate cache so next broker check gets fresh data
+        this.invalidateBrokerCache();
+
         return result;
       } else {
         const result: MetaApiOrderResult = {
@@ -1406,33 +1409,76 @@ class MetaApiRestHandler {
     return (minutesUntilTarget + (daysToAdd * 24 * 60)) * 60 * 1000;
   }
 
+  // Cache for positions and orders to reduce API calls
+  private positionsCache: { data: any[]; timestamp: number } = { data: [], timestamp: 0 };
+  private ordersCache: { data: any[]; timestamp: number } = { data: [], timestamp: 0 };
+  private readonly BROKER_CACHE_TTL_MS = 30 * 1000; // 30 seconds cache
+
   // Position monitoring methods for trade tracking
-  async getPositions(): Promise<any[]> {
+  async getPositions(forceRefresh = false): Promise<any[]> {
+    const now = Date.now();
+
+    // Return cached data if fresh enough
+    if (!forceRefresh && now - this.positionsCache.timestamp < this.BROKER_CACHE_TTL_MS) {
+      return this.positionsCache.data;
+    }
+
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
       const response = await this.axiosInstance.get(
         `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
         { headers: this.getHeaders() }
       );
-      return response.data || [];
+      const positions = response.data || [];
+
+      // Update cache
+      this.positionsCache = { data: positions, timestamp: now };
+      return positions;
     } catch (error: any) {
+      // On rate limit, return cached data if available
+      if (error.response?.data?.error === 'TooManyRequestsError' && this.positionsCache.data.length > 0) {
+        console.log('[MetaApi] Rate limited on getPositions, using cached data');
+        return this.positionsCache.data;
+      }
       console.error('[MetaApi] Error getting positions:', error.response?.data || error.message);
-      return [];
+      return this.positionsCache.data.length > 0 ? this.positionsCache.data : [];
     }
   }
 
-  async getOrders(): Promise<any[]> {
+  async getOrders(forceRefresh = false): Promise<any[]> {
+    const now = Date.now();
+
+    // Return cached data if fresh enough
+    if (!forceRefresh && now - this.ordersCache.timestamp < this.BROKER_CACHE_TTL_MS) {
+      return this.ordersCache.data;
+    }
+
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
       const response = await this.axiosInstance.get(
         `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
         { headers: this.getHeaders() }
       );
-      return response.data || [];
+      const orders = response.data || [];
+
+      // Update cache
+      this.ordersCache = { data: orders, timestamp: now };
+      return orders;
     } catch (error: any) {
+      // On rate limit, return cached data if available
+      if (error.response?.data?.error === 'TooManyRequestsError' && this.ordersCache.data.length > 0) {
+        console.log('[MetaApi] Rate limited on getOrders, using cached data');
+        return this.ordersCache.data;
+      }
       console.error('[MetaApi] Error getting orders:', error.response?.data || error.message);
-      return [];
+      return this.ordersCache.data.length > 0 ? this.ordersCache.data : [];
     }
+  }
+
+  // Force refresh the broker cache (use after placing orders)
+  invalidateBrokerCache(): void {
+    this.positionsCache.timestamp = 0;
+    this.ordersCache.timestamp = 0;
   }
 
   async closePosition(positionId: string): Promise<{ success: boolean; error?: string }> {
@@ -1454,7 +1500,10 @@ class MetaApiRestHandler {
       );
 
       console.log(`[MetaApi] Close position response:`, response.data);
-      
+
+      // Invalidate cache so next broker check gets fresh data
+      this.invalidateBrokerCache();
+
       return { success: true };
     } catch (error: any) {
       console.error(`[MetaApi] Error closing position ${positionId}:`, error.response?.data || error.message);
