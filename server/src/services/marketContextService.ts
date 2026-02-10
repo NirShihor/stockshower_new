@@ -1,4 +1,5 @@
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
+import { fetchUKHistoricalBars } from '../handlers/ukDataAPI.js';
 import { Candle } from '../candlestick/types/index.js';
 
 interface MarketIndex {
@@ -34,10 +35,17 @@ export interface MarketContext {
   marketDeteriorating: boolean;
 }
 
-const MARKET_SYMBOLS = {
-  SPY: 'SPY',
-  QQQ: 'QQQ',
-  VIXY: 'VIXY'
+const US_MARKET_SYMBOLS = {
+  INDEX: 'SPY',      // S&P 500 ETF
+  TECH: 'QQQ',       // Nasdaq 100 ETF
+  VIX: 'VIXY'        // VIX ETF proxy
+};
+
+// UK market proxies using major FTSE 100 stocks (no ETFs available on FxPro)
+const UK_MARKET_SYMBOLS = {
+  INDEX: 'SHEL',     // Shell - largest UK stock, proxy for market
+  TECH: 'AZN',       // AstraZeneca - large cap proxy
+  VIX: 'BARC'        // Barclays - financials tend to be volatile, proxy for fear
 };
 
 function calculateEma(candles: Candle[], period: number): number {
@@ -77,10 +85,10 @@ function determineTrend(candles: Candle[], ema20: number): 'bullish' | 'bearish'
 }
 
 async function fetchIndexData(
-  apiKey: string,
   symbol: string,
   name: string,
-  date: string
+  date: string,
+  market: 'US' | 'UK' = 'US'
 ): Promise<MarketIndex | null> {
   try {
     const endDate = date;
@@ -88,25 +96,43 @@ async function fetchIndexData(
     startDateObj.setDate(startDateObj.getDate() - 60);
     const startDate = startDateObj.toISOString().split('T')[0];
 
-    const dailyCandles = await fetchHistoricalBars(
-      apiKey,
-      symbol,
-      startDate,
-      endDate,
-      'day',
-      1,
-      60
-    );
-    
+    let dailyCandles;
+
+    if (market === 'UK') {
+      dailyCandles = await fetchUKHistoricalBars(
+        symbol,
+        startDate,
+        endDate,
+        'day',
+        60
+      );
+    } else {
+      const apiKey = process.env.POLYGON_API_KEY;
+      if (!apiKey) {
+        console.error('[MARKET-CONTEXT] No Polygon API key');
+        return null;
+      }
+
+      dailyCandles = await fetchHistoricalBars(
+        apiKey,
+        symbol,
+        startDate,
+        endDate,
+        'day',
+        1,
+        60
+      );
+    }
+
     if (dailyCandles.length === 0) return null;
-    
+
     const latest = dailyCandles[dailyCandles.length - 1];
     const prevDay = dailyCandles.length > 1 ? dailyCandles[dailyCandles.length - 2] : latest;
-    
+
     const ema20 = calculateEma(dailyCandles, 20);
     const weekChange = calculateWeekChange(dailyCandles);
     const changePercent = ((latest.close - prevDay.close) / prevDay.close) * 100;
-    
+
     return {
       symbol,
       name,
@@ -209,45 +235,46 @@ function generateSummary(
     `QQQ ${qqq.weekChangePercent > 0 ? '+' : ''}${qqq.weekChangePercent.toFixed(1)}%.`;
 }
 
-export async function getMarketContext(date: string): Promise<MarketContext | null> {
-  const apiKey = process.env.POLYGON_API_KEY;
-  if (!apiKey) {
-    console.error('[MARKET-CONTEXT] No Polygon API key configured');
-    return null;
-  }
-  
-  console.log(`[MARKET-CONTEXT] Fetching market context for ${date}`);
-  
-  const [spy, qqq, vixy] = await Promise.all([
-    fetchIndexData(apiKey, MARKET_SYMBOLS.SPY, 'S&P 500 ETF', date),
-    fetchIndexData(apiKey, MARKET_SYMBOLS.QQQ, 'Nasdaq 100 ETF', date),
-    fetchIndexData(apiKey, MARKET_SYMBOLS.VIXY, 'VIX ETF Proxy', date)
+export async function getMarketContext(date: string, market: 'US' | 'UK' = 'US'): Promise<MarketContext | null> {
+  const symbols = market === 'UK' ? UK_MARKET_SYMBOLS : US_MARKET_SYMBOLS;
+  const indexName = market === 'UK' ? 'FTSE 100 ETF' : 'S&P 500 ETF';
+  const techName = market === 'UK' ? 'UK Tech Proxy' : 'Nasdaq 100 ETF';
+
+  console.log(`[MARKET-CONTEXT] Fetching ${market} market context for ${date}`);
+
+  const [indexData, techData, vixData] = await Promise.all([
+    fetchIndexData(symbols.INDEX, indexName, date, market),
+    fetchIndexData(symbols.TECH, techName, date, market),
+    fetchIndexData(symbols.VIX, 'VIX Proxy', date, market)
   ]);
-  
-  if (!spy || !qqq) {
-    console.error('[MARKET-CONTEXT] Failed to fetch SPY or QQQ');
+
+  if (!indexData) {
+    console.error(`[MARKET-CONTEXT] Failed to fetch ${symbols.INDEX} for ${market} market`);
     return null;
   }
-  
-  const estimateVixFromVixy = (vixyPrice: number, vixyWeekChange: number): number => {
+
+  // Use index data as fallback for tech if not available
+  const tech = techData || indexData;
+
+  const estimateVixFromProxy = (proxyWeekChange: number): number => {
     let baseVix = 16;
-    if (vixyWeekChange > 20) baseVix = 30;
-    else if (vixyWeekChange > 10) baseVix = 25;
-    else if (vixyWeekChange > 5) baseVix = 20;
-    else if (vixyWeekChange < -10) baseVix = 12;
-    else if (vixyWeekChange < -5) baseVix = 14;
+    if (proxyWeekChange > 20) baseVix = 30;
+    else if (proxyWeekChange > 10) baseVix = 25;
+    else if (proxyWeekChange > 5) baseVix = 20;
+    else if (proxyWeekChange < -10) baseVix = 12;
+    else if (proxyWeekChange < -5) baseVix = 14;
     return baseVix;
   };
 
-  const vixSpikePercent = vixy?.weekChangePercent || 0;
-  const estimatedVix = vixy ? estimateVixFromVixy(vixy.current, vixy.weekChangePercent) : 16;
+  const vixSpikePercent = vixData?.weekChangePercent || 0;
+  const estimatedVix = vixData ? estimateVixFromProxy(vixData.weekChangePercent) : 16;
   const vixSpike = vixSpikePercent > 20 || estimatedVix > 25;
-  
-  const vix: MarketIndex = vixy ? {
-    ...vixy,
+
+  const vix: MarketIndex = vixData ? {
+    ...vixData,
     symbol: 'VIX',
     name: 'Volatility Index',
-    current: estimateVixFromVixy(vixy.current, vixy.weekChangePercent)
+    current: estimateVixFromProxy(vixData.weekChangePercent)
   } : {
     symbol: 'VIX',
     name: 'Volatility Index',
@@ -260,18 +287,18 @@ export async function getMarketContext(date: string): Promise<MarketContext | nu
     trend: 'neutral',
     aboveEma20: false
   };
-  
-  const { regime, reason } = determineMarketRegime(spy, qqq, vix);
-  const summary = generateSummary(spy, qqq, vix, regime);
-  
-  console.log(`[MARKET-CONTEXT] ${summary}`);
-  
-  const marketDeteriorating = spy.aboveEma20 && spy.weekChangePercent < -0.5;
-  
+
+  const { regime, reason } = determineMarketRegime(indexData, tech, vix);
+  const summary = generateSummary(indexData, tech, vix, regime);
+
+  console.log(`[MARKET-CONTEXT] ${market}: ${summary}`);
+
+  const marketDeteriorating = indexData.aboveEma20 && indexData.weekChangePercent < -0.5;
+
   return {
     timestamp: new Date().toISOString(),
-    spy,
-    qqq,
+    spy: indexData,  // For UK this is ISF, for US this is SPY
+    qqq: tech,       // For UK this is tech proxy, for US this is QQQ
     vix,
     regime,
     regimeReason: reason,

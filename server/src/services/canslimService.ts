@@ -1,56 +1,65 @@
 import { getMarketContext, MarketContext } from './marketContextService.js';
 import { getSectorAnalysis, SectorAnalysis, getStockSector } from './sectorAnalysisService.js';
-import { calculateRelativeStrength, RelativeStrengthResult, RS_UNIVERSE, getRSRankings } from './relativeStrengthService.js';
+import { calculateRelativeStrength, RelativeStrengthResult, RS_UNIVERSE, UK_UNIVERSE, getRSRankings } from './relativeStrengthService.js';
 import { getFiftyTwoWeekHighData, FiftyTwoWeekHighResult } from './fiftyTwoWeekHighService.js';
 import { detectBasePattern, BasePattern } from './basePatternService.js';
 import { fetchHistoricalBars } from '../handlers/polygonAPI.js';
+import { fetchUKHistoricalBars } from '../handlers/ukDataAPI.js';
 
+// Market-aware cache: key is "date:market" (e.g., "2024-01-15:US" or "2024-01-15:UK")
 const dateCache = new Map<string, {
   marketContext: MarketContext | null;
   sectorAnalysis: SectorAnalysis | null;
   rsRankings: Map<string, { return12M: number; rsRating: number }>;
 }>();
 
+function getCacheKey(date: string, market: 'US' | 'UK'): string {
+  return `${date}:${market}`;
+}
+
 export function clearCanslimCache(): void {
   dateCache.clear();
 }
 
-async function getCachedMarketContext(date: string): Promise<MarketContext | null> {
-  if (!dateCache.has(date)) {
-    dateCache.set(date, { marketContext: null, sectorAnalysis: null, rsRankings: new Map() });
+async function getCachedMarketContext(date: string, market: 'US' | 'UK' = 'US'): Promise<MarketContext | null> {
+  const key = getCacheKey(date, market);
+  if (!dateCache.has(key)) {
+    dateCache.set(key, { marketContext: null, sectorAnalysis: null, rsRankings: new Map() });
   }
-  const cache = dateCache.get(date)!;
+  const cache = dateCache.get(key)!;
   if (cache.marketContext === null) {
-    cache.marketContext = await getMarketContext(date);
+    cache.marketContext = await getMarketContext(date, market);
   }
   return cache.marketContext;
 }
 
-async function getCachedSectorAnalysis(date: string): Promise<SectorAnalysis | null> {
-  if (!dateCache.has(date)) {
-    dateCache.set(date, { marketContext: null, sectorAnalysis: null, rsRankings: new Map() });
+async function getCachedSectorAnalysis(date: string, market: 'US' | 'UK' = 'US'): Promise<SectorAnalysis | null> {
+  const key = getCacheKey(date, market);
+  if (!dateCache.has(key)) {
+    dateCache.set(key, { marketContext: null, sectorAnalysis: null, rsRankings: new Map() });
   }
-  const cache = dateCache.get(date)!;
+  const cache = dateCache.get(key)!;
   if (cache.sectorAnalysis === null) {
-    cache.sectorAnalysis = await getSectorAnalysis(date);
+    cache.sectorAnalysis = await getSectorAnalysis(date, 0, market);
   }
   return cache.sectorAnalysis;
 }
 
-async function getCachedRSRating(symbol: string, date: string): Promise<{ return12M: number; rsRating: number } | null> {
-  if (!dateCache.has(date)) {
-    dateCache.set(date, { marketContext: null, sectorAnalysis: null, rsRankings: new Map() });
+async function getCachedRSRating(symbol: string, date: string, market: 'US' | 'UK' = 'US'): Promise<{ return12M: number; rsRating: number } | null> {
+  const key = getCacheKey(date, market);
+  if (!dateCache.has(key)) {
+    dateCache.set(key, { marketContext: null, sectorAnalysis: null, rsRankings: new Map() });
   }
-  const cache = dateCache.get(date)!;
-  
+  const cache = dateCache.get(key)!;
+
   if (cache.rsRankings.size === 0) {
-    console.log(`[CANSLIM] Building RS rankings for ${date}...`);
-    const rankings = await getRSRankings(date);
+    console.log(`[CANSLIM] Building ${market} RS rankings for ${date}...`);
+    const rankings = await getRSRankings(date, market === 'UK' ? UK_UNIVERSE : RS_UNIVERSE, market);
     for (const r of rankings) {
       cache.rsRankings.set(r.symbol, { return12M: r.return12M, rsRating: r.rsRating });
     }
   }
-  
+
   return cache.rsRankings.get(symbol) || null;
 }
 
@@ -133,33 +142,46 @@ const DEFAULT_CONFIG: CanslimConfig = {
 async function checkVolumeBreakout(
   symbol: string,
   date: string,
-  pivotPrice: number
+  pivotPrice: number,
+  market: 'US' | 'UK' = 'US'
 ): Promise<{ pass: boolean; volumeRatio: number; priceAbovePivot: boolean; currentPrice: number } | null> {
-  const apiKey = process.env.POLYGON_API_KEY;
-  if (!apiKey) return null;
-  
   const end = new Date(date);
   const start = new Date(date);
   start.setDate(start.getDate() - 60);
-  
+
   try {
-    const candles = await fetchHistoricalBars(
-      apiKey,
-      symbol,
-      start.toISOString().split('T')[0],
-      end.toISOString().split('T')[0],
-      'day',
-      1,
-      60
-    );
-    
+    let candles;
+
+    if (market === 'UK') {
+      candles = await fetchUKHistoricalBars(
+        symbol,
+        start.toISOString().split('T')[0],
+        end.toISOString().split('T')[0],
+        'day',
+        60
+      );
+    } else {
+      const apiKey = process.env.POLYGON_API_KEY;
+      if (!apiKey) return null;
+
+      candles = await fetchHistoricalBars(
+        apiKey,
+        symbol,
+        start.toISOString().split('T')[0],
+        end.toISOString().split('T')[0],
+        'day',
+        1,
+        60
+      );
+    }
+
     if (candles.length < 51) return null;
-    
+
     const latestCandle = candles[candles.length - 1];
     const avgVolume = candles.slice(-51, -1).reduce((sum, c) => sum + (c.volume || 0), 0) / 50;
     const volumeRatio = (latestCandle.volume || 0) / avgVolume;
     const priceAbovePivot = latestCandle.close > pivotPrice;
-    
+
     return {
       pass: volumeRatio >= 1.4 && priceAbovePivot,
       volumeRatio: Math.round(volumeRatio * 100) / 100,
@@ -167,6 +189,7 @@ async function checkVolumeBreakout(
       currentPrice: latestCandle.close
     };
   } catch (error) {
+    console.error(`[CANSLIM] Volume breakout check failed for ${symbol}:`, error);
     return null;
   }
 }
@@ -174,16 +197,17 @@ async function checkVolumeBreakout(
 export async function analyseCanslimSignal(
   symbol: string,
   date: string,
-  config: CanslimConfig = DEFAULT_CONFIG
+  config: CanslimConfig = DEFAULT_CONFIG,
+  market: 'US' | 'UK' = 'US'
 ): Promise<CanslimSignal | null> {
-  console.log(`[CANSLIM] Analysing ${symbol} for ${date}`);
-  
+  console.log(`[CANSLIM] Analysing ${symbol} (${market}) for ${date}`);
+
   const [marketContext, sectorAnalysis, rsRating, highData, basePattern] = await Promise.all([
-    getCachedMarketContext(date),
-    getCachedSectorAnalysis(date),
-    getCachedRSRating(symbol, date),
-    getFiftyTwoWeekHighData(symbol, date),
-    detectBasePattern(symbol, date)
+    getCachedMarketContext(date, market),
+    getCachedSectorAnalysis(date, market),
+    getCachedRSRating(symbol, date, market),
+    getFiftyTwoWeekHighData(symbol, date, market),
+    detectBasePattern(symbol, date, market)
   ]);
   
   if (!marketContext) {
@@ -206,14 +230,14 @@ export async function analyseCanslimSignal(
   const basePass = basePattern !== null && basePattern.isValid;
   if (basePass) score++;
   
-  const stockSector = getStockSector(symbol);
-  const sectorData = sectorAnalysis?.sectors.find(s => s.symbol === stockSector);
+  const stockSector = getStockSector(symbol, market);
+  const sectorData = sectorAnalysis?.sectors.find(s => s.sector === stockSector);
   const sectorPass = sectorData !== null && sectorData !== undefined && 
     sectorData.rank <= 5 && sectorData.momentum !== 'losing';
   if (sectorPass) score++;
   
   const pivotPrice = basePattern?.pivotPrice || highData?.fiftyTwoWeekHigh || 0;
-  const volumeData = pivotPrice > 0 ? await checkVolumeBreakout(symbol, date, pivotPrice) : null;
+  const volumeData = pivotPrice > 0 ? await checkVolumeBreakout(symbol, date, pivotPrice, market) : null;
   const volumePass = volumeData !== null && volumeData.pass;
   if (volumePass) score++;
 
@@ -236,8 +260,9 @@ export async function analyseCanslimSignal(
   const risk = entryPrice - stopLoss;
   const target = entryPrice + (risk * config.targetMultiple);
 
-  // Pass criteria: market direction + RS + (near high or base pattern) + NOT extended beyond buy zone
-  const pass = marketPass && rsPass && (highPass || basePass) && !extended;
+  // Pass criteria (strict O'Neil): market direction + RS + near high + valid base pattern + NOT extended
+  // Both highPass AND basePass required - a proper CAN SLIM setup needs a valid base breaking to new highs
+  const pass = marketPass && rsPass && highPass && basePass && !extended;
   
   return {
     symbol,
@@ -304,25 +329,27 @@ export async function scanForCanslimCandidates(
   date: string,
   symbols: string[] = RS_UNIVERSE,
   config: CanslimConfig = DEFAULT_CONFIG,
-  ignoreMarketRegime: boolean = false
+  ignoreMarketRegime: boolean = false,
+  market: 'US' | 'UK' = 'US'
 ): Promise<CanslimSignal[]> {
-  console.log(`[CANSLIM] Scanning ${symbols.length} symbols for ${date}`);
-  
-  const marketContext = await getCachedMarketContext(date);
+  const effectiveSymbols = symbols.length > 0 ? symbols : (market === 'UK' ? UK_UNIVERSE : RS_UNIVERSE);
+  console.log(`[CANSLIM] Scanning ${effectiveSymbols.length} ${market} symbols for ${date}`);
+
+  const marketContext = await getCachedMarketContext(date, market);
   if (!ignoreMarketRegime && (!marketContext || marketContext.regime !== 'risk-on')) {
-    console.log(`[CANSLIM] Market regime is ${marketContext?.regime || 'unknown'}, skipping scan`);
+    console.log(`[CANSLIM] ${market} market regime is ${marketContext?.regime || 'unknown'}, skipping scan`);
     return [];
   }
-  
+
   if (ignoreMarketRegime && marketContext?.regime !== 'risk-on') {
-    console.log(`[CANSLIM] Market regime is ${marketContext?.regime || 'unknown'}, but ignoring (force mode)`);
+    console.log(`[CANSLIM] ${market} market regime is ${marketContext?.regime || 'unknown'}, but ignoring (force mode)`);
   }
   
   const candidates: CanslimSignal[] = [];
   let extendedCount = 0;
 
-  for (const symbol of symbols) {
-    const signal = await analyseCanslimSignal(symbol, date, config);
+  for (const symbol of effectiveSymbols) {
+    const signal = await analyseCanslimSignal(symbol, date, config, market);
     if (signal) {
       if (signal.extended) {
         extendedCount++;
@@ -336,7 +363,7 @@ export async function scanForCanslimCandidates(
 
   candidates.sort((a, b) => b.score - a.score);
 
-  console.log(`[CANSLIM] Found ${candidates.length} candidates (${extendedCount} stocks extended beyond buy zone)`);
+  console.log(`[CANSLIM] Found ${candidates.length} ${market} candidates (${extendedCount} stocks extended beyond buy zone)`);
 
   return candidates;
 }

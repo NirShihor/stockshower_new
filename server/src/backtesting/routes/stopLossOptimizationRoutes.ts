@@ -168,10 +168,10 @@ async function runWithModifiedStops(config: any, strategy: any): Promise<any> {
     query.symbol = { $in: config.symbols };
   }
 
-  const trades = await Trade.find(query).lean();
+  const trades = await Trade.find(query).lean() as any[];
 
   // Modify stop losses based on strategy
-  const modifiedTrades = trades.map(trade => {
+  const modifiedTrades = trades.map((trade: any) => {
     if (!trade.signalData) return trade;
 
     const signal = trade.signalData;

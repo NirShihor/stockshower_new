@@ -46,7 +46,7 @@ export interface IDecisionLog {
   };
 }
 
-const DecisionLogSchema = new Schema<IDecisionLog>({
+const DecisionLogSchema = new Schema({
   symbol: { type: String, required: true, index: true },
   patternName: { type: String, required: true },
   patternScore: { type: Number, required: true },
@@ -96,4 +96,4 @@ DecisionLogSchema.index({ symbol: 1, signalTime: -1 });
 DecisionLogSchema.index({ decision: 1, signalTime: -1 });
 DecisionLogSchema.index({ 'hypotheticalOutcome.outcome': 1 });
 
-export const DecisionLog = model<IDecisionLog>('DecisionLog', DecisionLogSchema);
+export const DecisionLog = model<IDecisionLog>('DecisionLog', DecisionLogSchema as any);

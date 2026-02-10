@@ -18,7 +18,7 @@ class MetaApiRestHandler {
   private token: string;
   private accountId: string;
   private provisioningUrl = 'https://mt-provisioning-api-v1.agiliumtrade.agiliumtrade.ai';
-  private clientUrl = 'https://mt-client-api-v1.agiliumtrade.agiliumtrade.ai';
+  private clientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
   private axiosInstance: any;
 
   constructor() {
@@ -192,13 +192,13 @@ class MetaApiRestHandler {
 
       // Filter orders for this symbol (need to check both with and without suffix)
       // Use case-insensitive matching since MT5 may return different cases
-      const baseSymbol = symbol.replace(/\.[ON]$/i, '').toUpperCase(); // Remove .O or .N suffix, uppercase
+      const baseSymbol = symbol.replace(/\.(O|N|L)$/i, '').toUpperCase(); // Remove .O, .N, or .L suffix, uppercase
       
       console.log(`[MetaApi] Looking for orders matching base symbol: ${baseSymbol}`);
       console.log(`[MetaApi] Current pending orders:`, orders.map((o: any) => o.symbol));
       
       for (const order of orders) {
-        const orderBaseSymbol = order.symbol.replace(/\.[ON]$/i, '').toUpperCase();
+        const orderBaseSymbol = order.symbol.replace(/\.(O|N|L)$/i, '').toUpperCase();
         
         console.log(`[MetaApi] Comparing: ${orderBaseSymbol} vs ${baseSymbol}`);
         
@@ -348,8 +348,9 @@ class MetaApiRestHandler {
         volume = 0.01;
       }
 
-      // Convert symbol to MT5 format (add .O for NASDAQ stocks)
-      const mt5Symbol = this.convertToMT5Symbol(symbol);
+      // Convert symbol to MT5 format (add .O for NASDAQ, .N for NYSE)
+      // Skip conversion if symbol already has a market suffix (.L for UK, .O/.N for US)
+      const mt5Symbol = symbol.match(/\.(L|O|N)$/) ? symbol : this.convertToMT5Symbol(symbol);
       
       // Check if we can get quotes for this symbol first and get accurate current price
       let currentMarketPrice = currentPrice;
@@ -805,8 +806,8 @@ class MetaApiRestHandler {
         };
       }
       
-      // Convert symbol to MT5 format
-      const mt5Symbol = this.convertToMT5Symbol(symbol);
+      // Convert symbol to MT5 format (skip if already converted)
+      const mt5Symbol = symbol.match(/\.(L|O|N)$/) ? symbol : this.convertToMT5Symbol(symbol);
       
       // Get current market price
       let currentMarketPrice = currentPrice;

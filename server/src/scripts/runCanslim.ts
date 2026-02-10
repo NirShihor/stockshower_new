@@ -39,8 +39,9 @@ const goldConfig: Partial<GoldTradeConfig> = {
 
 const intervalMinutes = intervalArg ? parseInt(intervalArg.split('=')[1]) : 30;
 
+// US Eastern Time
 function getETTime(): { hour: number; minute: number; dayOfWeek: number } {
-  const etString = new Date().toLocaleString("en-US", { 
+  const etString = new Date().toLocaleString("en-US", {
     timeZone: "America/New_York",
     hour12: false,
   });
@@ -52,7 +53,22 @@ function getETTime(): { hour: number; minute: number; dayOfWeek: number } {
   };
 }
 
-function isMarketOpen(): boolean {
+// UK/London Time (GMT/BST)
+function getUKTime(): { hour: number; minute: number; dayOfWeek: number } {
+  const ukString = new Date().toLocaleString("en-GB", {
+    timeZone: "Europe/London",
+    hour12: false,
+  });
+  const date = new Date(ukString);
+  return {
+    hour: date.getHours(),
+    minute: date.getMinutes(),
+    dayOfWeek: date.getDay()
+  };
+}
+
+// US market: 9:30 AM - 4:00 PM ET
+function isUSMarketOpen(): boolean {
   const { hour, minute, dayOfWeek } = getETTime();
   if (dayOfWeek === 0 || dayOfWeek === 6) return false;
   const totalMinutes = hour * 60 + minute;
@@ -61,7 +77,33 @@ function isMarketOpen(): boolean {
   return totalMinutes >= marketOpen && totalMinutes < marketClose;
 }
 
-function isTradingWindowOpen(): boolean {
+// UK market: 8:00 AM - 4:30 PM London time
+function isUKMarketOpen(): boolean {
+  const { hour, minute, dayOfWeek } = getUKTime();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false;
+  const totalMinutes = hour * 60 + minute;
+  const marketOpen = 8 * 60;        // 08:00
+  const marketClose = 16 * 60 + 30; // 16:30
+  return totalMinutes >= marketOpen && totalMinutes < marketClose;
+}
+
+// Determine which market to trade based on current time
+function getCurrentMarket(): 'UK' | 'US' | 'BOTH' | 'CLOSED' {
+  const ukOpen = isUKMarketOpen();
+  const usOpen = isUSMarketOpen();
+
+  if (ukOpen && usOpen) return 'BOTH';
+  if (ukOpen) return 'UK';
+  if (usOpen) return 'US';
+  return 'CLOSED';
+}
+
+// Check if any market is open
+function isAnyMarketOpen(): boolean {
+  return isUKMarketOpen() || isUSMarketOpen();
+}
+
+function isUSTradingWindowOpen(): boolean {
   const { hour, minute, dayOfWeek } = getETTime();
   if (dayOfWeek === 0 || dayOfWeek === 6) return false;
   const totalMinutes = hour * 60 + minute;
@@ -71,35 +113,63 @@ function isTradingWindowOpen(): boolean {
   return totalMinutes >= tradingStart && totalMinutes < marketClose;
 }
 
-function getMinutesUntilTradingWindow(): number {
-  const { hour, minute } = getETTime();
+function isUKTradingWindowOpen(): boolean {
+  const { hour, minute, dayOfWeek } = getUKTime();
+  if (dayOfWeek === 0 || dayOfWeek === 6) return false;
   const totalMinutes = hour * 60 + minute;
-  const marketOpen = 9 * 60 + 30;
+  const marketOpen = 8 * 60;
   const tradingStart = marketOpen + tradingDelayMinutes;
-  return tradingStart - totalMinutes;
+  const marketClose = 16 * 60 + 30;
+  return totalMinutes >= tradingStart && totalMinutes < marketClose;
+}
+
+function getMinutesUntilTradingWindow(): { market: 'UK' | 'US'; minutes: number } | null {
+  const ukTime = getUKTime();
+  const etTime = getETTime();
+
+  // Check UK first (opens earlier)
+  if (ukTime.dayOfWeek !== 0 && ukTime.dayOfWeek !== 6) {
+    const ukTotalMinutes = ukTime.hour * 60 + ukTime.minute;
+    const ukTradingStart = 8 * 60 + tradingDelayMinutes;
+    if (ukTotalMinutes < ukTradingStart && ukTotalMinutes >= 8 * 60) {
+      return { market: 'UK', minutes: ukTradingStart - ukTotalMinutes };
+    }
+  }
+
+  // Check US
+  if (etTime.dayOfWeek !== 0 && etTime.dayOfWeek !== 6) {
+    const usTotalMinutes = etTime.hour * 60 + etTime.minute;
+    const usTradingStart = 9 * 60 + 30 + tradingDelayMinutes;
+    if (usTotalMinutes < usTradingStart && usTotalMinutes >= 9 * 60 + 30) {
+      return { market: 'US', minutes: usTradingStart - usTotalMinutes };
+    }
+  }
+
+  return null;
 }
 
 function getNextMarketOpen(): Date {
   const now = new Date();
   const { dayOfWeek } = getETTime();
-  
+
   let daysToAdd = 0;
   if (dayOfWeek === 6) daysToAdd = 2;
   else if (dayOfWeek === 0) daysToAdd = 1;
-  
+
   const next = new Date(now);
   next.setDate(next.getDate() + daysToAdd);
-  
+
   const etOpen = new Date(next.toLocaleString("en-US", { timeZone: "America/New_York" }));
   etOpen.setHours(9, 30, 0, 0);
-  
+
   return etOpen;
 }
 
 console.log('\n' + '='.repeat(60));
-console.log('CAN SLIM TRADING SYSTEM');
+console.log('CAN SLIM TRADING SYSTEM (UK + US)');
 console.log('='.repeat(60));
 console.log(`Mode: ${config.dryRun ? 'DRY RUN (no real trades)' : 'LIVE TRADING'}`);
+console.log(`Markets: UK (08:00-16:30 GMT) + US (09:30-16:00 ET)`);
 console.log(`Target Margin: £${config.targetMarginGBP}`);
 console.log(`Max Daily Trades: ${config.maxDailyTrades}`);
 console.log(`Min Score: ${config.minScore}/6`);
@@ -109,7 +179,7 @@ if (forceOverride) {
 console.log(`Earnings Filter: ${config.useEarningsFilter ? 'ON' : 'OFF'}`);
 console.log(`Gold Fallback: ${noGold ? 'OFF' : 'ON (when market not risk-on)'}`);
 console.log(`Trailing Stops: ${noTrailing ? 'OFF' : 'ON (stocks 8%, gold 3%)'}`);
-console.log(`Trading Delay: ${tradingDelayMinutes} minutes after market open (starts 10:${tradingDelayMinutes === 30 ? '00' : (tradingDelayMinutes - 30).toString().padStart(2, '0')} AM ET)`);
+console.log(`Trading Delay: ${tradingDelayMinutes} minutes after market open`);
 if (scheduleMode) {
   console.log(`Scheduler: ON (every ${intervalMinutes} minutes during market hours)`);
 }
@@ -130,9 +200,9 @@ let executor: ReturnType<typeof createCanslimExecutor>;
 let goldExecutor: ReturnType<typeof createGoldExecutor> | null = null;
 let lastResetDate: string = '';
 
-async function runScan() {
+async function runScan(market: 'US' | 'UK' = 'US') {
   const today = new Date().toISOString().split('T')[0];
-  
+
   if (today !== lastResetDate) {
     console.log(`\n[SCHEDULER] New day detected (${today}) - resetting daily stats`);
     executor.resetDailyStats();
@@ -164,7 +234,8 @@ async function runScan() {
   }
 
   try {
-    const result = await executor.scanAndExecute();
+    console.log(`\n[SCAN] Running ${market} market scan...`);
+    const result = await executor.scanAndExecute(market);
     
     console.log('\nSummary:');
     console.log(`  Stocks scanned: ${result.scanned}`);
@@ -173,8 +244,9 @@ async function runScan() {
       console.log(`  Skipped reason: ${result.skipped}`);
     }
 
-    if (goldExecutor && result.skipped && (result.skipped.includes('neutral') || result.skipped.includes('risk-off'))) {
-      console.log('\n[GOLD] CAN SLIM paused - checking gold fallback...');
+    // Gold fallback only for US market when CAN SLIM is paused due to market regime
+    if (market === 'US' && goldExecutor && result.skipped && (result.skipped.includes('neutral') || result.skipped.includes('risk-off'))) {
+      console.log('\n[GOLD] US CAN SLIM paused - checking gold fallback...');
       const goldResult = await goldExecutor.runScan();
       console.log(`\nGold Summary:`);
       console.log(`  Recommendation: ${goldResult.analysis?.recommendation || 'N/A'}`);
@@ -225,26 +297,67 @@ async function runScan() {
 }
 
 async function runScheduler() {
-  console.log('[SCHEDULER] Starting CAN SLIM scheduler...');
-  console.log(`[SCHEDULER] Will scan every ${intervalMinutes} minutes during market hours (9:30 AM - 4:00 PM ET)`);
-  
+  console.log('[SCHEDULER] Starting CAN SLIM scheduler (UK + US markets)...');
+  console.log(`[SCHEDULER] UK: 08:00-16:30 GMT | US: 09:30-16:00 ET`);
+  console.log(`[SCHEDULER] Will scan every ${intervalMinutes} minutes during market hours`);
+
   const runIfMarketOpen = async () => {
-    const { hour, minute } = getETTime();
-    const timeStr = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ET`;
-    
-    if (!isMarketOpen()) {
-      console.log(`\n[SCHEDULER] ${timeStr} - Market is CLOSED, skipping scan`);
+    const ukTime = getUKTime();
+    const etTime = getETTime();
+    const ukTimeStr = `${ukTime.hour.toString().padStart(2, '0')}:${ukTime.minute.toString().padStart(2, '0')} GMT`;
+    const etTimeStr = `${etTime.hour.toString().padStart(2, '0')}:${etTime.minute.toString().padStart(2, '0')} ET`;
+
+    const currentMarket = getCurrentMarket();
+
+    if (currentMarket === 'CLOSED') {
+      console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - All markets CLOSED, skipping scan`);
       return;
     }
-    
-    if (!isTradingWindowOpen()) {
-      const waitMinutes = getMinutesUntilTradingWindow();
-      console.log(`\n[SCHEDULER] ${timeStr} - Market open but waiting ${waitMinutes} more minutes (${tradingDelayMinutes}min delay after open)`);
-      return;
+
+    // Determine which market to trade
+    let targetMarket: 'US' | 'UK';
+    let tradingWindowOpen: boolean;
+
+    if (currentMarket === 'BOTH') {
+      // During overlap, prioritize US but check if trading window is open
+      if (isUSTradingWindowOpen()) {
+        targetMarket = 'US';
+        tradingWindowOpen = true;
+      } else if (isUKTradingWindowOpen()) {
+        targetMarket = 'UK';
+        tradingWindowOpen = true;
+      } else {
+        // Both open but neither trading window is ready
+        const waitInfo = getMinutesUntilTradingWindow();
+        if (waitInfo) {
+          console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - Markets open but waiting ${waitInfo.minutes} more minutes for ${waitInfo.market} trading window`);
+        }
+        return;
+      }
+    } else if (currentMarket === 'UK') {
+      targetMarket = 'UK';
+      tradingWindowOpen = isUKTradingWindowOpen();
+      if (!tradingWindowOpen) {
+        const waitInfo = getMinutesUntilTradingWindow();
+        if (waitInfo) {
+          console.log(`\n[SCHEDULER] ${ukTimeStr} - UK market open but waiting ${waitInfo.minutes} more minutes (${tradingDelayMinutes}min delay)`);
+        }
+        return;
+      }
+    } else {
+      targetMarket = 'US';
+      tradingWindowOpen = isUSTradingWindowOpen();
+      if (!tradingWindowOpen) {
+        const waitInfo = getMinutesUntilTradingWindow();
+        if (waitInfo) {
+          console.log(`\n[SCHEDULER] ${etTimeStr} - US market open but waiting ${waitInfo.minutes} more minutes (${tradingDelayMinutes}min delay)`);
+        }
+        return;
+      }
     }
-    
-    console.log(`\n[SCHEDULER] ${timeStr} - Trading window OPEN, running scan...`);
-    await runScan();
+
+    console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - ${targetMarket} trading window OPEN`);
+    await runScan(targetMarket);
   };
 
   await runIfMarketOpen();
@@ -268,7 +381,21 @@ async function main() {
   if (scheduleMode) {
     await runScheduler();
   } else {
-    await runScan();
+    // For single run, detect which market to scan
+    const currentMarket = getCurrentMarket();
+    let targetMarket: 'US' | 'UK' = 'US';
+
+    if (currentMarket === 'UK') {
+      targetMarket = 'UK';
+    } else if (currentMarket === 'BOTH') {
+      // During overlap, default to US
+      targetMarket = 'US';
+    } else if (currentMarket === 'CLOSED') {
+      console.log('[INFO] All markets are closed. Running US scan anyway...');
+    }
+
+    console.log(`[INFO] Current market: ${currentMarket}, scanning: ${targetMarket}`);
+    await runScan(targetMarket);
     process.exit(0);
   }
 }

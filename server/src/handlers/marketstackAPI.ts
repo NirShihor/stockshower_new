@@ -92,6 +92,16 @@ interface MarketstackTickersResponse {
   data: MarketstackTickerData[];
 }
 
+// Helper function to extract clean error message from axios errors
+function getCleanErrorMessage(error: any): string {
+  if (error.response) {
+    const status = error.response.status;
+    const symbol = error.config?.params?.symbols || 'unknown';
+    return `[Marketstack] ${symbol} - HTTP ${status} (${error.response.statusText || 'error'})`;
+  }
+  return `[Marketstack] ${error.message || 'Unknown error'}`;
+}
+
 // Helper function to make Marketstack API requests
 async function makeMarketstackRequest(endpoint: string, params: Record<string, any> = {}): Promise<any> {
   try {
@@ -102,15 +112,20 @@ async function makeMarketstackRequest(endpoint: string, params: Record<string, a
         ...params
       }
     });
-    
+
     if (response.data.error) {
-      console.error('Marketstack API Error:', JSON.stringify(response.data.error, null, 2));
+      const symbol = params.symbols || 'unknown';
+      console.warn(`[Marketstack] ${symbol} - API error: ${response.data.error.message || 'Unknown error'}`);
       throw new Error(response.data.error.message || 'Marketstack API error');
     }
-    
+
     return response.data;
   } catch (error: any) {
-    console.error(`Marketstack API request failed:`, error.message);
+    // Only log if not already logged (avoid double logging)
+    if (!error.logged) {
+      console.warn(getCleanErrorMessage(error));
+      error.logged = true;
+    }
     throw error;
   }
 }
@@ -122,10 +137,10 @@ export async function getMarketstackPreviousClose(symbol: string): Promise<Marke
       symbols: symbol,
       limit: 1
     }) as MarketstackEODResponse;
-    
+
     return data.data.length > 0 ? data.data[0] : null;
   } catch (error) {
-    console.error(`Failed to get previous close for ${symbol}:`, error);
+    // Error already logged in makeMarketstackRequest
     return null;
   }
 }
@@ -137,10 +152,10 @@ export async function getMarketstackTickerDetails(symbol: string): Promise<Marke
       symbols: symbol,
       limit: 1
     }) as MarketstackTickersResponse;
-    
+
     return data.data.length > 0 ? data.data[0] : null;
   } catch (error) {
-    console.error(`Failed to get ticker details for ${symbol}:`, error);
+    // Error already logged in makeMarketstackRequest
     return null;
   }
 }
@@ -159,10 +174,10 @@ export async function getMarketstackHistoricalData(
       limit: 1000,
       sort: 'ASC'
     }) as MarketstackEODResponse;
-    
+
     return data.data || [];
   } catch (error) {
-    console.error(`Failed to get historical data for ${symbol}:`, error);
+    // Error already logged in makeMarketstackRequest
     return [];
   }
 }
@@ -183,10 +198,10 @@ export async function getMarketstackIntradayData(
       limit: 1000,
       sort: 'ASC'
     }) as MarketstackIntradayResponse;
-    
+
     return data.data || [];
   } catch (error) {
-    console.error(`Failed to get intraday data for ${symbol}:`, error);
+    // Error already logged in makeMarketstackRequest
     return [];
   }
 }
@@ -199,16 +214,16 @@ export async function getMarketstackRealTimePrice(symbol: string): Promise<numbe
       symbols: symbol,
       limit: 1
     }) as MarketstackIntradayResponse;
-    
+
     if (data.data.length > 0) {
       const latestData = data.data[0];
       // Return the 'last' price or 'close' if available
       return latestData.last || latestData.close || null;
     }
-    
+
     return null;
-  } catch (error: any) {
-    console.warn(`Could not get real-time price for ${symbol}:`, error.message);
+  } catch (error) {
+    // Error already logged in makeMarketstackRequest
     return null;
   }
 }
@@ -216,8 +231,8 @@ export async function getMarketstackRealTimePrice(symbol: string): Promise<numbe
 // Get multiple symbols EOD data for gap scanning
 export async function getMarketstackBulkEOD(date: string): Promise<MarketstackEODData[]> {
   try {
-    console.log(`Fetching marketstack data for ${date}...`);
-    
+    console.log(`[Marketstack] Fetching bulk EOD data for ${date}...`);
+
     // First try without exchange filtering to test basic functionality
     const data = await makeMarketstackRequest('/eod', {
       date_from: date,
@@ -225,29 +240,26 @@ export async function getMarketstackBulkEOD(date: string): Promise<MarketstackEO
       limit: 1000,  // Professional plan supports higher limits
       sort: 'DESC'  // Sort by volume descending to get most active stocks first
     }) as MarketstackEODResponse;
-    
+
     if (data.data && data.data.length > 0) {
-      console.log(`Found ${data.data.length} stocks from marketstack for ${date}`);
+      console.log(`[Marketstack] Found ${data.data.length} stocks for ${date}`);
       // Filter to only US exchanges after fetching
-      const usStocks = data.data.filter(stock => 
+      const usStocks = data.data.filter(stock =>
         stock.exchange && (
-          stock.exchange.includes('NASDAQ') || 
+          stock.exchange.includes('NASDAQ') ||
           stock.exchange.includes('NYSE') ||
           stock.exchange === 'XNAS' ||
           stock.exchange === 'XNYS'
         )
       );
-      console.log(`Filtered to ${usStocks.length} US stocks`);
+      console.log(`[Marketstack] Filtered to ${usStocks.length} US stocks`);
       return usStocks;
     } else {
-      console.log(`No data found for ${date}`);
+      console.log(`[Marketstack] No data found for ${date}`);
       return [];
     }
-  } catch (error: any) {
-    console.error(`Failed to get bulk EOD data for ${date}:`, error);
-    if (error.response && error.response.data) {
-      console.error('Marketstack error details:', JSON.stringify(error.response.data, null, 2));
-    }
+  } catch (error) {
+    // Error already logged in makeMarketstackRequest
     return [];
   }
 }
