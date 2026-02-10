@@ -348,22 +348,57 @@ export async function scanForCanslimCandidates(
   const candidates: CanslimSignal[] = [];
   let extendedCount = 0;
 
+  // Track rejection reasons for summary
+  const rejectionReasons = {
+    noData: 0,
+    lowScore: 0,
+    failedRS: 0,
+    failedHigh: 0,
+    failedBase: 0,
+    failedSector: 0,
+    extended: 0,
+    passed: 0
+  };
+
   for (const symbol of effectiveSymbols) {
     const signal = await analyseCanslimSignal(symbol, date, config, market);
-    if (signal) {
-      if (signal.extended) {
-        extendedCount++;
-        console.log(`[CANSLIM] ${symbol}: SKIPPED - Extended ${signal.percentFromPivot.toFixed(1)}% above pivot (max 5%)`);
-      } else if (signal.pass) {
-        candidates.push(signal);
-        console.log(`[CANSLIM] ${symbol}: PASS - Score ${signal.score}/${signal.maxScore}, Entry at pivot $${signal.entryPrice} (current $${signal.currentPrice})`);
-      }
+    if (!signal) {
+      rejectionReasons.noData++;
+      continue;
+    }
+
+    if (signal.extended) {
+      extendedCount++;
+      rejectionReasons.extended++;
+      console.log(`[CANSLIM] ${symbol}: SKIPPED - Extended ${signal.percentFromPivot.toFixed(1)}% above pivot (max 5%)`);
+    } else if (signal.pass) {
+      candidates.push(signal);
+      rejectionReasons.passed++;
+      console.log(`[CANSLIM] ${symbol}: PASS - Score ${signal.score}/${signal.maxScore}, Entry at pivot $${signal.entryPrice} (current $${signal.currentPrice})`);
+    } else {
+      // Track why it failed (score < minScore)
+      rejectionReasons.lowScore++;
+      if (!signal.relativeStrength?.pass) rejectionReasons.failedRS++;
+      if (!signal.newHigh?.pass) rejectionReasons.failedHigh++;
+      if (!signal.basePattern?.pass) rejectionReasons.failedBase++;
+      if (!signal.sectorStrength?.pass) rejectionReasons.failedSector++;
     }
   }
 
   candidates.sort((a, b) => b.score - a.score);
 
   console.log(`[CANSLIM] Found ${candidates.length} ${market} candidates (${extendedCount} stocks extended beyond buy zone)`);
+
+  // Print rejection summary
+  console.log(`[CANSLIM] Rejection Summary:`);
+  console.log(`  - Passed all criteria: ${rejectionReasons.passed}`);
+  console.log(`  - Extended beyond buy zone: ${rejectionReasons.extended}`);
+  console.log(`  - Failed criteria (score < 4/6): ${rejectionReasons.lowScore}`);
+  console.log(`    - Failed RS rating (<${config.minRsRating}): ${rejectionReasons.failedRS}`);
+  console.log(`    - Failed near 52wk high (>${config.maxPercentFromHigh}% away): ${rejectionReasons.failedHigh}`);
+  console.log(`    - Failed base pattern: ${rejectionReasons.failedBase}`);
+  console.log(`    - Failed sector strength: ${rejectionReasons.failedSector}`);
+  console.log(`  - No data/error: ${rejectionReasons.noData}`);
 
   return candidates;
 }
