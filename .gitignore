@@ -50,4 +50,5 @@ trade_reports/
 
 # Data cache
 server/api/data_cache/
+server/data/uk_historical/
 
