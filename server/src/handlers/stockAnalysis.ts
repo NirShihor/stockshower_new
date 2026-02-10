@@ -13,8 +13,61 @@ import {
   convertMarketstackToPolygonFormat,
   convertMarketstackIntradayToPolygonFormat
 } from './marketstackAPI.js';
-import { getMarketContext, formatMarketContextForAI } from '../services/marketContextService.js';
+import { getMarketContext, formatMarketContextForAI, MarketContext } from '../services/marketContextService.js';
 import { analyzeGold } from '../services/goldBreakoutService.js';
+
+/**
+ * Generate CAN SLIM outlook algorithmically based on market regime
+ * This replaces the OpenAI-generated outlook to ensure consistency with the scanner
+ */
+function generateAlgorithmicCanSlimOutlook(
+	marketContext: MarketContext,
+	market: 'US' | 'UK'
+): string {
+	const { regime, regimeReason, spy, qqq, vix } = marketContext;
+
+	const indexName = market === 'UK' ? 'FTSE proxy' : 'SPY';
+	const techName = market === 'UK' ? 'UK large cap' : 'QQQ';
+
+	let rating: string;
+	let positionSizing: string;
+	let action: string;
+	let scannerStatus: string;
+
+	if (regime === 'risk-on') {
+		rating = 'GOOD - Conditions favorable for swing trade breakouts';
+		positionSizing = '50-75% in new positions';
+		action = 'Scanner ACTIVE. Enter new positions in leading stocks breaking out of proper bases. Hold existing winners and trail stops.';
+		scannerStatus = 'Scanner will execute trades when valid setups are found.';
+	} else if (regime === 'risk-off') {
+		rating = 'AVOID - High-risk environment for new positions';
+		positionSizing = '0-25% maximum exposure';
+		action = 'Scanner PAUSED. Avoid new entries. Tighten stops on existing positions or move to cash. Consider gold as alternative.';
+		scannerStatus = 'Scanner paused due to unfavorable conditions. Gold fallback may activate.';
+	} else {
+		// neutral
+		rating = 'CAUTION - Mixed signals, unclear direction';
+		positionSizing = '25-50% with reduced size';
+		action = 'Scanner PAUSED. Wait for clearer trend confirmation. Hold existing positions with tight stops.';
+		scannerStatus = 'Scanner paused - waiting for regime to turn risk-on.';
+	}
+
+	const trendInfo = `${indexName}: ${spy.trend} (${spy.changePercent >= 0 ? '+' : ''}${spy.changePercent.toFixed(1)}% today, ${spy.aboveEma20 ? 'above' : 'below'} 20 EMA). ${techName}: ${qqq.trend} (${qqq.changePercent >= 0 ? '+' : ''}${qqq.changePercent.toFixed(1)}% today).`;
+
+	const vixInfo = `VIX: ${vix.current.toFixed(1)} (${vix.current < 15 ? 'low/complacent' : vix.current > 25 ? 'high/fearful' : vix.current > 20 ? 'elevated' : 'moderate'}).`;
+
+	return `REGIME: ${regime.toUpperCase()} - ${regimeReason}
+
+Environment Rating: ${rating}
+
+Position Sizing: ${positionSizing}
+
+Action: ${action}
+
+Market Data: ${trendInfo} ${vixInfo}
+
+Status: ${scannerStatus}`;
+}
 
 // Load environment variables
 dotenv.config();
@@ -2531,12 +2584,6 @@ Please analyze for the ${marketName} market:
 
 6. PREDICTION - NEXT 180 DAYS: Longer-term ${marketName} outlook. Economic cycle positioning, major risks and opportunities, strategic considerations.
 
-7. CAN SLIM TRADING CONDITIONS: Based on the "M" (Market Direction) component of CAN SLIM methodology for ${marketName} stocks, assess:
-   - Is this a good environment for swing trading breakouts?
-   - Are leading stocks breaking out of bases successfully or failing?
-   - What percentage of new positions should traders take (0%, 25%, 50%, 75%, 100%)?
-   - Should existing positions be held, tightened, or closed?
-
 Be specific with price levels and percentages where possible. Focus on actionable insights for traders.`;
 
 		let perplexityData = '';
@@ -2579,11 +2626,6 @@ Format your response with these exact sections:
 5. NEXT 30 DAYS OUTLOOK: Month ahead view, major themes and events.
 
 6. NEXT 180 DAYS OUTLOOK: 6-month strategic outlook, big picture risks and opportunities.
-
-7. CAN SLIM OUTLOOK: Based on the "M" (Market Direction) factor of CAN SLIM methodology:
-   - Current environment rating for swing trade breakouts (Excellent/Good/Caution/Avoid)
-   - Recommended position sizing (0-100%)
-   - Specific guidance for CAN SLIM traders (enter new positions, hold, tighten stops, or exit)
 
 Keep each section concise (2-3 sentences) but actionable.`;
 
@@ -2638,7 +2680,8 @@ Keep each section concise (2-3 sentences) but actionable.`;
 			next7Days: parseSection(structuredAnalysis, 4, 'NEXT 7 DAYS OUTLOOK'),
 			next30Days: parseSection(structuredAnalysis, 5, 'NEXT 30 DAYS OUTLOOK'),
 			next180Days: parseSection(structuredAnalysis, 6, 'NEXT 180 DAYS OUTLOOK'),
-			canSlimOutlook: parseSection(structuredAnalysis, 7, 'CAN SLIM OUTLOOK')
+			// Use algorithmic CAN SLIM outlook for consistency with scanner behavior
+			canSlimOutlook: generateAlgorithmicCanSlimOutlook(marketContext, market)
 		};
 		
 		res.json({
