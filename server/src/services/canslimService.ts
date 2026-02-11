@@ -131,6 +131,35 @@ export interface CanslimConfig {
   targetMultiple: number;
 }
 
+export interface ScanRejectionSummary {
+  market: 'US' | 'UK';
+  timestamp: string;
+  totalScanned: number;
+  passed: number;
+  extended: number;
+  failedCriteria: number;
+  failedRS: number;
+  failedHigh: number;
+  failedBase: number;
+  failedSector: number;
+  noData: number;
+  regime: string;
+}
+
+// Store latest scan summaries for API access
+const latestScanSummaries: { US: ScanRejectionSummary | null; UK: ScanRejectionSummary | null } = {
+  US: null,
+  UK: null
+};
+
+export function getLatestScanSummary(market: 'US' | 'UK'): ScanRejectionSummary | null {
+  return latestScanSummaries[market];
+}
+
+export function getLatestScanSummaries(): { US: ScanRejectionSummary | null; UK: ScanRejectionSummary | null } {
+  return latestScanSummaries;
+}
+
 const DEFAULT_CONFIG: CanslimConfig = {
   minRsRating: 80,
   maxPercentFromHigh: 15,
@@ -348,22 +377,73 @@ export async function scanForCanslimCandidates(
   const candidates: CanslimSignal[] = [];
   let extendedCount = 0;
 
+  // Track rejection reasons for summary
+  const rejectionReasons = {
+    noData: 0,
+    lowScore: 0,
+    failedRS: 0,
+    failedHigh: 0,
+    failedBase: 0,
+    failedSector: 0,
+    extended: 0,
+    passed: 0
+  };
+
   for (const symbol of effectiveSymbols) {
     const signal = await analyseCanslimSignal(symbol, date, config, market);
-    if (signal) {
-      if (signal.extended) {
-        extendedCount++;
-        console.log(`[CANSLIM] ${symbol}: SKIPPED - Extended ${signal.percentFromPivot.toFixed(1)}% above pivot (max 5%)`);
-      } else if (signal.pass) {
-        candidates.push(signal);
-        console.log(`[CANSLIM] ${symbol}: PASS - Score ${signal.score}/${signal.maxScore}, Entry at pivot $${signal.entryPrice} (current $${signal.currentPrice})`);
-      }
+    if (!signal) {
+      rejectionReasons.noData++;
+      continue;
+    }
+
+    if (signal.extended) {
+      extendedCount++;
+      rejectionReasons.extended++;
+      console.log(`[CANSLIM] ${symbol}: SKIPPED - Extended ${signal.percentFromPivot.toFixed(1)}% above pivot (max 5%)`);
+    } else if (signal.pass) {
+      candidates.push(signal);
+      rejectionReasons.passed++;
+      console.log(`[CANSLIM] ${symbol}: PASS - Score ${signal.score}/${signal.maxScore}, Entry at pivot $${signal.entryPrice} (current $${signal.currentPrice})`);
+    } else {
+      // Track why it failed (score < minScore)
+      rejectionReasons.lowScore++;
+      if (!signal.relativeStrength?.pass) rejectionReasons.failedRS++;
+      if (!signal.newHigh?.pass) rejectionReasons.failedHigh++;
+      if (!signal.basePattern?.pass) rejectionReasons.failedBase++;
+      if (!signal.sectorStrength?.pass) rejectionReasons.failedSector++;
     }
   }
 
   candidates.sort((a, b) => b.score - a.score);
 
   console.log(`[CANSLIM] Found ${candidates.length} ${market} candidates (${extendedCount} stocks extended beyond buy zone)`);
+
+  // Print rejection summary
+  console.log(`[CANSLIM] Rejection Summary:`);
+  console.log(`  - Passed all criteria: ${rejectionReasons.passed}`);
+  console.log(`  - Extended beyond buy zone: ${rejectionReasons.extended}`);
+  console.log(`  - Failed criteria (score < 4/6): ${rejectionReasons.lowScore}`);
+  console.log(`    - Failed RS rating (<${config.minRsRating}): ${rejectionReasons.failedRS}`);
+  console.log(`    - Failed near 52wk high (>${config.maxPercentFromHigh}% away): ${rejectionReasons.failedHigh}`);
+  console.log(`    - Failed base pattern: ${rejectionReasons.failedBase}`);
+  console.log(`    - Failed sector strength: ${rejectionReasons.failedSector}`);
+  console.log(`  - No data/error: ${rejectionReasons.noData}`);
+
+  // Store summary for API access
+  latestScanSummaries[market] = {
+    market,
+    timestamp: new Date().toISOString(),
+    totalScanned: effectiveSymbols.length,
+    passed: rejectionReasons.passed,
+    extended: rejectionReasons.extended,
+    failedCriteria: rejectionReasons.lowScore,
+    failedRS: rejectionReasons.failedRS,
+    failedHigh: rejectionReasons.failedHigh,
+    failedBase: rejectionReasons.failedBase,
+    failedSector: rejectionReasons.failedSector,
+    noData: rejectionReasons.noData,
+    regime: marketContext?.regime || 'unknown'
+  };
 
   return candidates;
 }

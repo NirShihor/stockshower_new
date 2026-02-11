@@ -172,6 +172,7 @@ const StockScanPage: React.FC = () => {
   const [backendLogHeight, setBackendLogHeight] = useState(200);
   const [scanLogHeight, setScanLogHeight] = useState(200);
   const [serverLogHeight, setServerLogHeight] = useState(200);
+  const [scanSummaryHeight, setScanSummaryHeight] = useState(150);
   const backendLogRef = useRef<HTMLDivElement>(null);
   const scanLogRef = useRef<HTMLDivElement>(null);
   const serverLogRef = useRef<HTMLDivElement>(null);
@@ -1207,6 +1208,96 @@ const StockScanPage: React.FC = () => {
               {canslimResult.result?.skipped && (
                 <div style={{ color: '#856404', fontSize: '13px' }}>
                   Skipped: {canslimResult.result.skipped}
+                </div>
+              )}
+
+              {/* Scan Rejection Summary */}
+              {canslimResult.scanSummaries && (
+                <div style={{ marginTop: '15px', background: '#1e1e1e', borderRadius: '8px', border: '1px solid #333', overflow: 'hidden' }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '10px 15px',
+                    background: '#2d2d2d',
+                    borderBottom: '1px solid #333'
+                  }}>
+                    <span style={{ color: '#98c379', fontWeight: 'bold' }}>
+                      Scan Summary ({canslimResult.market || 'US'}) - {new Date(canslimResult.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  <div
+                    data-log-content
+                    style={{
+                      height: `${scanSummaryHeight}px`,
+                      overflow: 'auto',
+                      padding: '10px 15px',
+                      background: '#f8f9fa'
+                    }}
+                  >
+                    {(() => {
+                      const summary = canslimResult.market === 'UK'
+                        ? canslimResult.scanSummaries.UK
+                        : canslimResult.scanSummaries.US;
+                      if (!summary) return <div style={{ color: '#666', fontSize: '13px' }}>No summary available</div>;
+                      return (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '8px', fontSize: '12px' }}>
+                          <div style={{ padding: '6px', background: '#e9ecef', borderRadius: '4px' }}>
+                            <div style={{ color: '#666' }}>Scanned</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{summary.totalScanned}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#d4edda', borderRadius: '4px' }}>
+                            <div style={{ color: '#155724' }}>Passed</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#28a745' }}>{summary.passed}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#fff3cd', borderRadius: '4px' }}>
+                            <div style={{ color: '#856404' }}>Extended</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#d39e00' }}>{summary.extended}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#f8d7da', borderRadius: '4px' }}>
+                            <div style={{ color: '#721c24' }}>Failed Criteria</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '16px', color: '#dc3545' }}>{summary.failedCriteria}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#e9ecef', borderRadius: '4px' }}>
+                            <div style={{ color: '#666' }}>Low RS</div>
+                            <div style={{ fontWeight: 'bold' }}>{summary.failedRS}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#e9ecef', borderRadius: '4px' }}>
+                            <div style={{ color: '#666' }}>Not at High</div>
+                            <div style={{ fontWeight: 'bold' }}>{summary.failedHigh}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#e9ecef', borderRadius: '4px' }}>
+                            <div style={{ color: '#666' }}>No Base</div>
+                            <div style={{ fontWeight: 'bold' }}>{summary.failedBase}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#e9ecef', borderRadius: '4px' }}>
+                            <div style={{ color: '#666' }}>Bad Sector</div>
+                            <div style={{ fontWeight: 'bold' }}>{summary.failedSector}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: '#e9ecef', borderRadius: '4px' }}>
+                            <div style={{ color: '#666' }}>No Data</div>
+                            <div style={{ fontWeight: 'bold' }}>{summary.noData}</div>
+                          </div>
+                          <div style={{ padding: '6px', background: summary.regime === 'RISK-ON' ? '#d4edda' : summary.regime === 'RISK-OFF' ? '#f8d7da' : '#fff3cd', borderRadius: '4px' }}>
+                            <div style={{ color: '#666' }}>Regime</div>
+                            <div style={{ fontWeight: 'bold', fontSize: '11px' }}>{summary.regime}</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div
+                    onMouseDown={createResizeHandler(setScanSummaryHeight)}
+                    style={{
+                      height: '6px',
+                      background: '#333',
+                      cursor: 'ns-resize',
+                      borderTop: '1px solid #444',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => (e.target as HTMLElement).style.background = '#28a745'}
+                    onMouseLeave={(e) => (e.target as HTMLElement).style.background = '#333'}
+                  />
                 </div>
               )}
             </div>
