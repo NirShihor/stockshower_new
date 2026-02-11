@@ -4,6 +4,7 @@ import { createGoldExecutor, GoldExecutor, GoldTradeConfig } from '../brokers/go
 import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
 import { updateTrailingStops } from '../services/trailingStopService.js';
 import { backendLogs, scanLogs, serverLogs, clearBackendLogs, clearScanLogs, clearServerLogs } from '../services/logCapture.js';
+import { getLatestScanSummaries } from '../services/canslimService.js';
 
 const router = express.Router();
 
@@ -298,6 +299,7 @@ router.post('/scan', async (req: Request, res: Response) => {
         activePositions: stats.active
       },
       broker: brokerStatus,
+      scanSummaries: getLatestScanSummaries(),
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -403,6 +405,16 @@ router.get('/market-status', (req: Request, res: Response) => {
       time: `${usHour.toString().padStart(2, '0')}:${usMinute.toString().padStart(2, '0')} ET`,
       marketHours: '09:30-16:00 ET'
     },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Get latest scan rejection summaries
+router.get('/scan-summaries', (req: Request, res: Response) => {
+  const summaries = getLatestScanSummaries();
+  res.json({
+    success: true,
+    summaries,
     timestamp: new Date().toISOString()
   });
 });

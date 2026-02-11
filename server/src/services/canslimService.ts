@@ -131,6 +131,35 @@ export interface CanslimConfig {
   targetMultiple: number;
 }
 
+export interface ScanRejectionSummary {
+  market: 'US' | 'UK';
+  timestamp: string;
+  totalScanned: number;
+  passed: number;
+  extended: number;
+  failedCriteria: number;
+  failedRS: number;
+  failedHigh: number;
+  failedBase: number;
+  failedSector: number;
+  noData: number;
+  regime: string;
+}
+
+// Store latest scan summaries for API access
+const latestScanSummaries: { US: ScanRejectionSummary | null; UK: ScanRejectionSummary | null } = {
+  US: null,
+  UK: null
+};
+
+export function getLatestScanSummary(market: 'US' | 'UK'): ScanRejectionSummary | null {
+  return latestScanSummaries[market];
+}
+
+export function getLatestScanSummaries(): { US: ScanRejectionSummary | null; UK: ScanRejectionSummary | null } {
+  return latestScanSummaries;
+}
+
 const DEFAULT_CONFIG: CanslimConfig = {
   minRsRating: 80,
   maxPercentFromHigh: 15,
@@ -399,6 +428,22 @@ export async function scanForCanslimCandidates(
   console.log(`    - Failed base pattern: ${rejectionReasons.failedBase}`);
   console.log(`    - Failed sector strength: ${rejectionReasons.failedSector}`);
   console.log(`  - No data/error: ${rejectionReasons.noData}`);
+
+  // Store summary for API access
+  latestScanSummaries[market] = {
+    market,
+    timestamp: new Date().toISOString(),
+    totalScanned: effectiveSymbols.length,
+    passed: rejectionReasons.passed,
+    extended: rejectionReasons.extended,
+    failedCriteria: rejectionReasons.lowScore,
+    failedRS: rejectionReasons.failedRS,
+    failedHigh: rejectionReasons.failedHigh,
+    failedBase: rejectionReasons.failedBase,
+    failedSector: rejectionReasons.failedSector,
+    noData: rejectionReasons.noData,
+    regime: marketContext?.regime || 'unknown'
+  };
 
   return candidates;
 }

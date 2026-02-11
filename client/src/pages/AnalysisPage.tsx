@@ -75,6 +75,21 @@ interface GoldAnalysisResult {
   timestamp: string;
 }
 
+interface ScanRejectionSummary {
+  market: 'US' | 'UK';
+  timestamp: string;
+  totalScanned: number;
+  passed: number;
+  extended: number;
+  failedCriteria: number;
+  failedRS: number;
+  failedHigh: number;
+  failedBase: number;
+  failedSector: number;
+  noData: number;
+  regime: string;
+}
+
 const sectors: Sector[] = [
   {
     name: 'Technology',
@@ -169,6 +184,12 @@ const AnalysisPage: React.FC = () => {
   // Gold Analysis State
   const [goldLoading, setGoldLoading] = useState<boolean>(false);
   const [goldAnalysis, setGoldAnalysis] = useState<GoldAnalysisResult | null>(null);
+
+  // Scan Summaries State
+  const [scanSummaries, setScanSummaries] = useState<{
+    US: ScanRejectionSummary | null;
+    UK: ScanRejectionSummary | null;
+  }>({ US: null, UK: null });
 
   const handleSectorChange = (sector: string) => {
     setSelectedSector(sector);
@@ -280,6 +301,28 @@ const AnalysisPage: React.FC = () => {
     }
   };
 
+  const fetchScanSummaries = async () => {
+    try {
+      const response = await fetch(API_ENDPOINTS.scanSummaries);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.summaries) {
+          setScanSummaries(data.summaries);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching scan summaries:', error);
+    }
+  };
+
+  // Fetch scan summaries on page load and poll every 2 minutes to catch new scan results
+  // (Scans run every 30 minutes, so 2-minute polling is reasonable)
+  React.useEffect(() => {
+    fetchScanSummaries();
+    const interval = setInterval(fetchScanSummaries, 2 * 60 * 1000); // 2 minutes
+    return () => clearInterval(interval);
+  }, []);
+
   const getCompaniesForSector = (): Company[] => {
     const sector = sectors.find(s => s.name === selectedSector);
     return sector ? sector.companies : [];
@@ -298,6 +341,82 @@ const AnalysisPage: React.FC = () => {
     const color = numChange >= 0 ? '#28a745' : '#dc3545';
     const prefix = numChange >= 0 ? '+' : '';
     return <span style={{ color }}>{prefix}{change}%</span>;
+  };
+
+  const renderScanSummary = (summary: ScanRejectionSummary | null, market: string) => {
+    if (!summary) {
+      return (
+        <div style={{
+          background: '#f8f9fa',
+          padding: '15px',
+          borderRadius: '8px',
+          border: '1px solid #dee2e6',
+          marginTop: '20px'
+        }}>
+          <h4 style={{ margin: '0 0 10px 0', color: '#666' }}>Latest {market} Scan Summary</h4>
+          <p style={{ color: '#999', margin: 0 }}>No scan data available yet. Run a scan to see results.</p>
+        </div>
+      );
+    }
+
+    const scanDate = new Date(summary.timestamp);
+    const formattedDate = scanDate.toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+    const formattedTime = scanDate.toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit'
+    });
+
+    return (
+      <div style={{
+        background: '#f8f9fa',
+        padding: '15px',
+        borderRadius: '8px',
+        border: '1px solid #dee2e6',
+        marginTop: '20px'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <h4 style={{ margin: 0 }}>Latest {market} Scan Summary</h4>
+          <span style={{ fontSize: '12px', color: '#666' }}>{formattedDate} at {formattedTime}</span>
+        </div>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+          gap: '10px',
+          marginBottom: '10px'
+        }}>
+          <div style={{ textAlign: 'center', padding: '10px', background: '#fff', borderRadius: '4px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{summary.totalScanned}</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>Stocks Scanned</div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '10px', background: summary.passed > 0 ? '#d4edda' : '#fff', borderRadius: '4px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>{summary.passed}</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>Passed</div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '10px', background: '#fff3cd', borderRadius: '4px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#856404' }}>{summary.extended}</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>Extended</div>
+          </div>
+          <div style={{ textAlign: 'center', padding: '10px', background: '#fff', borderRadius: '4px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc3545' }}>{summary.failedCriteria}</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>Failed Criteria</div>
+          </div>
+        </div>
+        <div style={{ fontSize: '13px', color: '#555' }}>
+          <strong>Rejection Breakdown:</strong>
+          <ul style={{ margin: '5px 0 0 0', paddingLeft: '20px' }}>
+            <li>Failed RS Rating (&lt;80): {summary.failedRS}</li>
+            <li>Failed Near 52wk High: {summary.failedHigh}</li>
+            <li>Failed Base Pattern: {summary.failedBase}</li>
+            <li>Failed Sector Strength: {summary.failedSector}</li>
+            <li>No Data/Error: {summary.noData}</li>
+          </ul>
+        </div>
+        <div style={{ fontSize: '11px', color: '#888', marginTop: '10px' }}>
+          Market Regime: <strong style={{ textTransform: 'uppercase' }}>{summary.regime}</strong>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -453,6 +572,9 @@ const AnalysisPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* US Scan Summary - always visible */}
+        {renderScanSummary(scanSummaries.US, 'US')}
       </div>
 
       {/* UK Market Analysis Section */}
@@ -602,6 +724,9 @@ const AnalysisPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* UK Scan Summary - always visible */}
+        {renderScanSummary(scanSummaries.UK, 'UK')}
       </div>
 
       {/* Gold Analysis Section */}

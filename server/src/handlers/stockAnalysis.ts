@@ -2555,6 +2555,11 @@ export const getMarketOverview = async (req: Request, res: Response): Promise<vo
 		// Use the same marketContextService as CAN SLIM scanner for consistency
 		const marketContext = await getMarketContext(today, market);
 
+		// IMPORTANT: Always use US market context for CAN SLIM outlook
+		// The scanner uses US market regime (SPY/QQQ) for trading decisions, even for UK stocks
+		// This ensures the Analysis page outlook matches what the scanner actually does
+		const usMarketContext = market === 'UK' ? await getMarketContext(today, 'US') : marketContext;
+
 		if (!marketContext) {
 			res.status(500).json({ error: 'Failed to get market context' });
 			return;
@@ -2680,8 +2685,9 @@ Keep each section concise (2-3 sentences) but actionable.`;
 			next7Days: parseSection(structuredAnalysis, 4, 'NEXT 7 DAYS OUTLOOK'),
 			next30Days: parseSection(structuredAnalysis, 5, 'NEXT 30 DAYS OUTLOOK'),
 			next180Days: parseSection(structuredAnalysis, 6, 'NEXT 180 DAYS OUTLOOK'),
-			// Use algorithmic CAN SLIM outlook for consistency with scanner behavior
-			canSlimOutlook: generateAlgorithmicCanSlimOutlook(marketContext, market)
+			// Use US market context for CAN SLIM outlook - scanner always uses US regime for trading decisions
+			// Pass 'US' for market param so labels show SPY/QQQ (the actual data being used)
+			canSlimOutlook: usMarketContext ? generateAlgorithmicCanSlimOutlook(usMarketContext, 'US') : 'Market context unavailable'
 		};
 		
 		res.json({

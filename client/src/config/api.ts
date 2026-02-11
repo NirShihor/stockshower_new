@@ -10,6 +10,15 @@ const getApiBaseUrl = (): string => {
 
 export const API_BASE_URL = getApiBaseUrl();
 
+const getCanslimBaseUrl = (): string => {
+  if (process.env.NODE_ENV === 'development') {
+    return 'http://localhost:5002/api/canslim';
+  }
+  return '/api/canslim';
+};
+
+export const CANSLIM_BASE_URL = getCanslimBaseUrl();
+
 export const API_ENDPOINTS = {
   scanGapUps: `${API_BASE_URL}/scan-gap-ups`,
   scanGapDowns: `${API_BASE_URL}/scan-gap-downs`,
@@ -23,4 +32,5 @@ export const API_ENDPOINTS = {
   marketOverview: `${API_BASE_URL}/market-overview`,
   ukMarketOverview: `${API_BASE_URL}/market-overview?market=UK`,
   goldAnalysis: `${API_BASE_URL}/gold-analysis`,
+  scanSummaries: `${CANSLIM_BASE_URL}/scan-summaries`,
 };
