@@ -41,14 +41,19 @@ function findBaseStart(candles: Candle[], pivotIndex: number): number {
   return baseStart;
 }
 
-function detectPriorUptrend(candles: Candle[], baseStartIndex: number): { exists: boolean; percent: number; recentBreakdown: boolean; breakdownPercent: number } {
+function detectPriorUptrend(candles: Candle[], baseStartIndex: number, market: 'US' | 'UK' = 'US'): { exists: boolean; percent: number; recentBreakdown: boolean; breakdownPercent: number; requiredPercent: number } {
+  // Market-specific prior uptrend threshold:
+  // US: 30% - O'Neil's original methodology for high-growth US stocks
+  // UK: 20% - Lower threshold for less volatile UK market (FTSE stocks)
+  const requiredPercent = market === 'UK' ? 20 : 30;
+
   if (baseStartIndex < 30) {
-    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0 };
+    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0, requiredPercent };
   }
 
   const priorCandles = candles.slice(Math.max(0, baseStartIndex - 65), baseStartIndex);
   if (priorCandles.length < 20) {
-    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0 };
+    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0, requiredPercent };
   }
 
   const startPrice = priorCandles[0].close;
@@ -79,10 +84,11 @@ function detectPriorUptrend(candles: Candle[], baseStartIndex: number): { exists
   const recentBreakdown = dropFromRecentHigh > 22 && recentHighIndex < recentCandles.length / 2;
 
   return {
-    exists: percent >= 30,
+    exists: percent >= requiredPercent,
     percent: Math.round(percent * 100) / 100,
     recentBreakdown,
-    breakdownPercent: Math.round(dropFromRecentHigh * 100) / 100
+    breakdownPercent: Math.round(dropFromRecentHigh * 100) / 100,
+    requiredPercent
   };
 }
 
@@ -305,7 +311,7 @@ export async function detectBasePattern(
       };
     }
     
-    const priorUptrend = detectPriorUptrend(candles, baseStartIndex);
+    const priorUptrend = detectPriorUptrend(candles, baseStartIndex, market);
     const flatBase = detectFlatBase(candles, baseStartIndex, baseEndIndex);
     const cupShape = detectCupShape(candles, baseStartIndex, baseEndIndex);
     const volumeContraction = detectVolumeContraction(candles, baseStartIndex, baseEndIndex);
@@ -357,7 +363,7 @@ export async function detectBasePattern(
     if (patternType === 'none') {
       invalidReason = 'No recognisable pattern';
     } else if (!priorUptrend.exists) {
-      invalidReason = 'No prior uptrend (need 30%+ advance)';
+      invalidReason = `No prior uptrend (need ${priorUptrend.requiredPercent}%+ advance)`;
     } else if (priorUptrend.recentBreakdown) {
       invalidReason = `Recent breakdown detected (${priorUptrend.breakdownPercent}% drop before base)`;
     } else if (baseDepth > 35) {
