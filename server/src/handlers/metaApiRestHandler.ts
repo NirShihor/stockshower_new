@@ -1276,6 +1276,63 @@ class MetaApiRestHandler {
     }
   }
 
+  // Close all CAN SLIM positions at market price (used when market enters correction)
+  async closeAllCanslimPositions(): Promise<{ success: boolean; closedCount: number; errors: string[] }> {
+    const errors: string[] = [];
+    let closedCount = 0;
+
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+
+      const positionsResponse = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
+        { headers: this.getHeaders() }
+      );
+
+      const positions = positionsResponse.data;
+      if (!positions || positions.length === 0) {
+        console.log('[MetaApi] No open positions to close');
+        return { success: true, closedCount: 0, errors: [] };
+      }
+
+      for (const position of positions) {
+        // ONLY close CAN SLIM positions
+        const isCanSlim = position.comment && position.comment.includes('CAN SLIM');
+        if (!isCanSlim) continue;
+
+        console.log(`[MetaApi] CLOSING CAN SLIM position ${position.id} (${position.symbol}) - MARKET CORRECTION`);
+        console.log(`  Entry: ${position.openPrice}, Current: ${position.currentPrice}, P/L: ${position.profit}`);
+
+        try {
+          await this.axiosInstance.post(
+            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+            {
+              actionType: 'POSITION_CLOSE_ID',
+              positionId: position.id,
+              comment: 'CAN SLIM - Market Correction Exit'
+            },
+            { headers: this.getHeaders() }
+          );
+          closedCount++;
+          console.log(`[MetaApi] Position ${position.id} closed successfully`);
+        } catch (closeError: any) {
+          const errorMsg = `Failed to close position ${position.id}: ${closeError.message}`;
+          console.error(`[MetaApi] ${errorMsg}`);
+          errors.push(errorMsg);
+        }
+      }
+
+      // Invalidate cache after closing positions
+      this.invalidateBrokerCache();
+
+      console.log(`[MetaApi] Market correction protection: ${closedCount} CAN SLIM positions closed`);
+      return { success: errors.length === 0, closedCount, errors };
+    } catch (error: any) {
+      console.error('[MetaApi] Error closing CAN SLIM positions:', error.message);
+      return { success: false, closedCount, errors: [error.message] };
+    }
+  }
+
   // Helper to get current ET hour and minute
   private getETTime(): { hour: number; minute: number; dayOfWeek: number } {
     // Create a date in ET timezone

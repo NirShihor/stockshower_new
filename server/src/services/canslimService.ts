@@ -94,6 +94,7 @@ export interface CanslimSignal {
     pivotPrice: number;
     depth: number;
     weeks: number;
+    invalidReason: string | null;
   } | null;
   
   sectorStrength: {
@@ -161,7 +162,7 @@ export function getLatestScanSummaries(): { US: ScanRejectionSummary | null; UK:
 }
 
 const DEFAULT_CONFIG: CanslimConfig = {
-  minRsRating: 80,
+  minRsRating: 70,  // Lowered from 80 to 70 - still requires relative strength but less restrictive
   maxPercentFromHigh: 15,
   minVolumeRatio: 1.4,
   stopLossPercent: 7,
@@ -261,8 +262,11 @@ export async function analyseCanslimSignal(
   
   const stockSector = getStockSector(symbol, market);
   const sectorData = sectorAnalysis?.sectors.find(s => s.sector === stockSector);
-  const sectorPass = sectorData !== null && sectorData !== undefined && 
-    sectorData.rank <= 5 && sectorData.momentum !== 'losing';
+  // Relaxed sector criteria: top 7 sectors pass (was top 5)
+  // Momentum is now a soft factor (logged but not required)
+  // This allows leaders to emerge from "average" sectors
+  const sectorPass = sectorData !== null && sectorData !== undefined &&
+    sectorData.rank <= 7;
   if (sectorPass) score++;
   
   const pivotPrice = basePattern?.pivotPrice || highData?.fiftyTwoWeekHigh || 0;
@@ -323,7 +327,8 @@ export async function analyseCanslimSignal(
       type: basePattern.type,
       pivotPrice: basePattern.pivotPrice,
       depth: basePattern.baseDepthPercent,
-      weeks: basePattern.baseLengthWeeks
+      weeks: basePattern.baseLengthWeeks,
+      invalidReason: basePattern.invalidReason
     } : null,
     
     sectorStrength: sectorData ? {
@@ -365,13 +370,85 @@ export async function scanForCanslimCandidates(
   console.log(`[CANSLIM] Scanning ${effectiveSymbols.length} ${market} symbols for ${date}`);
 
   const marketContext = await getCachedMarketContext(date, market);
-  if (!ignoreMarketRegime && (!marketContext || marketContext.regime !== 'risk-on')) {
-    console.log(`[CANSLIM] ${market} market regime is ${marketContext?.regime || 'unknown'}, skipping scan`);
-    return [];
+
+  // O'Neil Distribution Day status takes precedence over simple regime check
+  const distStatus = marketContext?.distributionDayStatus || 'CONFIRMED_UPTREND';
+  const distCount = marketContext?.distributionDayCount || 0;
+  const positionSizing = marketContext?.positionSizingMultiplier ?? 1.0;
+
+  // Check distribution day status first (O'Neil's methodology)
+  if (!ignoreMarketRegime) {
+    if (distStatus === 'MARKET_IN_CORRECTION') {
+      console.log(`[CANSLIM] Market in CORRECTION (${distCount} distribution days) - not scanning`);
+
+      // Store summary for correction state
+      latestScanSummaries[market] = {
+        market,
+        timestamp: new Date().toISOString(),
+        totalScanned: 0,
+        passed: 0,
+        extended: 0,
+        failedCriteria: 0,
+        failedRS: 0,
+        failedHigh: 0,
+        failedBase: 0,
+        failedSector: 0,
+        noData: 0,
+        regime: `CORRECTION (${distCount} dist days)`
+      };
+
+      return [];
+    }
+
+    if (distStatus === 'RALLY_ATTEMPT') {
+      const rallyDay = marketContext?.rallyAttemptDay || 0;
+      console.log(`[CANSLIM] Rally attempt day ${rallyDay} - waiting for follow-through (day 4-7)`);
+
+      latestScanSummaries[market] = {
+        market,
+        timestamp: new Date().toISOString(),
+        totalScanned: 0,
+        passed: 0,
+        extended: 0,
+        failedCriteria: 0,
+        failedRS: 0,
+        failedHigh: 0,
+        failedBase: 0,
+        failedSector: 0,
+        noData: 0,
+        regime: `RALLY ATTEMPT (day ${rallyDay})`
+      };
+
+      return [];
+    }
+
+    // If distribution day service is providing real data (distCount > 0 or non-default status),
+    // use O'Neil methodology - CONFIRMED_UPTREND and UPTREND_UNDER_PRESSURE allow trading
+    // Only fall back to simple regime check if distribution day data is not available
+    const distServiceActive = distCount > 0 || distStatus !== 'CONFIRMED_UPTREND';
+
+    if (!distServiceActive) {
+      // Fallback to simple regime check if distribution day service not available
+      if (!marketContext || marketContext.regime !== 'risk-on') {
+        console.log(`[CANSLIM] ${market} market regime is ${marketContext?.regime || 'unknown'}, skipping scan`);
+        return [];
+      }
+    }
+    // If distribution day service IS active and status is CONFIRMED_UPTREND or UPTREND_UNDER_PRESSURE,
+    // we allow scanning (position sizing will be adjusted based on status)
   }
 
-  if (ignoreMarketRegime && marketContext?.regime !== 'risk-on') {
-    console.log(`[CANSLIM] ${market} market regime is ${marketContext?.regime || 'unknown'}, but ignoring (force mode)`);
+  if (ignoreMarketRegime) {
+    if (distStatus !== 'CONFIRMED_UPTREND') {
+      console.log(`[CANSLIM] Market status: ${distStatus} (${distCount} dist days), but ignoring (force mode)`);
+    } else if (marketContext?.regime !== 'risk-on') {
+      console.log(`[CANSLIM] ${market} market regime is ${marketContext?.regime || 'unknown'}, but ignoring (force mode)`);
+    }
+  }
+
+  // Log position sizing if reduced
+  if (positionSizing < 1.0) {
+    console.log(`[CANSLIM] Position sizing reduced to ${(positionSizing * 100).toFixed(0)}% due to ${distStatus}`);
   }
   
   const candidates: CanslimSignal[] = [];
@@ -411,6 +488,29 @@ export async function scanForCanslimCandidates(
       if (!signal.newHigh?.pass) rejectionReasons.failedHigh++;
       if (!signal.basePattern?.pass) rejectionReasons.failedBase++;
       if (!signal.sectorStrength?.pass) rejectionReasons.failedSector++;
+
+      // NEAR-MISS LOGGING: Show stocks that almost passed (score >= 4 or only failed 1-2 hard criteria)
+      const hardCriteriaFailed = [];
+      if (!signal.relativeStrength?.pass) hardCriteriaFailed.push(`RS:${signal.relativeStrength?.rsRating || 'N/A'}`);
+      if (!signal.newHigh?.pass) hardCriteriaFailed.push(`52wk:${signal.newHigh?.percentFromHigh?.toFixed(1) || 'N/A'}%`);
+      if (!signal.basePattern?.pass) hardCriteriaFailed.push(`Base:${signal.basePattern?.type || 'none'}`);
+
+      // Log near-misses: high score OR only 1-2 hard criteria failed
+      if (signal.score >= 4 || hardCriteriaFailed.length <= 2) {
+        const passedCriteria = [];
+        if (signal.relativeStrength?.pass) passedCriteria.push(`RS:${signal.relativeStrength.rsRating}✓`);
+        if (signal.newHigh?.pass) passedCriteria.push(`High:${signal.newHigh.percentFromHigh.toFixed(1)}%✓`);
+        if (signal.basePattern?.pass) passedCriteria.push(`Base:${signal.basePattern.type}✓`);
+        if (signal.sectorStrength?.pass) passedCriteria.push(`Sector:#${signal.sectorStrength.rank}✓`);
+        if (signal.volumeBreakout?.pass) passedCriteria.push(`Vol:${signal.volumeBreakout.volumeRatio}x✓`);
+
+        console.log(`[CANSLIM] NEAR-MISS: ${symbol} (${signal.score}/${signal.maxScore})`);
+        console.log(`          Passed: ${passedCriteria.join(', ') || 'none'}`);
+        console.log(`          Failed: ${hardCriteriaFailed.join(', ') || 'none'}`);
+        if (signal.basePattern && !signal.basePattern.pass) {
+          console.log(`          Base issue: ${signal.basePattern.invalidReason || 'unknown'}`);
+        }
+      }
     }
   }
 
@@ -423,13 +523,17 @@ export async function scanForCanslimCandidates(
   console.log(`  - Passed all criteria: ${rejectionReasons.passed}`);
   console.log(`  - Extended beyond buy zone: ${rejectionReasons.extended}`);
   console.log(`  - Failed criteria (score < 4/6): ${rejectionReasons.lowScore}`);
-  console.log(`    - Failed RS rating (<${config.minRsRating}): ${rejectionReasons.failedRS}`);
+  console.log(`    - Failed RS rating (<${config.minRsRating}): ${rejectionReasons.failedRS} (floor: 70, ideal: 80+)`);
   console.log(`    - Failed near 52wk high (>${config.maxPercentFromHigh}% away): ${rejectionReasons.failedHigh}`);
   console.log(`    - Failed base pattern: ${rejectionReasons.failedBase}`);
   console.log(`    - Failed sector strength: ${rejectionReasons.failedSector}`);
   console.log(`  - No data/error: ${rejectionReasons.noData}`);
 
-  // Store summary for API access
+  // Store summary for API access - include distribution day status
+  const regimeInfo = distStatus !== 'CONFIRMED_UPTREND'
+    ? `${distStatus} (${distCount} dist days)`
+    : marketContext?.regime?.toUpperCase() || 'UNKNOWN';
+
   latestScanSummaries[market] = {
     market,
     timestamp: new Date().toISOString(),
@@ -442,7 +546,7 @@ export async function scanForCanslimCandidates(
     failedBase: rejectionReasons.failedBase,
     failedSector: rejectionReasons.failedSector,
     noData: rejectionReasons.noData,
-    regime: marketContext?.regime || 'unknown'
+    regime: regimeInfo
   };
 
   return candidates;

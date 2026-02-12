@@ -89,18 +89,51 @@ export class CanslimExecutor {
     }
   }
 
-  async checkMarketRegime(): Promise<{ canTrade: boolean; regime: string; reason: string }> {
+  async checkMarketRegime(): Promise<{
+    canTrade: boolean;
+    regime: string;
+    reason: string;
+    distributionDayStatus?: string;
+    distributionDayCount?: number;
+    positionSizingMultiplier?: number;
+  }> {
     const today = new Date().toISOString().split('T')[0];
     const context = await getMarketContext(today);
-    
+
     if (!context) {
       return { canTrade: false, regime: 'unknown', reason: 'Failed to get market context' };
     }
 
+    // O'Neil Distribution Day status takes precedence
+    const distStatus = context.distributionDayStatus || 'CONFIRMED_UPTREND';
+    const distCount = context.distributionDayCount || 0;
+    const positionSizing = context.positionSizingMultiplier ?? 1.0;
+
+    // Determine if trading is allowed based on distribution day status
+    let canTrade = false;
+    let reason = context.regimeReason;
+
+    if (distStatus === 'MARKET_IN_CORRECTION') {
+      canTrade = false;
+      reason = `Market in CORRECTION (${distCount} distribution days in last 25 trading days)`;
+    } else if (distStatus === 'RALLY_ATTEMPT') {
+      canTrade = false;
+      reason = `Rally attempt day ${context.rallyAttemptDay} - waiting for follow-through (day 4-7)`;
+    } else if (distStatus === 'UPTREND_UNDER_PRESSURE') {
+      canTrade = true;  // Can trade but with reduced sizing
+      reason = `Uptrend UNDER PRESSURE (${distCount} distribution days) - reduced position sizing`;
+    } else if (distStatus === 'CONFIRMED_UPTREND') {
+      canTrade = context.regime === 'risk-on';
+      reason = context.regimeReason;
+    }
+
     return {
-      canTrade: context.regime === 'risk-on',
-      regime: context.regime,
-      reason: context.regimeReason
+      canTrade,
+      regime: distStatus !== 'CONFIRMED_UPTREND' ? distStatus : context.regime,
+      reason,
+      distributionDayStatus: distStatus,
+      distributionDayCount: distCount,
+      positionSizingMultiplier: positionSizing
     };
   }
 
@@ -120,7 +153,7 @@ export class CanslimExecutor {
     return filtered;
   }
 
-  async executeTrade(signal: CanslimSignal, marketRegime: string, marketRegimeReason: string, earningsData?: EarningsCheckResult, floatData?: SharesFloatData, market: 'US' | 'UK' = 'US'): Promise<boolean> {
+  async executeTrade(signal: CanslimSignal, marketRegime: string, marketRegimeReason: string, earningsData?: EarningsCheckResult, floatData?: SharesFloatData, market: 'US' | 'UK' = 'US', positionSizingMultiplier: number = 1.0): Promise<boolean> {
     if (this.dailyTradeCount >= this.config.maxDailyTrades) {
       console.log(`[CANSLIM] Daily trade limit reached (${this.config.maxDailyTrades})`);
       return false;
@@ -230,8 +263,13 @@ export class CanslimExecutor {
       ],
       currentPrice: entryPrice,
       tradeType: 'swing',
-      targetMarginGBP: this.config.targetMarginGBP
+      targetMarginGBP: Math.round(this.config.targetMarginGBP * positionSizingMultiplier)
     };
+
+    // Log if position sizing is reduced
+    if (positionSizingMultiplier < 1.0) {
+      console.log(`[CANSLIM] Position sizing reduced: ${this.config.targetMarginGBP}GBP * ${(positionSizingMultiplier * 100).toFixed(0)}% = ${orderSignal.targetMarginGBP}GBP`);
+    }
 
     try {
       const result = await metaApiHandler.placeOrder(orderSignal as any);
@@ -288,15 +326,40 @@ export class CanslimExecutor {
     console.log(`\nMarket Regime: ${marketCheck.regime.toUpperCase()}`);
     console.log(`Reason: ${marketCheck.reason}`);
 
+    // O'Neil Distribution Day status
+    if (marketCheck.distributionDayCount !== undefined) {
+      console.log(`Distribution Days: ${marketCheck.distributionDayCount} (last 25 trading days)`);
+    }
+    if (marketCheck.positionSizingMultiplier !== undefined && marketCheck.positionSizingMultiplier < 1.0) {
+      console.log(`Position Sizing: ${(marketCheck.positionSizingMultiplier * 100).toFixed(0)}% (reduced due to market pressure)`);
+    }
+
     if (!marketCheck.canTrade && !this.config.ignoreMarketRegime) {
       console.log(`\n[CANSLIM] Market is ${marketCheck.regime} - not trading`);
 
-      // Cancel any pending CAN SLIM orders since market conditions have changed
+      // Market protection actions
       if (!this.config.dryRun) {
-        console.log(`[CANSLIM] Checking for pending orders to cancel (market turned risk-off)...`);
+        // Cancel any pending CAN SLIM orders
+        console.log(`[CANSLIM] Checking for pending orders to cancel...`);
         const cancelResult = await metaApiHandler.cancelAllCanslimOrders();
         if (cancelResult.cancelledCount > 0) {
-          console.log(`[CANSLIM] Cancelled ${cancelResult.cancelledCount} pending orders due to risk-off market`);
+          console.log(`[CANSLIM] Cancelled ${cancelResult.cancelledCount} pending orders`);
+        }
+
+        // If market is in CORRECTION (5+ distribution days), close ALL positions
+        if (marketCheck.distributionDayStatus === 'MARKET_IN_CORRECTION') {
+          console.log(`\n${'!'.repeat(60)}`);
+          console.log(`[CANSLIM] MARKET CORRECTION DETECTED - CLOSING ALL POSITIONS`);
+          console.log(`[CANSLIM] Distribution days: ${marketCheck.distributionDayCount}`);
+          console.log(`${'!'.repeat(60)}\n`);
+
+          const closeResult = await metaApiHandler.closeAllCanslimPositions();
+          if (closeResult.closedCount > 0) {
+            console.log(`[CANSLIM] CLOSED ${closeResult.closedCount} positions due to market correction`);
+          }
+          if (closeResult.errors.length > 0) {
+            console.error(`[CANSLIM] Errors closing positions:`, closeResult.errors);
+          }
         }
       }
 
@@ -413,7 +476,8 @@ export class CanslimExecutor {
         console.log(`[CANSLIM] ${signal.symbol} Float: ${(floatData.floatShares / 1e9).toFixed(2)}B shares`);
       }
 
-      const success = await this.executeTrade(signal, marketCheck.regime, marketCheck.reason, earningsCheck, floatData, market);
+      const sizingMultiplier = marketCheck.positionSizingMultiplier ?? 1.0;
+      const success = await this.executeTrade(signal, marketCheck.regime, marketCheck.reason, earningsCheck, floatData, market, sizingMultiplier);
       if (success) executed++;
     }
     

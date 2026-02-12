@@ -72,9 +72,11 @@ function detectPriorUptrend(candles: Candle[], baseStartIndex: number): { exists
   const priceAtBaseStart = recentCandles[recentCandles.length - 1].close;
   const dropFromRecentHigh = ((recentHigh - priceAtBaseStart) / recentHigh) * 100;
 
-  // If dropped >15% from recent high AND the high was in the first half of the period,
+  // If dropped >22% from recent high AND the high was in the first half of the period,
   // this is a breakdown, not a healthy pullback into a base
-  const recentBreakdown = dropFromRecentHigh > 15 && recentHighIndex < recentCandles.length / 2;
+  // Relaxed from 15% to 22% to allow for normal volatility in modern markets
+  // Many leaders shake out 15-22% during corrections before forming new bases
+  const recentBreakdown = dropFromRecentHigh > 22 && recentHighIndex < recentCandles.length / 2;
 
   return {
     exists: percent >= 30,
@@ -310,12 +312,12 @@ export async function detectBasePattern(
 
     // Check current price proximity to pivot
     // O'Neil: Stock should be within buying range to be actionable
-    // Ideal buy point is within 5% of pivot. Max 10% for buy stop orders.
-    // Beyond 10%, the stock hasn't completed its pattern setup.
+    // Ideal buy point is within 5% of pivot. Relaxed to 15% to allow for normal pullbacks.
+    // This is more forgiving during volatile markets where stocks pull back 12-15% before breaking out.
     const currentPrice = candles[candles.length - 1].close;
     const pivotPrice = recentHigh * 1.001;
     const distanceFromPivot = ((pivotPrice - currentPrice) / pivotPrice) * 100;
-    const tooFarFromPivot = distanceFromPivot > 10;
+    const tooFarFromPivot = distanceFromPivot > 15;
 
     let patternType: BasePattern['type'] = 'none';
     let baseDepth = 0;
@@ -363,7 +365,7 @@ export async function detectBasePattern(
     } else if (baseLengthDays < 5 * 5) {
       invalidReason = 'Base too short (<5 weeks)';
     } else if (tooFarFromPivot) {
-      invalidReason = `Price too far from pivot (${distanceFromPivot.toFixed(1)}% below)`;
+      invalidReason = `Price too far from pivot (${distanceFromPivot.toFixed(1)}% below, max 15%)`;
     } else if (patternType === 'flat_base' && !flatBase.priceInUpperHalf) {
       invalidReason = 'Flat base: price drifting to lower half of range';
     } else if (patternType === 'consolidation' && cupShape.rightSideIncomplete) {

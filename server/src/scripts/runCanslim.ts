@@ -371,7 +371,23 @@ async function runScheduler() {
 
 async function main() {
   await connectDatabase();
-  
+
+  // Initialize distribution day service for O'Neil's market protection
+  try {
+    const { initializeDistributionDayService, updateDistributionDayCount } = await import('../services/distributionDayService.js');
+    await initializeDistributionDayService();
+    console.log('[DIST-DAY] Distribution day service initialized');
+
+    // Update distribution day count with today's data
+    const today = new Date().toISOString().split('T')[0];
+    const state = await updateDistributionDayCount(today);
+    console.log(`[DIST-DAY] Market status: ${state.marketStatus} (${state.distributionCount} distribution days)`);
+    console.log(`[DIST-DAY] Position sizing: ${state.positionSizingMultiplier * 100}%`);
+  } catch (distError) {
+    console.error('[DIST-DAY] Failed to initialize distribution day service:', distError);
+    // Continue without distribution day tracking - will use fallback regime check
+  }
+
   executor = createCanslimExecutor(config);
   if (!noGold) {
     goldExecutor = createGoldExecutor(goldConfig);
