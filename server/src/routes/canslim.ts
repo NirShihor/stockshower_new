@@ -17,7 +17,7 @@ let lastResetDate: string = '';
 const defaultGoldConfig: Partial<GoldTradeConfig> = {
   dryRun: false,
   targetMarginGBP: 25,
-  maxOpenPositions: 2,
+  maxOpenPositions: 1,
   stopLossPercent: 3,
   targetMultiple: 2,
 };
@@ -579,6 +579,25 @@ router.post('/scheduler/start', async (req: Request, res: Response) => {
 
       if (force || shouldRunScan(delayMinutes)) {
         console.log('[CANSLIM SCHEDULER] Running scheduled scan...');
+
+        // Update trailing stops before scanning (only in live mode)
+        if (!dryRun) {
+          try {
+            const trailingResult = await updateTrailingStops();
+            if (trailingResult.stopsAdjusted > 0) {
+              console.log(`[TRAILING-STOP] Adjusted ${trailingResult.stopsAdjusted} stop(s):`);
+              for (const adj of trailingResult.adjustments) {
+                console.log(`  ${adj.symbol}: Stop $${adj.oldStop.toFixed(2)} -> $${adj.newStop.toFixed(2)} (profit: +${adj.profitPercent.toFixed(1)}%)`);
+              }
+            }
+            if (trailingResult.errors.length > 0) {
+              console.log(`[TRAILING-STOP] Errors: ${trailingResult.errors.join(', ')}`);
+            }
+          } catch (trailError) {
+            console.error('[TRAILING-STOP] Error updating trailing stops:', trailError);
+          }
+        }
+
         try {
           // Determine market based on current hours
           const scheduledMarket = getCurrentMarket();

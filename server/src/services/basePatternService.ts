@@ -196,6 +196,61 @@ function detectCupShape(
   };
 }
 
+/**
+ * Detect if the stock is in active decline vs consolidating
+ * A stock in active decline shows:
+ * 1. Current price near the base low (not bouncing/consolidating)
+ * 2. Recent days showing declining price action
+ * This prevents buying into falling knives
+ */
+function detectActiveDecline(
+  candles: Candle[],
+  baseStartIndex: number,
+  baseEndIndex: number
+): { inActiveDecline: boolean; nearBaseLow: boolean; recentDeclinePercent: number } {
+  const baseCandles = candles.slice(baseStartIndex, baseEndIndex + 1);
+  if (baseCandles.length < 10) {
+    return { inActiveDecline: false, nearBaseLow: false, recentDeclinePercent: 0 };
+  }
+
+  // Find the low of the entire base period
+  const baseLow = Math.min(...baseCandles.map(c => c.low));
+  const baseHigh = Math.max(...baseCandles.map(c => c.high));
+  const currentPrice = baseCandles[baseCandles.length - 1].close;
+
+  // Check if current price is near the base low (within 5%)
+  // If so, it's still making new lows, not consolidating
+  const distanceFromLow = ((currentPrice - baseLow) / baseLow) * 100;
+  const nearBaseLow = distanceFromLow < 5;
+
+  // Check recent price action (last 5 days)
+  // If price dropped significantly in last 5 days, it's actively declining
+  const recentCandles = baseCandles.slice(-5);
+  const recentHigh = Math.max(...recentCandles.map(c => c.high));
+  const recentClose = recentCandles[recentCandles.length - 1].close;
+  const recentDeclinePercent = ((recentHigh - recentClose) / recentHigh) * 100;
+
+  // Also check if the last 5 days show a pattern of lower closes
+  let lowerCloseCount = 0;
+  for (let i = 1; i < recentCandles.length; i++) {
+    if (recentCandles[i].close < recentCandles[i - 1].close) {
+      lowerCloseCount++;
+    }
+  }
+  const mostlyLowerCloses = lowerCloseCount >= 3; // 3 out of 4 comparisons
+
+  // Stock is in active decline if:
+  // 1. Near base low AND recent decline > 5%
+  // 2. OR near base low AND mostly lower closes in recent days
+  const inActiveDecline = nearBaseLow && (recentDeclinePercent > 5 || mostlyLowerCloses);
+
+  return {
+    inActiveDecline,
+    nearBaseLow,
+    recentDeclinePercent: Math.round(recentDeclinePercent * 100) / 100
+  };
+}
+
 function detectVolumeContraction(
   candles: Candle[],
   baseStartIndex: number,
@@ -315,6 +370,7 @@ export async function detectBasePattern(
     const flatBase = detectFlatBase(candles, baseStartIndex, baseEndIndex);
     const cupShape = detectCupShape(candles, baseStartIndex, baseEndIndex);
     const volumeContraction = detectVolumeContraction(candles, baseStartIndex, baseEndIndex);
+    const activeDecline = detectActiveDecline(candles, baseStartIndex, baseEndIndex);
 
     // Check current price proximity to pivot
     // O'Neil: Stock should be within buying range to be actionable
@@ -380,12 +436,16 @@ export async function detectBasePattern(
       invalidReason = 'V-shaped bottom: not a proper rounded cup';
     } else if (patternType === 'consolidation' && cupShape.handleTooDeep) {
       invalidReason = 'Handle too deep: pullback from right side exceeds 15%';
+    } else if (activeDecline.inActiveDecline) {
+      invalidReason = `Active decline: price near base low, not consolidating`;
     }
 
     // Also reject consolidations that are incomplete cups, V-shaped, or have too-deep handles
+    // And reject ANY pattern when stock is in active decline (falling knife)
     const hasPatternQualityIssue =
       (patternType === 'flat_base' && !flatBase.priceInUpperHalf) ||
-      (patternType === 'consolidation' && (cupShape.rightSideIncomplete || cupShape.isVShaped || cupShape.handleTooDeep));
+      (patternType === 'consolidation' && (cupShape.rightSideIncomplete || cupShape.isVShaped || cupShape.handleTooDeep)) ||
+      activeDecline.inActiveDecline;
 
     const isValid = patternType !== 'none' &&
       priorUptrend.exists &&

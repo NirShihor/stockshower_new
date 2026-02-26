@@ -75,6 +75,7 @@ export async function updateTrailingStops(): Promise<TrailingStopResult> {
         const entryPrice = position.openPrice;
         const currentPrice = position.currentPrice;
         const currentStop = position.stopLoss || 0;
+        const currentTakeProfit = position.takeProfit;
 
         if (!entryPrice || !currentPrice) {
           result.errors.push(`${symbol}: Missing price data`);
@@ -104,7 +105,7 @@ export async function updateTrailingStops(): Promise<TrailingStopResult> {
 
         console.log(`[TRAILING-STOP] ${symbol}: Adjusting stop from $${currentStop.toFixed(2)} to $${newStop.toFixed(2)} (profit: ${(profitPercent * 100).toFixed(2)}%)`);
 
-        const modifyResult = await metaApiHandler.modifyPosition(positionId, newStop);
+        const modifyResult = await metaApiHandler.modifyPosition(positionId, newStop, currentTakeProfit);
 
         if (modifyResult.success) {
           result.stopsAdjusted++;
