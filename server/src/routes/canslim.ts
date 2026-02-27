@@ -17,7 +17,7 @@ let lastResetDate: string = '';
 const defaultGoldConfig: Partial<GoldTradeConfig> = {
   dryRun: false,
   targetMarginGBP: 25,
-  maxOpenPositions: 2,
+  maxOpenPositions: 1,
   stopLossPercent: 3,
   targetMultiple: 2,
 };
@@ -419,6 +419,97 @@ router.get('/scan-summaries', (req: Request, res: Response) => {
   });
 });
 
+// O'Neil Distribution Day Status Endpoints
+router.get('/distribution-status', async (req: Request, res: Response) => {
+  try {
+    const {
+      getDistributionDayState,
+      getPositionSizingMultiplier,
+      generateStatusExplanation
+    } = await import('../services/distributionDayService.js');
+
+    const state = getDistributionDayState();
+    const explanation = generateStatusExplanation(state);
+
+    res.json({
+      success: true,
+      distributionCount: state.distributionCount,
+      marketStatus: state.marketStatus,
+      positionSizingMultiplier: getPositionSizingMultiplier(),
+      distributionDays: state.distributionDays.map(d => ({
+        date: d,
+        type: 'distribution'
+      })),
+      stallingDays: state.stallingDays.map(d => ({
+        date: d,
+        type: 'stalling'
+      })),
+      rallyAttempt: state.marketStatus === 'RALLY_ATTEMPT' ? {
+        day: state.rallyAttemptDay,
+        startDate: state.rallyStartDate
+      } : null,
+      lastFollowThroughDate: state.lastFollowThroughDate,
+      lastUpdated: state.lastUpdated,
+      explanation,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('[DIST-DAY] Error getting distribution status:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get distribution day status'
+    });
+  }
+});
+
+router.get('/distribution-history', async (req: Request, res: Response) => {
+  try {
+    const days = parseInt(req.query.days as string) || 60;
+    const { getDistributionDayHistory } = await import('../services/distributionDayService.js');
+
+    const history = await getDistributionDayHistory(days);
+
+    res.json({
+      success: true,
+      days,
+      history,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('[DIST-DAY] Error getting distribution history:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get distribution day history'
+    });
+  }
+});
+
+router.post('/distribution-update', async (req: Request, res: Response) => {
+  try {
+    const { updateDistributionDayCount } = await import('../services/distributionDayService.js');
+
+    const today = new Date().toISOString().split('T')[0];
+    const state = await updateDistributionDayCount(today);
+
+    res.json({
+      success: true,
+      distributionCount: state.distributionCount,
+      marketStatus: state.marketStatus,
+      positionSizingMultiplier: state.positionSizingMultiplier,
+      distributionDays: state.distributionDays,
+      stallingDays: state.stallingDays,
+      lastUpdated: state.lastUpdated,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error: any) {
+    console.error('[DIST-DAY] Error updating distribution count:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update distribution day count'
+    });
+  }
+});
+
 // Scheduler state
 let schedulerStartTime: Date | null = null;
 let nextScanTime: Date | null = null;
@@ -464,6 +555,21 @@ router.post('/scheduler/start', async (req: Request, res: Response) => {
     schedulerStartTime = new Date();
     console.log(`[CANSLIM API] Starting scheduler - interval: ${intervalMinutes}min, delay: ${delayMinutes}min, dryRun: ${dryRun}`);
 
+    // Initialize distribution day service
+    try {
+      const { initializeDistributionDayService, updateDistributionDayCount } = await import('../services/distributionDayService.js');
+      await initializeDistributionDayService();
+      console.log('[CANSLIM API] Distribution day service initialized');
+
+      // Update distribution day count with today's data
+      const today = new Date().toISOString().split('T')[0];
+      await updateDistributionDayCount(today);
+      console.log('[CANSLIM API] Distribution day count updated');
+    } catch (distError) {
+      console.error('[CANSLIM API] Failed to initialize distribution day service:', distError);
+      // Continue without distribution day tracking - will use fallback regime check
+    }
+
     const runScanIfReady = async () => {
       const today = new Date().toISOString().split('T')[0];
       if (today !== lastResetDate) {
@@ -473,6 +579,25 @@ router.post('/scheduler/start', async (req: Request, res: Response) => {
 
       if (force || shouldRunScan(delayMinutes)) {
         console.log('[CANSLIM SCHEDULER] Running scheduled scan...');
+
+        // Update trailing stops before scanning (only in live mode)
+        if (!dryRun) {
+          try {
+            const trailingResult = await updateTrailingStops();
+            if (trailingResult.stopsAdjusted > 0) {
+              console.log(`[TRAILING-STOP] Adjusted ${trailingResult.stopsAdjusted} stop(s):`);
+              for (const adj of trailingResult.adjustments) {
+                console.log(`  ${adj.symbol}: Stop $${adj.oldStop.toFixed(2)} -> $${adj.newStop.toFixed(2)} (profit: +${adj.profitPercent.toFixed(1)}%)`);
+              }
+            }
+            if (trailingResult.errors.length > 0) {
+              console.log(`[TRAILING-STOP] Errors: ${trailingResult.errors.join(', ')}`);
+            }
+          } catch (trailError) {
+            console.error('[TRAILING-STOP] Error updating trailing stops:', trailError);
+          }
+        }
+
         try {
           // Determine market based on current hours
           const scheduledMarket = getCurrentMarket();

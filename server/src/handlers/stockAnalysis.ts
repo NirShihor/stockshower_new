@@ -24,7 +24,7 @@ function generateAlgorithmicCanSlimOutlook(
 	marketContext: MarketContext,
 	market: 'US' | 'UK'
 ): string {
-	const { regime, regimeReason, spy, qqq, vix } = marketContext;
+	const { regime, regimeReason, spy, qqq, vix, distributionDayStatus, distributionDayCount, rallyAttemptDay } = marketContext;
 
 	const indexName = market === 'UK' ? 'FTSE proxy' : 'SPY';
 	const techName = market === 'UK' ? 'UK large cap' : 'QQQ';
@@ -34,7 +34,23 @@ function generateAlgorithmicCanSlimOutlook(
 	let action: string;
 	let scannerStatus: string;
 
-	if (regime === 'risk-on') {
+	// Check distribution day status first (takes precedence over regime)
+	if (distributionDayStatus === 'MARKET_IN_CORRECTION') {
+		rating = 'AVOID - Market in CORRECTION';
+		positionSizing = '0% - No new positions';
+		action = `Scanner PAUSED. ${distributionDayCount || 0} distribution days detected. Move to cash, close positions on weakness.`;
+		scannerStatus = 'Scanner paused due to market correction.';
+	} else if (distributionDayStatus === 'RALLY_ATTEMPT') {
+		rating = `WAIT - Rally Attempt Day ${rallyAttemptDay || '?'}`;
+		positionSizing = '0% - Waiting for follow-through';
+		action = `Scanner PAUSED. Rally attempt in progress - waiting for follow-through day (day 4-10 with 1.5%+ gain on higher volume).`;
+		scannerStatus = 'Scanner paused - waiting for follow-through day confirmation.';
+	} else if (distributionDayStatus === 'UPTREND_UNDER_PRESSURE') {
+		rating = 'CAUTION - Uptrend Under Pressure';
+		positionSizing = '25-50% with reduced size';
+		action = `Scanner ACTIVE but with reduced sizing. ${distributionDayCount || 0} distribution days - be selective, tighten stops.`;
+		scannerStatus = 'Scanner active with reduced position sizing.';
+	} else if (regime === 'risk-on') {
 		rating = 'GOOD - Conditions favorable for swing trade breakouts';
 		positionSizing = '50-75% in new positions';
 		action = 'Scanner ACTIVE. Enter new positions in leading stocks breaking out of proper bases. Hold existing winners and trail stops.';

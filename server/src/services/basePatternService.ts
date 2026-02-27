@@ -41,14 +41,19 @@ function findBaseStart(candles: Candle[], pivotIndex: number): number {
   return baseStart;
 }
 
-function detectPriorUptrend(candles: Candle[], baseStartIndex: number): { exists: boolean; percent: number; recentBreakdown: boolean; breakdownPercent: number } {
+function detectPriorUptrend(candles: Candle[], baseStartIndex: number, market: 'US' | 'UK' = 'US'): { exists: boolean; percent: number; recentBreakdown: boolean; breakdownPercent: number; requiredPercent: number } {
+  // Market-specific prior uptrend threshold:
+  // US: 30% - O'Neil's original methodology for high-growth US stocks
+  // UK: 20% - Lower threshold for less volatile UK market (FTSE stocks)
+  const requiredPercent = market === 'UK' ? 20 : 30;
+
   if (baseStartIndex < 30) {
-    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0 };
+    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0, requiredPercent };
   }
 
   const priorCandles = candles.slice(Math.max(0, baseStartIndex - 65), baseStartIndex);
   if (priorCandles.length < 20) {
-    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0 };
+    return { exists: false, percent: 0, recentBreakdown: false, breakdownPercent: 0, requiredPercent };
   }
 
   const startPrice = priorCandles[0].close;
@@ -72,15 +77,18 @@ function detectPriorUptrend(candles: Candle[], baseStartIndex: number): { exists
   const priceAtBaseStart = recentCandles[recentCandles.length - 1].close;
   const dropFromRecentHigh = ((recentHigh - priceAtBaseStart) / recentHigh) * 100;
 
-  // If dropped >15% from recent high AND the high was in the first half of the period,
+  // If dropped >22% from recent high AND the high was in the first half of the period,
   // this is a breakdown, not a healthy pullback into a base
-  const recentBreakdown = dropFromRecentHigh > 15 && recentHighIndex < recentCandles.length / 2;
+  // Relaxed from 15% to 22% to allow for normal volatility in modern markets
+  // Many leaders shake out 15-22% during corrections before forming new bases
+  const recentBreakdown = dropFromRecentHigh > 22 && recentHighIndex < recentCandles.length / 2;
 
   return {
-    exists: percent >= 30,
+    exists: percent >= requiredPercent,
     percent: Math.round(percent * 100) / 100,
     recentBreakdown,
-    breakdownPercent: Math.round(dropFromRecentHigh * 100) / 100
+    breakdownPercent: Math.round(dropFromRecentHigh * 100) / 100,
+    requiredPercent
   };
 }
 
@@ -185,6 +193,61 @@ function detectCupShape(
     rightSideIncomplete,
     isVShaped,
     handleTooDeep
+  };
+}
+
+/**
+ * Detect if the stock is in active decline vs consolidating
+ * A stock in active decline shows:
+ * 1. Current price near the base low (not bouncing/consolidating)
+ * 2. Recent days showing declining price action
+ * This prevents buying into falling knives
+ */
+function detectActiveDecline(
+  candles: Candle[],
+  baseStartIndex: number,
+  baseEndIndex: number
+): { inActiveDecline: boolean; nearBaseLow: boolean; recentDeclinePercent: number } {
+  const baseCandles = candles.slice(baseStartIndex, baseEndIndex + 1);
+  if (baseCandles.length < 10) {
+    return { inActiveDecline: false, nearBaseLow: false, recentDeclinePercent: 0 };
+  }
+
+  // Find the low of the entire base period
+  const baseLow = Math.min(...baseCandles.map(c => c.low));
+  const baseHigh = Math.max(...baseCandles.map(c => c.high));
+  const currentPrice = baseCandles[baseCandles.length - 1].close;
+
+  // Check if current price is near the base low (within 5%)
+  // If so, it's still making new lows, not consolidating
+  const distanceFromLow = ((currentPrice - baseLow) / baseLow) * 100;
+  const nearBaseLow = distanceFromLow < 5;
+
+  // Check recent price action (last 5 days)
+  // If price dropped significantly in last 5 days, it's actively declining
+  const recentCandles = baseCandles.slice(-5);
+  const recentHigh = Math.max(...recentCandles.map(c => c.high));
+  const recentClose = recentCandles[recentCandles.length - 1].close;
+  const recentDeclinePercent = ((recentHigh - recentClose) / recentHigh) * 100;
+
+  // Also check if the last 5 days show a pattern of lower closes
+  let lowerCloseCount = 0;
+  for (let i = 1; i < recentCandles.length; i++) {
+    if (recentCandles[i].close < recentCandles[i - 1].close) {
+      lowerCloseCount++;
+    }
+  }
+  const mostlyLowerCloses = lowerCloseCount >= 3; // 3 out of 4 comparisons
+
+  // Stock is in active decline if:
+  // 1. Near base low AND recent decline > 5%
+  // 2. OR near base low AND mostly lower closes in recent days
+  const inActiveDecline = nearBaseLow && (recentDeclinePercent > 5 || mostlyLowerCloses);
+
+  return {
+    inActiveDecline,
+    nearBaseLow,
+    recentDeclinePercent: Math.round(recentDeclinePercent * 100) / 100
   };
 }
 
@@ -303,19 +366,20 @@ export async function detectBasePattern(
       };
     }
     
-    const priorUptrend = detectPriorUptrend(candles, baseStartIndex);
+    const priorUptrend = detectPriorUptrend(candles, baseStartIndex, market);
     const flatBase = detectFlatBase(candles, baseStartIndex, baseEndIndex);
     const cupShape = detectCupShape(candles, baseStartIndex, baseEndIndex);
     const volumeContraction = detectVolumeContraction(candles, baseStartIndex, baseEndIndex);
+    const activeDecline = detectActiveDecline(candles, baseStartIndex, baseEndIndex);
 
     // Check current price proximity to pivot
     // O'Neil: Stock should be within buying range to be actionable
-    // Ideal buy point is within 5% of pivot. Max 10% for buy stop orders.
-    // Beyond 10%, the stock hasn't completed its pattern setup.
+    // Ideal buy point is within 5% of pivot. Relaxed to 15% to allow for normal pullbacks.
+    // This is more forgiving during volatile markets where stocks pull back 12-15% before breaking out.
     const currentPrice = candles[candles.length - 1].close;
     const pivotPrice = recentHigh * 1.001;
     const distanceFromPivot = ((pivotPrice - currentPrice) / pivotPrice) * 100;
-    const tooFarFromPivot = distanceFromPivot > 10;
+    const tooFarFromPivot = distanceFromPivot > 15;
 
     let patternType: BasePattern['type'] = 'none';
     let baseDepth = 0;
@@ -355,7 +419,7 @@ export async function detectBasePattern(
     if (patternType === 'none') {
       invalidReason = 'No recognisable pattern';
     } else if (!priorUptrend.exists) {
-      invalidReason = 'No prior uptrend (need 30%+ advance)';
+      invalidReason = `No prior uptrend (need ${priorUptrend.requiredPercent}%+ advance)`;
     } else if (priorUptrend.recentBreakdown) {
       invalidReason = `Recent breakdown detected (${priorUptrend.breakdownPercent}% drop before base)`;
     } else if (baseDepth > 35) {
@@ -363,7 +427,7 @@ export async function detectBasePattern(
     } else if (baseLengthDays < 5 * 5) {
       invalidReason = 'Base too short (<5 weeks)';
     } else if (tooFarFromPivot) {
-      invalidReason = `Price too far from pivot (${distanceFromPivot.toFixed(1)}% below)`;
+      invalidReason = `Price too far from pivot (${distanceFromPivot.toFixed(1)}% below, max 15%)`;
     } else if (patternType === 'flat_base' && !flatBase.priceInUpperHalf) {
       invalidReason = 'Flat base: price drifting to lower half of range';
     } else if (patternType === 'consolidation' && cupShape.rightSideIncomplete) {
@@ -372,12 +436,16 @@ export async function detectBasePattern(
       invalidReason = 'V-shaped bottom: not a proper rounded cup';
     } else if (patternType === 'consolidation' && cupShape.handleTooDeep) {
       invalidReason = 'Handle too deep: pullback from right side exceeds 15%';
+    } else if (activeDecline.inActiveDecline) {
+      invalidReason = `Active decline: price near base low, not consolidating`;
     }
 
     // Also reject consolidations that are incomplete cups, V-shaped, or have too-deep handles
+    // And reject ANY pattern when stock is in active decline (falling knife)
     const hasPatternQualityIssue =
       (patternType === 'flat_base' && !flatBase.priceInUpperHalf) ||
-      (patternType === 'consolidation' && (cupShape.rightSideIncomplete || cupShape.isVShaped || cupShape.handleTooDeep));
+      (patternType === 'consolidation' && (cupShape.rightSideIncomplete || cupShape.isVShaped || cupShape.handleTooDeep)) ||
+      activeDecline.inActiveDecline;
 
     const isValid = patternType !== 'none' &&
       priorUptrend.exists &&

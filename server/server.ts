@@ -191,7 +191,20 @@ if (process.env.NODE_ENV === 'production') {
       
       // Start daily training insights regeneration scheduler (21:10 UK time)
       startTrainingScheduler();
-      
+
+      // Initialize distribution day service for market status on analysis page
+      (async () => {
+        try {
+          const { initializeDistributionDayService, updateDistributionDayCount } = await import('./src/services/distributionDayService.js');
+          await initializeDistributionDayService();
+          const today = new Date().toISOString().split('T')[0];
+          await updateDistributionDayCount(today);
+          console.log('Distribution day service initialized for analysis page');
+        } catch (distError) {
+          console.error('Failed to initialize distribution day service:', distError);
+        }
+      })();
+
       // DISABLED: AI Top Trades and Swing Executor - only CAN SLIM is active now
       // Setup AI Top Trades service
       // setCandleHistoryAccessor(getCandleHistoryMap);

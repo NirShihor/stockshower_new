@@ -24,7 +24,7 @@ export interface IGoldTrade {
   closedTime?: Date;
 
   exitPrice?: number;
-  exitReason?: 'stop_loss' | 'target' | 'trailing_stop' | 'manual' | 'expired';
+  exitReason?: 'stop_loss' | 'target' | 'trailing_stop' | 'manual' | 'expired' | 'regime_change';
   holdingDays?: number;
 
   pnlAmount?: number;

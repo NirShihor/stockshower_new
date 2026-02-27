@@ -13,7 +13,7 @@ export interface GoldTradeConfig {
 
 const DEFAULT_CONFIG: GoldTradeConfig = {
   targetMarginGBP: 25,
-  maxOpenPositions: 2,
+  maxOpenPositions: 1,
   stopLossPercent: 3,
   targetMultiple: 2,
   dryRun: true
@@ -73,7 +73,11 @@ export class GoldExecutor {
     const today = new Date().toISOString().split('T')[0];
     const marketContext = await getMarketContext(today);
 
-    if (marketContext?.regime === 'risk-on') {
+    const canslimActive = marketContext?.regime === 'risk-on' &&
+      (marketContext?.distributionDayStatus === 'CONFIRMED_UPTREND' ||
+       marketContext?.distributionDayStatus === 'UPTREND_UNDER_PRESSURE');
+
+    if (canslimActive) {
       return {
         analysis: null,
         traded: false,
@@ -269,6 +273,188 @@ export class GoldExecutor {
     } catch (err) {
       console.error('[GOLD] Error updating trade status:', err);
     }
+  }
+
+  async syncPositionStatus(): Promise<{ checked: number; updated: number; errors: string[] }> {
+    const result = { checked: 0, updated: 0, errors: [] as string[] };
+
+    try {
+      const [positions, orders] = await Promise.all([
+        metaApiHandler.getPositions(),
+        metaApiHandler.getOrders()
+      ]);
+
+      const goldPositions = positions.filter(
+        (p: any) => p.symbol === 'GOLD' || p.symbol?.includes('GOLD')
+      );
+      const goldOrders = orders.filter(
+        (o: any) => o.symbol === 'GOLD' || o.symbol?.includes('GOLD')
+      );
+
+      const placedTrades = await GoldTrade.find({ status: 'placed', dryRun: false });
+      const filledTrades = await GoldTrade.find({ status: 'filled', dryRun: false });
+
+      result.checked = placedTrades.length + filledTrades.length;
+
+      for (const trade of placedTrades) {
+        try {
+          const orderExists = goldOrders.some((o: any) => o.id === trade.mt5OrderId);
+
+          if (!orderExists) {
+            const matchingPosition = goldPositions.find((p: any) =>
+              p.openPrice && Math.abs(p.openPrice - trade.entryPrice) < 5
+            );
+
+            if (matchingPosition) {
+              await GoldTrade.findByIdAndUpdate(trade._id, {
+                status: 'filled',
+                mt5PositionId: matchingPosition.id,
+                actualEntryPrice: matchingPosition.openPrice,
+                filledTime: new Date()
+              });
+              console.log(`[GOLD-SYNC] Trade ${trade._id} filled at $${matchingPosition.openPrice}`);
+              result.updated++;
+            } else {
+              const hoursSincePlaced = trade.orderPlacedTime
+                ? (Date.now() - new Date(trade.orderPlacedTime).getTime()) / (1000 * 60 * 60)
+                : 0;
+
+              if (hoursSincePlaced > 48) {
+                await GoldTrade.findByIdAndUpdate(trade._id, {
+                  status: 'cancelled',
+                  exitReason: 'expired'
+                });
+                console.log(`[GOLD-SYNC] Trade ${trade._id} expired after 48 hours`);
+                result.updated++;
+              }
+            }
+          }
+        } catch (err: any) {
+          result.errors.push(`Trade ${trade._id}: ${err.message}`);
+        }
+      }
+
+      for (const trade of filledTrades) {
+        try {
+          const positionExists = goldPositions.some(
+            (p: any) => p.id === trade.mt5PositionId
+          );
+
+          if (!positionExists && trade.mt5PositionId) {
+            const closedPosition = await metaApiHandler.getClosedPosition(trade.mt5PositionId);
+            const exitPrice = closedPosition?.closePrice || trade.takeProfit;
+            const entryPrice = trade.actualEntryPrice || trade.entryPrice;
+
+            let exitReason: 'stop_loss' | 'target' | 'trailing_stop' | 'manual' = 'manual';
+            if (closedPosition?.closePrice) {
+              if (closedPosition.closePrice <= trade.stopLoss + 1) {
+                exitReason = 'stop_loss';
+              } else if (closedPosition.closePrice >= trade.takeProfit - 1) {
+                exitReason = 'target';
+              } else if (closedPosition.closePrice > entryPrice) {
+                exitReason = 'trailing_stop';
+              }
+            }
+
+            const pnlAmount = (exitPrice - entryPrice) * (trade.volume || 0.01) * 100;
+            const pnlPercentage = ((exitPrice - entryPrice) / entryPrice) * 100;
+
+            await GoldTrade.findByIdAndUpdate(trade._id, {
+              status: 'closed',
+              exitPrice,
+              exitReason,
+              closedTime: new Date(),
+              pnlAmount,
+              pnlPercentage,
+              commission: closedPosition?.commission || 0
+            });
+
+            console.log(`[GOLD-SYNC] Trade ${trade._id} closed at $${exitPrice} (${exitReason}) P&L: ${pnlPercentage.toFixed(2)}%`);
+            result.updated++;
+          }
+        } catch (err: any) {
+          result.errors.push(`Trade ${trade._id}: ${err.message}`);
+        }
+      }
+
+    } catch (error: any) {
+      console.error('[GOLD-SYNC] Error syncing positions:', error.message);
+      result.errors.push(`General error: ${error.message}`);
+    }
+
+    return result;
+  }
+
+  async closeOnRegimeChange(): Promise<{ closed: number; errors: string[] }> {
+    const result = { closed: 0, errors: [] as string[] };
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const marketContext = await getMarketContext(today, 'US');
+
+      if (marketContext?.regime !== 'risk-on') {
+        return result;
+      }
+
+      if (marketContext?.distributionDayStatus !== 'CONFIRMED_UPTREND') {
+        console.log(`[GOLD-REGIME] US market is risk-on but O'Neil status is ${marketContext?.distributionDayStatus} - keeping gold positions`);
+        return result;
+      }
+
+      console.log('[GOLD-REGIME] US market is risk-on AND confirmed uptrend - checking for gold positions to close');
+
+      const positions = await metaApiHandler.getPositions();
+      const goldPositions = positions.filter(
+        (p: any) => p.symbol === 'GOLD' || p.symbol?.includes('GOLD')
+      );
+
+      if (goldPositions.length === 0) {
+        console.log('[GOLD-REGIME] No open gold positions');
+        return result;
+      }
+
+      for (const position of goldPositions) {
+        try {
+          const positionId = position.id;
+          const currentPrice = position.currentPrice || position.openPrice;
+          const entryPrice = position.openPrice;
+
+          console.log(`[GOLD-REGIME] Closing gold position ${positionId} at $${currentPrice} (US market risk-on)`);
+
+          const closeResult = await metaApiHandler.closePosition(positionId);
+
+          if (closeResult.success) {
+            const pnlPercentage = ((currentPrice - entryPrice) / entryPrice) * 100;
+            const pnlAmount = (currentPrice - entryPrice) * (position.volume || 0.01) * 100;
+
+            await GoldTrade.findOneAndUpdate(
+              { mt5PositionId: positionId, status: 'filled' },
+              {
+                status: 'closed',
+                exitPrice: currentPrice,
+                exitReason: 'regime_change',
+                closedTime: new Date(),
+                pnlAmount,
+                pnlPercentage
+              }
+            );
+
+            console.log(`[GOLD-REGIME] Position closed - P&L: ${pnlPercentage.toFixed(2)}%`);
+            result.closed++;
+          } else {
+            result.errors.push(`Failed to close position ${positionId}: ${closeResult.error}`);
+          }
+        } catch (err: any) {
+          result.errors.push(`Position ${position.id}: ${err.message}`);
+        }
+      }
+
+    } catch (error: any) {
+      console.error('[GOLD-REGIME] Error checking regime change:', error.message);
+      result.errors.push(`General error: ${error.message}`);
+    }
+
+    return result;
   }
 }
 

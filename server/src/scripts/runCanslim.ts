@@ -5,6 +5,10 @@ import { connectDatabase } from '../db/connection.js';
 import { createCanslimExecutor, CanslimTradeConfig } from '../brokers/canslimExecutor.js';
 import { createGoldExecutor, GoldTradeConfig } from '../brokers/goldExecutor.js';
 import { updateTrailingStops } from '../services/trailingStopService.js';
+import { metaApiHandler } from '../handlers/metaApiRestHandler.js';
+
+// Reinitialize MetaAPI handler with env vars (static imports load before dotenv.config runs)
+metaApiHandler.reinitialize();
 
 const args = process.argv.slice(2);
 const isLive = args.includes('--live');
@@ -32,7 +36,7 @@ const config: Partial<CanslimTradeConfig> = {
 const goldConfig: Partial<GoldTradeConfig> = {
   dryRun: !isLive,
   targetMarginGBP: marginArg ? parseFloat(marginArg.split('=')[1]) : 25,
-  maxOpenPositions: 2,
+  maxOpenPositions: 1,
   stopLossPercent: 3,
   targetMultiple: 2,
 };
@@ -41,30 +45,40 @@ const intervalMinutes = intervalArg ? parseInt(intervalArg.split('=')[1]) : 30;
 
 // US Eastern Time
 function getETTime(): { hour: number; minute: number; dayOfWeek: number } {
-  const etString = new Date().toLocaleString("en-US", {
-    timeZone: "America/New_York",
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: 'numeric',
     hour12: false,
   });
-  const date = new Date(etString);
-  return {
-    hour: date.getHours(),
-    minute: date.getMinutes(),
-    dayOfWeek: date.getDay()
-  };
+  const parts = formatter.formatToParts(now);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  // Get day of week (0 = Sunday, 6 = Saturday)
+  const dayFormatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' });
+  const dayStr = dayFormatter.format(now);
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { hour, minute, dayOfWeek: dayMap[dayStr] ?? 0 };
 }
 
 // UK/London Time (GMT/BST)
 function getUKTime(): { hour: number; minute: number; dayOfWeek: number } {
-  const ukString = new Date().toLocaleString("en-GB", {
-    timeZone: "Europe/London",
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London',
+    hour: 'numeric',
+    minute: 'numeric',
     hour12: false,
   });
-  const date = new Date(ukString);
-  return {
-    hour: date.getHours(),
-    minute: date.getMinutes(),
-    dayOfWeek: date.getDay()
-  };
+  const parts = formatter.formatToParts(now);
+  const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0');
+  const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0');
+  // Get day of week (0 = Sunday, 6 = Saturday)
+  const dayFormatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'short' });
+  const dayStr = dayFormatter.format(now);
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return { hour, minute, dayOfWeek: dayMap[dayStr] ?? 0 };
 }
 
 // US market: 9:30 AM - 4:00 PM ET
@@ -101,6 +115,35 @@ function getCurrentMarket(): 'UK' | 'US' | 'BOTH' | 'CLOSED' {
 // Check if any market is open
 function isAnyMarketOpen(): boolean {
   return isUKMarketOpen() || isUSMarketOpen();
+}
+
+// Gold market: Nearly 24/5 - Sunday 11pm UK to Friday 10pm UK
+// Daily maintenance break around 10pm-11pm UK time
+function isGoldMarketOpen(): boolean {
+  const { hour, minute, dayOfWeek } = getUKTime();
+  const totalMinutes = hour * 60 + minute;
+
+  // Closed all weekend (Saturday)
+  if (dayOfWeek === 6) return false;
+
+  // Sunday: only open after 11pm UK
+  if (dayOfWeek === 0) {
+    return totalMinutes >= 23 * 60;
+  }
+
+  // Friday: closes at 10pm UK
+  if (dayOfWeek === 5) {
+    return totalMinutes < 22 * 60;
+  }
+
+  // Mon-Thu: Brief maintenance break 22:00-23:00 UK
+  const maintenanceStart = 22 * 60;
+  const maintenanceEnd = 23 * 60;
+  if (totalMinutes >= maintenanceStart && totalMinutes < maintenanceEnd) {
+    return false;
+  }
+
+  return true;
 }
 
 function isUSTradingWindowOpen(): boolean {
@@ -233,11 +276,28 @@ async function runScan(market: 'US' | 'UK' = 'US') {
     }
   }
 
+  // Check if gold positions should be closed due to US market regime change
+  if (market === 'US' && goldExecutor && isLive) {
+    try {
+      const regimeResult = await goldExecutor.closeOnRegimeChange();
+      if (regimeResult.closed > 0) {
+        console.log(`[GOLD-REGIME] Closed ${regimeResult.closed} gold position(s) - US market risk-on`);
+      }
+      if (regimeResult.errors.length > 0) {
+        console.log(`[GOLD-REGIME] Errors: ${regimeResult.errors.join(', ')}`);
+      }
+    } catch (regimeError) {
+      console.error('[GOLD-REGIME] Error checking regime:', regimeError);
+    }
+  }
+
   try {
     console.log(`\n[SCAN] Running ${market} market scan...`);
     const result = await executor.scanAndExecute(market);
     
+    const completedTime = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' });
     console.log('\nSummary:');
+    console.log(`  Completed: ${completedTime} GMT`);
     console.log(`  Stocks scanned: ${result.scanned}`);
     console.log(`  Trades executed: ${result.executed}`);
     if (result.skipped) {
@@ -245,7 +305,16 @@ async function runScan(market: 'US' | 'UK' = 'US') {
     }
 
     // Gold fallback only for US market when CAN SLIM is paused due to market regime
-    if (market === 'US' && goldExecutor && result.skipped && (result.skipped.includes('neutral') || result.skipped.includes('risk-off'))) {
+    // Triggers on: risk-off, neutral, MARKET_IN_CORRECTION, UPTREND_UNDER_PRESSURE, RALLY_ATTEMPT
+    const shouldCheckGold = market === 'US' && goldExecutor && result.skipped && (
+      result.skipped.includes('neutral') ||
+      result.skipped.includes('risk-off') ||
+      result.skipped.includes('CORRECTION') ||
+      result.skipped.includes('PRESSURE') ||
+      result.skipped.includes('RALLY')
+    );
+
+    if (shouldCheckGold && goldExecutor) {
       console.log('\n[GOLD] US CAN SLIM paused - checking gold fallback...');
       const goldResult = await goldExecutor.runScan();
       console.log(`\nGold Summary:`);
@@ -310,7 +379,45 @@ async function runScheduler() {
     const currentMarket = getCurrentMarket();
 
     if (currentMarket === 'CLOSED') {
-      console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - All markets CLOSED, skipping scan`);
+      // Check if gold market is still open for position management
+      if (isGoldMarketOpen() && isLive && !noTrailing) {
+        console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - Equity markets CLOSED, gold market OPEN`);
+        console.log(`[SCHEDULER] Running gold position management...`);
+
+        try {
+          const trailingResult = await updateTrailingStops();
+          if (trailingResult.positionsChecked > 0) {
+            console.log(`[GOLD-MONITOR] Checked ${trailingResult.positionsChecked} position(s)`);
+          }
+          if (trailingResult.stopsAdjusted > 0) {
+            console.log(`[GOLD-MONITOR] Adjusted ${trailingResult.stopsAdjusted} trailing stop(s):`);
+            for (const adj of trailingResult.adjustments) {
+              console.log(`  ${adj.symbol}: Stop $${adj.oldStop.toFixed(2)} -> $${adj.newStop.toFixed(2)} (profit: +${adj.profitPercent.toFixed(1)}%)`);
+            }
+          }
+          if (trailingResult.errors.length > 0) {
+            console.log(`[GOLD-MONITOR] Errors: ${trailingResult.errors.join(', ')}`);
+          }
+        } catch (trailError) {
+          console.error('[GOLD-MONITOR] Error updating trailing stops:', trailError);
+        }
+
+        if (goldExecutor) {
+          try {
+            const syncResult = await goldExecutor.syncPositionStatus();
+            if (syncResult.checked > 0) {
+              console.log(`[GOLD-SYNC] Checked ${syncResult.checked} trade record(s), updated ${syncResult.updated}`);
+            }
+            if (syncResult.errors.length > 0) {
+              console.log(`[GOLD-SYNC] Errors: ${syncResult.errors.join(', ')}`);
+            }
+          } catch (syncError) {
+            console.error('[GOLD-SYNC] Error syncing position status:', syncError);
+          }
+        }
+      } else {
+        console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - All markets CLOSED, skipping scan`);
+      }
       return;
     }
 
@@ -356,6 +463,28 @@ async function runScheduler() {
       }
     }
 
+    // Check if trading is allowed before running scan (saves API calls during RALLY_ATTEMPT/CORRECTION)
+    const { isTradingAllowed, getMarketStatus } = await import('../services/distributionDayService.js');
+    if (!isTradingAllowed()) {
+      const status = getMarketStatus();
+      console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - Market is ${status}, skipping scan`);
+
+      // Still run gold fallback check when CAN SLIM is paused
+      if (goldExecutor && !noGold) {
+        console.log(`[GOLD] CAN SLIM paused due to ${status} - checking gold fallback...`);
+        try {
+          const goldResult = await goldExecutor.runScan();
+          console.log(`\nGold Summary:`);
+          console.log(`  Recommendation: ${goldResult.analysis?.recommendation || 'N/A'}`);
+          console.log(`  Traded: ${goldResult.traded ? 'YES' : 'NO'}`);
+          console.log(`  Reason: ${goldResult.reason}`);
+        } catch (goldError) {
+          console.error('[GOLD] Error running gold scan:', goldError);
+        }
+      }
+      return;
+    }
+
     console.log(`\n[SCHEDULER] ${ukTimeStr} / ${etTimeStr} - ${targetMarket} trading window OPEN`);
     await runScan(targetMarket);
   };
@@ -371,7 +500,23 @@ async function runScheduler() {
 
 async function main() {
   await connectDatabase();
-  
+
+  // Initialize distribution day service for O'Neil's market protection
+  try {
+    const { initializeDistributionDayService, updateDistributionDayCount } = await import('../services/distributionDayService.js');
+    await initializeDistributionDayService();
+    console.log('[DIST-DAY] Distribution day service initialized');
+
+    // Update distribution day count with today's data
+    const today = new Date().toISOString().split('T')[0];
+    const state = await updateDistributionDayCount(today);
+    console.log(`[DIST-DAY] Market status: ${state.marketStatus} (${state.distributionCount} distribution days)`);
+    console.log(`[DIST-DAY] Position sizing: ${state.positionSizingMultiplier * 100}%`);
+  } catch (distError) {
+    console.error('[DIST-DAY] Failed to initialize distribution day service:', distError);
+    // Continue without distribution day tracking - will use fallback regime check
+  }
+
   executor = createCanslimExecutor(config);
   if (!noGold) {
     goldExecutor = createGoldExecutor(goldConfig);

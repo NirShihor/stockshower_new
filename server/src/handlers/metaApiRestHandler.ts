@@ -46,6 +46,12 @@ class MetaApiRestHandler {
   }
 
   private convertToMT5Symbol(symbol: string): string {
+    // Commodities and forex pairs - no suffix needed
+    const commodities = ['GOLD', 'XAUUSD', 'SILVER', 'XAGUSD', 'OIL', 'USOIL', 'BRENT'];
+    if (commodities.includes(symbol.toUpperCase())) {
+      return symbol;
+    }
+
     const nasdaqStocks = [
       'AAPL', 'ABNB', 'ADBE', 'ADI', 'ADP', 'ADSK', 'AFRM', 'AKAM', 'ALGN', 'ALNY',
       'AMAT', 'AMD', 'AMGN', 'AMZN', 'APP', 'ARGX', 'ARM', 'ASML', 'AVGO', 'AXON',
@@ -296,61 +302,73 @@ class MetaApiRestHandler {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
+      // Convert symbol to MT5 format first (needed for spec lookup)
+      // Skip conversion if symbol already has a market suffix (.L for UK, .O/.N for US)
+      const mt5Symbol = symbol.match(/\.(L|O|N)$/) ? symbol : this.convertToMT5Symbol(symbol);
+
       // Position sizing based on target margin from signal config
       const targetMarginGBP = (signal as any).targetMarginGBP || 25; // £25 default margin per trade
       const gbpToUsd = 1.30; // Approximate exchange rate
-      const targetMarginUSD = targetMarginGBP * gbpToUsd; // $1.30 margin for testing
+      const targetMarginUSD = targetMarginGBP * gbpToUsd;
       let volume = 0.01; // Default fallback
-      
+
+      // Get contract size early - needed for commodities like GOLD (1 lot = 100 oz)
+      let contractSize = 1; // Default for stocks (1 lot = 1 share)
       try {
-        // Calculate volume based on £1 target margin
-        // This will use leverage to control much larger positions
+        const earlySpec = await this.getSymbolSpecification(mt5Symbol);
+        if (earlySpec.success && earlySpec.contractSize) {
+          contractSize = earlySpec.contractSize;
+        }
+      } catch (e) {
+        // Use default contract size of 1
+      }
+
+      try {
+        // Calculate volume based on target margin
         const entryPrice = plan.entry;
-        
+
         // Use actual account leverage (1:30) for margin calculations
-        // Based on actual MetaAPI account settings
         const estimatedMarginPercent = 0.033; // 3.33% margin = 1:30 leverage
-        
-        // Calculate notional value that £1 margin can control with 1:30 leverage
-        const notionalValueUSD = targetMarginUSD / estimatedMarginPercent; // $1.30 / 0.033 = $39
-        
-        // Calculate lots needed (1 lot = 1 share at entry price)
-        const sharesNeeded = notionalValueUSD / entryPrice;
-        
+
+        // Calculate notional value that margin can control with 1:30 leverage
+        const notionalValueUSD = targetMarginUSD / estimatedMarginPercent;
+
+        // Calculate lots needed, accounting for contract size
+        // For stocks: 1 lot = 1 share, contractSize = 1
+        // For gold: 1 lot = 100 oz, contractSize = 100
+        const lotsNeeded = notionalValueUSD / (entryPrice * contractSize);
+
         // Round to 2 decimal places for MT5 (0.01 increments)
-        volume = Math.round(sharesNeeded * 100) / 100;
-        
-        // Apply safety limits - much higher now since we're targeting margin
+        volume = Math.round(lotsNeeded * 100) / 100;
+
+        // Apply safety limits
         volume = Math.max(volume, 0.01); // Minimum 0.01 lots
-        volume = Math.min(volume, 2.0);   // Maximum 2 lots (£10 margin max for testing)
-        
+        volume = Math.min(volume, 2.0);   // Maximum 2 lots
+
         // Calculate actual values for logging
-        const actualNotionalUSD = volume * entryPrice;
+        const actualNotionalUSD = volume * entryPrice * contractSize;
         const actualMarginUSD = actualNotionalUSD * estimatedMarginPercent;
         const actualMarginGBP = actualMarginUSD / gbpToUsd;
         const actualNotionalGBP = actualNotionalUSD / gbpToUsd;
-        
+
         console.log(`[MetaApi] Margin-based position sizing:`, {
           targetMarginGBP: `£${targetMarginGBP}`,
           targetMarginUSD: `$${targetMarginUSD.toFixed(2)}`,
           estimatedLeverage: `1:${(1/estimatedMarginPercent).toFixed(0)}`,
-          stockPrice: `$${entryPrice}`,
-          calculatedLots: sharesNeeded.toFixed(3),
+          price: `$${entryPrice}`,
+          contractSize: contractSize,
+          calculatedLots: lotsNeeded.toFixed(4),
           actualLots: volume,
           actualNotionalUSD: `$${actualNotionalUSD.toFixed(2)}`,
           actualNotionalGBP: `£${actualNotionalGBP.toFixed(2)}`,
           actualMarginUSD: `$${actualMarginUSD.toFixed(2)}`,
           actualMarginGBP: `£${actualMarginGBP.toFixed(2)}`
         });
-        
+
       } catch (error: any) {
         console.log('[MetaApi] Error calculating margin-based position size, using default:', error.message);
         volume = 0.01;
       }
-
-      // Convert symbol to MT5 format (add .O for NASDAQ, .N for NYSE)
-      // Skip conversion if symbol already has a market suffix (.L for UK, .O/.N for US)
-      const mt5Symbol = symbol.match(/\.(L|O|N)$/) ? symbol : this.convertToMT5Symbol(symbol);
       
       // Check if we can get quotes for this symbol first and get accurate current price
       let currentMarketPrice = currentPrice;
@@ -380,7 +398,45 @@ class MetaApiRestHandler {
       } catch (quoteError) {
         console.log('[MetaApi] Quote check failed, proceeding with order anyway');
       }
-      
+
+      // Get symbol specification to validate and adjust volume
+      try {
+        const symbolSpec = await this.getSymbolSpecification(mt5Symbol);
+        if (symbolSpec.success && symbolSpec.minVolume && symbolSpec.volumeStep) {
+          const originalVolume = volume;
+
+          // Ensure volume meets minimum
+          if (volume < symbolSpec.minVolume) {
+            volume = symbolSpec.minVolume;
+            console.log(`[MetaApi] Volume ${originalVolume} below minimum ${symbolSpec.minVolume}, adjusted to ${volume}`);
+          }
+
+          // Ensure volume doesn't exceed maximum
+          if (symbolSpec.maxVolume && volume > symbolSpec.maxVolume) {
+            volume = symbolSpec.maxVolume;
+            console.log(`[MetaApi] Volume ${originalVolume} above maximum ${symbolSpec.maxVolume}, adjusted to ${volume}`);
+          }
+
+          // Round to valid step size
+          const step = symbolSpec.volumeStep;
+          const roundedVolume = Math.round(volume / step) * step;
+          // Ensure we don't round down below minimum
+          volume = Math.max(roundedVolume, symbolSpec.minVolume);
+          // Round to avoid floating point issues
+          volume = Math.round(volume * 100) / 100;
+
+          if (volume !== originalVolume) {
+            console.log(`[MetaApi] Volume adjusted from ${originalVolume} to ${volume} (min: ${symbolSpec.minVolume}, step: ${step})`);
+          }
+        } else {
+          // If we couldn't get spec, use conservative minimum
+          console.log(`[MetaApi] Could not get symbol spec, using conservative minimum volume of 1`);
+          volume = Math.max(volume, 1);
+        }
+      } catch (specError) {
+        console.log('[MetaApi] Symbol spec check failed, proceeding with calculated volume');
+      }
+
       // Determine order type and adjust entry price if needed
       const minDistancePercent = 0.002; // 0.2% minimum distance - reduced for better fills
       const priceDiff = Math.abs((plan.entry - currentMarketPrice) / currentMarketPrice);
@@ -454,7 +510,31 @@ class MetaApiRestHandler {
       // Validate and adjust stop levels relative to adjusted entry
       let adjustedStopLoss = plan.stop;
       let adjustedTakeProfit = plan.targets[0];
-      
+
+      // For gold/commodities converted to market order, recalculate stop based on actual entry
+      // This prevents the stop from being too tight when entry changes from breakout level to market price
+      const isGoldTrade = symbol.toUpperCase() === 'GOLD' || symbol.toUpperCase().includes('GOLD');
+      if (isGoldTrade && useMarketOrder) {
+        const goldStopPercent = 0.03; // 3% stop for gold
+        const originalStop = adjustedStopLoss;
+        if (isLong) {
+          adjustedStopLoss = adjustedEntry * (1 - goldStopPercent);
+        } else {
+          adjustedStopLoss = adjustedEntry * (1 + goldStopPercent);
+        }
+        // Also adjust take profit to maintain R:R ratio
+        const riskAmount = Math.abs(adjustedEntry - adjustedStopLoss);
+        const targetMultiple = 2; // 2:1 R:R for gold
+        if (isLong) {
+          adjustedTakeProfit = adjustedEntry + (riskAmount * targetMultiple);
+        } else {
+          adjustedTakeProfit = adjustedEntry - (riskAmount * targetMultiple);
+        }
+        console.log(`[MetaApi] GOLD market order - recalculated stops based on actual entry:`);
+        console.log(`   Original SL: $${originalStop.toFixed(2)} -> New SL: $${adjustedStopLoss.toFixed(2)} (${(goldStopPercent * 100)}% from entry)`);
+        console.log(`   New TP: $${adjustedTakeProfit.toFixed(2)} (${targetMultiple}:1 R:R)`);
+      }
+
       const isSwingTrade = (signal as any).tradeType === 'swing';
       const isGapAndGo = signal.pattern?.name?.includes('Gap') || false;
       
@@ -998,9 +1078,9 @@ class MetaApiRestHandler {
         `${londonClientUrl}/users/current/accounts/${this.accountId}/symbols/${symbol}/current-price`,
         { headers: this.getHeaders() }
       );
-      
+
       console.log(`[MetaApi] Current price for ${symbol}:`, response.data);
-      
+
       return {
         success: true,
         quotes: response.data
@@ -1010,6 +1090,50 @@ class MetaApiRestHandler {
       return {
         success: false,
         error: error.response?.data?.error || error.message || 'No quotes available'
+      };
+    }
+  }
+
+  async getSymbolSpecification(symbol: string): Promise<{
+    success: boolean;
+    minVolume?: number;
+    maxVolume?: number;
+    volumeStep?: number;
+    contractSize?: number;
+    error?: string;
+  }> {
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      const response = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/symbols/${symbol}/specification`,
+        { headers: this.getHeaders() }
+      );
+
+      const spec = response.data;
+      console.log(`[MetaApi] Symbol specification for ${symbol}:`, {
+        minVolume: spec.minVolume,
+        maxVolume: spec.maxVolume,
+        volumeStep: spec.volumeStep,
+        contractSize: spec.contractSize
+      });
+
+      return {
+        success: true,
+        minVolume: spec.minVolume || 0.01,
+        maxVolume: spec.maxVolume || 100,
+        volumeStep: spec.volumeStep || 0.01,
+        contractSize: spec.contractSize || 1
+      };
+    } catch (error: any) {
+      console.error(`Error getting symbol specification for ${symbol}:`, error.response?.data || error.message);
+      // Return conservative defaults if we can't get spec
+      return {
+        success: false,
+        minVolume: 1,  // Assume minimum 1 lot if unknown
+        maxVolume: 100,
+        volumeStep: 1,
+        contractSize: 1,
+        error: error.response?.data?.error || error.message
       };
     }
   }
@@ -1273,6 +1397,63 @@ class MetaApiRestHandler {
     } catch (error: any) {
       console.error('[MetaApi] Error cancelling CAN SLIM orders:', error.message);
       return { success: false, cancelledCount, errors: [error.message] };
+    }
+  }
+
+  // Close all CAN SLIM positions at market price (used when market enters correction)
+  async closeAllCanslimPositions(): Promise<{ success: boolean; closedCount: number; errors: string[] }> {
+    const errors: string[] = [];
+    let closedCount = 0;
+
+    try {
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+
+      const positionsResponse = await this.axiosInstance.get(
+        `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
+        { headers: this.getHeaders() }
+      );
+
+      const positions = positionsResponse.data;
+      if (!positions || positions.length === 0) {
+        console.log('[MetaApi] No open positions to close');
+        return { success: true, closedCount: 0, errors: [] };
+      }
+
+      for (const position of positions) {
+        // ONLY close CAN SLIM positions
+        const isCanSlim = position.comment && position.comment.includes('CAN SLIM');
+        if (!isCanSlim) continue;
+
+        console.log(`[MetaApi] CLOSING CAN SLIM position ${position.id} (${position.symbol}) - MARKET CORRECTION`);
+        console.log(`  Entry: ${position.openPrice}, Current: ${position.currentPrice}, P/L: ${position.profit}`);
+
+        try {
+          await this.axiosInstance.post(
+            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+            {
+              actionType: 'POSITION_CLOSE_ID',
+              positionId: position.id,
+              comment: 'CAN SLIM - Market Correction Exit'
+            },
+            { headers: this.getHeaders() }
+          );
+          closedCount++;
+          console.log(`[MetaApi] Position ${position.id} closed successfully`);
+        } catch (closeError: any) {
+          const errorMsg = `Failed to close position ${position.id}: ${closeError.message}`;
+          console.error(`[MetaApi] ${errorMsg}`);
+          errors.push(errorMsg);
+        }
+      }
+
+      // Invalidate cache after closing positions
+      this.invalidateBrokerCache();
+
+      console.log(`[MetaApi] Market correction protection: ${closedCount} CAN SLIM positions closed`);
+      return { success: errors.length === 0, closedCount, errors };
+    } catch (error: any) {
+      console.error('[MetaApi] Error closing CAN SLIM positions:', error.message);
+      return { success: false, closedCount, errors: [error.message] };
     }
   }
 

@@ -33,6 +33,14 @@ export interface MarketContext {
   vixSpike: boolean;
   vixSpikePercent: number;
   marketDeteriorating: boolean;
+  // O'Neil Distribution Day fields
+  distributionDayCount: number;
+  distributionDayStatus: 'CONFIRMED_UPTREND' | 'UPTREND_UNDER_PRESSURE' | 'MARKET_IN_CORRECTION' | 'RALLY_ATTEMPT';
+  positionSizingMultiplier: number;
+  distributionDays: string[];
+  stallingDays: string[];
+  isRallyAttempt: boolean;
+  rallyAttemptDay: number;
 }
 
 const US_MARKET_SYMBOLS = {
@@ -295,6 +303,38 @@ export async function getMarketContext(date: string, market: 'US' | 'UK' = 'US')
 
   const marketDeteriorating = indexData.aboveEma20 && indexData.weekChangePercent < -0.5;
 
+  // Import distribution day state (lazy import to avoid circular dependency)
+  let distState: {
+    distributionCount: number;
+    distributionDays: string[];
+    stallingDays: string[];
+    marketStatus: 'CONFIRMED_UPTREND' | 'UPTREND_UNDER_PRESSURE' | 'MARKET_IN_CORRECTION' | 'RALLY_ATTEMPT';
+    positionSizingMultiplier: number;
+    rallyAttemptDay: number;
+  } = {
+    distributionCount: 0,
+    distributionDays: [],
+    stallingDays: [],
+    marketStatus: 'CONFIRMED_UPTREND',
+    positionSizingMultiplier: 1.0,
+    rallyAttemptDay: 0
+  };
+
+  try {
+    const { getDistributionDayState } = await import('./distributionDayService.js');
+    const state = getDistributionDayState();
+    distState = {
+      distributionCount: state.distributionCount,
+      distributionDays: state.distributionDays,
+      stallingDays: state.stallingDays,
+      marketStatus: state.marketStatus as 'CONFIRMED_UPTREND' | 'UPTREND_UNDER_PRESSURE' | 'MARKET_IN_CORRECTION' | 'RALLY_ATTEMPT',
+      positionSizingMultiplier: state.positionSizingMultiplier,
+      rallyAttemptDay: state.rallyAttemptDay
+    };
+  } catch (e) {
+    // Distribution day service not yet initialized, use defaults
+  }
+
   return {
     timestamp: new Date().toISOString(),
     spy: indexData,  // For UK this is ISF, for US this is SPY
@@ -310,7 +350,15 @@ export async function getMarketContext(date: string, market: 'US' | 'UK' = 'US')
     summary,
     vixSpike,
     vixSpikePercent,
-    marketDeteriorating
+    marketDeteriorating,
+    // O'Neil Distribution Day fields
+    distributionDayCount: distState.distributionCount,
+    distributionDayStatus: distState.marketStatus,
+    positionSizingMultiplier: distState.positionSizingMultiplier,
+    distributionDays: distState.distributionDays,
+    stallingDays: distState.stallingDays,
+    isRallyAttempt: distState.marketStatus === 'RALLY_ATTEMPT',
+    rallyAttemptDay: distState.rallyAttemptDay
   };
 }
 
