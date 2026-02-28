@@ -288,8 +288,17 @@ export async function analyseCanslimSignal(
   // This creates a BUY_STOP order that triggers when price breaks above pivot
   const entryPrice = pivotPrice > 0 ? pivotPrice : currentPrice;
 
-  // Calculate stop and target based on pivot/entry price (O'Neil uses 7-8% stop from pivot)
-  const stopLoss = entryPrice * (1 - config.stopLossPercent / 100);
+  // Calculate stop using structure-based approach (improved O'Neil)
+  // Use the TIGHTER of: base support level OR max cap (8%)
+  // Support level is the HIGHER (tighter) of base low vs recent 5-day low
+  const supportLevel = basePattern && basePattern.baseLow > 0
+    ? Math.max(basePattern.baseLow, basePattern.recentLow)
+    : entryPrice;
+  const structureStop = supportLevel * 0.998;  // 0.2% buffer below support
+  const maxCapStop = entryPrice * (1 - config.stopLossPercent / 100);
+  const stopLoss = Math.max(structureStop, maxCapStop);  // Use tighter (higher) stop
+  const actualStopPercent = ((entryPrice - stopLoss) / entryPrice) * 100;
+
   const risk = entryPrice - stopLoss;
   const target = entryPrice + (risk * config.targetMultiple);
 
@@ -353,7 +362,7 @@ export async function analyseCanslimSignal(
 
     entryPrice: Math.round(entryPrice * 100) / 100,
     stopLoss: Math.round(stopLoss * 100) / 100,
-    stopPercent: config.stopLossPercent,
+    stopPercent: Math.round(actualStopPercent * 10) / 10,
     target: Math.round(target * 100) / 100,
     riskRewardRatio: config.targetMultiple
   };

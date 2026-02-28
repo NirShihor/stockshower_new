@@ -124,17 +124,31 @@ export class GoldExecutor {
     }
 
     const entryPrice = analysis.breakoutLevel;
-    const stopLoss = entryPrice * (1 - this.config.stopLossPercent / 100);
+
+    // Use the HIGHER (tighter) of consolidation low vs recent 3-day low
+    const supportLevel = Math.max(analysis.consolidation.low, analysis.consolidation.recentLow);
+    // Structure-based stop: just below support (0.2% buffer)
+    const structureStop = supportLevel * 0.998;
+    // Max cap stop: maximum allowed loss (3% for gold)
+    const maxCapStop = entryPrice * (1 - this.config.stopLossPercent / 100);
+    // Use the TIGHTER stop (higher value = closer to entry)
+    const stopLoss = Math.max(structureStop, maxCapStop);
+
+    const actualStopPercent = ((entryPrice - stopLoss) / entryPrice) * 100;
+    const stopType = stopLoss === structureStop ? 'STRUCTURE' : 'MAX-CAP';
+
     const riskAmount = entryPrice - stopLoss;
     const takeProfit = entryPrice + (riskAmount * this.config.targetMultiple);
 
     console.log(`\n[GOLD] ${this.config.dryRun ? '[DRY RUN] ' : ''}Executing gold trade`);
     console.log(`   Entry (buy stop): $${entryPrice.toFixed(2)}`);
-    console.log(`   Stop Loss: $${stopLoss.toFixed(2)} (-${this.config.stopLossPercent}%)`);
+    console.log(`   Consolidation low: $${analysis.consolidation.low.toFixed(2)}, Recent 3-day low: $${analysis.consolidation.recentLow.toFixed(2)}`);
+    console.log(`   Support used: $${supportLevel.toFixed(2)} (${supportLevel === analysis.consolidation.recentLow ? 'RECENT' : 'CONSOLIDATION'})`);
+    console.log(`   Stop Loss: $${stopLoss.toFixed(2)} (-${actualStopPercent.toFixed(1)}%, ${stopType})`);
     console.log(`   Take Profit: $${takeProfit.toFixed(2)} (${this.config.targetMultiple}:1 R:R)`);
     console.log(`   Margin: £${this.config.targetMarginGBP}`);
 
-    const dbTrade = await this.saveTradeToDb(analysis, entryPrice, stopLoss, takeProfit);
+    const dbTrade = await this.saveTradeToDb(analysis, entryPrice, stopLoss, takeProfit, actualStopPercent);
 
     if (this.config.dryRun) {
       console.log(`   [DRY RUN] Would place BUY STOP order`);
@@ -219,7 +233,8 @@ export class GoldExecutor {
     analysis: GoldAnalysis,
     entryPrice: number,
     stopLoss: number,
-    takeProfit: number
+    takeProfit: number,
+    actualStopPercent: number
   ): Promise<IGoldTrade | null> {
     try {
       const trade = new GoldTrade({
@@ -227,7 +242,7 @@ export class GoldExecutor {
         entryPrice,
         stopLoss,
         takeProfit,
-        stopPercent: this.config.stopLossPercent,
+        stopPercent: actualStopPercent,
         direction: 'long',
         orderType: 'BUY_STOP',
         volume: 0.01,

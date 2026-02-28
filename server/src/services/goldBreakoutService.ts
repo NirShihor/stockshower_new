@@ -21,6 +21,7 @@ export interface GoldConsolidation {
   detected: boolean;
   high: number;
   low: number;
+  recentLow: number;  // Low of last 3 days - tighter support level
   days: number;
   rangePercent: number;
 }
@@ -39,6 +40,8 @@ export interface GoldAnalysis {
   vixElevated: boolean;
   equityMarketRegime: string;
   equityMarketReason: string;
+  isExtended: boolean;
+  recentMovePercent: number;
   recommendation: 'buy_stop' | 'wait' | 'not_favorable';
   reasons: string[];
 }
@@ -58,12 +61,47 @@ function calculateEma(candles: GoldCandle[], period: number): number {
   return ema;
 }
 
+/**
+ * Detect if gold has made an extended/parabolic move recently
+ * Prevents buying at the top of a spike
+ *
+ * Extended is defined as:
+ * - Price moved >2.5% from the close 3 days ago
+ * - OR the last candle has an unusually large range (>1.5%)
+ */
+function detectExtendedMove(candles: GoldCandle[]): { isExtended: boolean; movePercent: number } {
+  if (candles.length < 5) {
+    return { isExtended: false, movePercent: 0 };
+  }
+
+  const currentPrice = candles[candles.length - 1].close;
+  const threeDaysAgoClose = candles[candles.length - 4].close;
+  const movePercent = ((currentPrice - threeDaysAgoClose) / threeDaysAgoClose) * 100;
+
+  // Check if last candle had an unusually large range (parabolic day)
+  const lastCandle = candles[candles.length - 1];
+  const lastCandleRange = ((lastCandle.high - lastCandle.low) / lastCandle.low) * 100;
+  const isParabolicDay = lastCandleRange > 1.5;
+
+  // Extended if moved >2.5% in 3 days OR had a parabolic single day
+  const isExtended = movePercent > 2.5 || isParabolicDay;
+
+  return {
+    isExtended,
+    movePercent: Math.round(movePercent * 100) / 100
+  };
+}
+
 function detectConsolidation(candles: GoldCandle[]): GoldConsolidation | null {
   if (candles.length < MIN_CONSOLIDATION_DAYS) {
     return null;
   }
 
   const recentCandles = candles.slice(-MAX_CONSOLIDATION_DAYS);
+
+  // Calculate recent 3-day low (tighter support level)
+  const recent3Days = candles.slice(-3);
+  const recent3DayLow = Math.min(...recent3Days.map(c => c.low));
 
   for (let days = MIN_CONSOLIDATION_DAYS; days <= recentCandles.length; days++) {
     const window = recentCandles.slice(-days);
@@ -78,6 +116,7 @@ function detectConsolidation(candles: GoldCandle[]): GoldConsolidation | null {
         detected: true,
         high: windowHigh,
         low: windowLow,
+        recentLow: recent3DayLow,
         days: days,
         rangePercent: rangePercent
       };
@@ -107,6 +146,7 @@ export async function analyzeGold(marketContext?: MarketContext): Promise<GoldAn
 
     const consolidation = detectConsolidation(candles);
     const breakoutLevel = consolidation ? consolidation.high * 1.001 : null;
+    const extendedMove = detectExtendedMove(candles);
 
     let ctx: MarketContext | null | undefined = marketContext;
     if (!ctx) {
@@ -143,10 +183,18 @@ export async function analyzeGold(marketContext?: MarketContext): Promise<GoldAn
       reasons.push(`VIX at ${vixLevel.toFixed(1)} - not elevated`);
     }
 
+    // Check for extended/parabolic moves - avoid chasing
+    if (extendedMove.isExtended) {
+      reasons.push(`EXTENDED: Gold moved ${extendedMove.movePercent.toFixed(1)}% in 3 days - avoid chasing`);
+    }
+
     let recommendation: 'buy_stop' | 'wait' | 'not_favorable';
     if (equityMarketRegime === 'risk-on') {
       recommendation = 'not_favorable';
       reasons.push('Equity market is risk-on - CAN SLIM preferred over gold');
+    } else if (extendedMove.isExtended) {
+      recommendation = 'wait';
+      reasons.push('Price extended after recent move - wait for consolidation');
     } else if (score >= 2 && trend === 'bullish' && consolidation?.detected) {
       recommendation = 'buy_stop';
       reasons.push(`Score ${score}/3 - placing buy stop at $${breakoutLevel?.toFixed(2)}`);
@@ -172,6 +220,8 @@ export async function analyzeGold(marketContext?: MarketContext): Promise<GoldAn
       vixElevated,
       equityMarketRegime,
       equityMarketReason,
+      isExtended: extendedMove.isExtended,
+      recentMovePercent: extendedMove.movePercent,
       recommendation,
       reasons
     };
