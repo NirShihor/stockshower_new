@@ -7,6 +7,8 @@ export interface BasePattern {
   date: string;
   type: 'flat_base' | 'consolidation' | 'cup_with_handle' | 'ascending_base' | 'none';
   pivotPrice: number;
+  baseLow: number;           // Lowest point of the base
+  recentLow: number;         // Low of last 5 days - tighter support level
   baseDepthPercent: number;
   baseLengthDays: number;
   baseLengthWeeks: number;
@@ -16,6 +18,10 @@ export interface BasePattern {
   priorUptrendPercent: number;
   recentBreakdown: boolean;
   breakdownPercent: number;
+  hasOverheadSupply: boolean;
+  priorHistoricalHigh: number;
+  declineFromPriorHigh: number;
+  pivotVsPriorHighPercent: number;
   isValid: boolean;
   invalidReason: string | null;
 }
@@ -251,6 +257,40 @@ function detectActiveDecline(
   };
 }
 
+/**
+ * Detect overhead supply/resistance
+ * O'Neil's methodology favors stocks breaking to NEW HIGHS, not into overhead resistance
+ *
+ * Overhead supply exists when:
+ * 1. Prior high is significantly above the current pivot (holders trapped at higher levels)
+ * 2. Stock declined deeply (>40%) before forming the current base
+ *
+ * This filter prevents buying into stocks recovering from deep declines,
+ * where many shareholders want to exit at breakeven (creating resistance).
+ */
+function detectOverheadSupply(
+  candles: Candle[],
+  pivotPrice: number
+): { hasOverheadSupply: boolean; priorHigh: number; declineFromPriorHigh: number; pivotVsPriorHighPercent: number } {
+  const priorHigh = Math.max(...candles.map(c => c.high));
+  const pivotVsPriorHighPercent = ((priorHigh - pivotPrice) / priorHigh) * 100;
+  const lowestLow = Math.min(...candles.map(c => c.low));
+  const declineFromPriorHigh = ((priorHigh - lowestLow) / priorHigh) * 100;
+
+  // Overhead supply exists if:
+  // 1. The pivot is more than 15% below the prior high (significant resistance above)
+  // 2. AND the stock experienced a deep decline (>40% from prior high)
+  // This indicates it's a "recovery" base into resistance, not a "new high" base
+  const hasOverheadSupply = pivotVsPriorHighPercent > 15 && declineFromPriorHigh > 40;
+
+  return {
+    hasOverheadSupply,
+    priorHigh: Math.round(priorHigh * 100) / 100,
+    declineFromPriorHigh: Math.round(declineFromPriorHigh * 100) / 100,
+    pivotVsPriorHighPercent: Math.round(pivotVsPriorHighPercent * 100) / 100
+  };
+}
+
 function detectVolumeContraction(
   candles: Candle[],
   baseStartIndex: number,
@@ -318,6 +358,8 @@ export async function detectBasePattern(
         date,
         type: 'none',
         pivotPrice: 0,
+        baseLow: 0,
+        recentLow: 0,
         baseDepthPercent: 0,
         baseLengthDays: 0,
         baseLengthWeeks: 0,
@@ -327,6 +369,10 @@ export async function detectBasePattern(
         priorUptrendPercent: 0,
         recentBreakdown: false,
         breakdownPercent: 0,
+        hasOverheadSupply: false,
+        priorHistoricalHigh: 0,
+        declineFromPriorHigh: 0,
+        pivotVsPriorHighPercent: 0,
         isValid: false,
         invalidReason: 'Insufficient data'
       };
@@ -352,6 +398,8 @@ export async function detectBasePattern(
         date,
         type: 'none',
         pivotPrice: recentHigh,
+        baseLow: 0,
+        recentLow: 0,
         baseDepthPercent: 0,
         baseLengthDays: 0,
         baseLengthWeeks: 0,
@@ -361,6 +409,10 @@ export async function detectBasePattern(
         priorUptrendPercent: 0,
         recentBreakdown: false,
         breakdownPercent: 0,
+        hasOverheadSupply: false,
+        priorHistoricalHigh: 0,
+        declineFromPriorHigh: 0,
+        pivotVsPriorHighPercent: 0,
         isValid: false,
         invalidReason: 'No consolidation detected'
       };
@@ -371,13 +423,20 @@ export async function detectBasePattern(
     const cupShape = detectCupShape(candles, baseStartIndex, baseEndIndex);
     const volumeContraction = detectVolumeContraction(candles, baseStartIndex, baseEndIndex);
     const activeDecline = detectActiveDecline(candles, baseStartIndex, baseEndIndex);
+    const pivotPrice = recentHigh * 1.001;
+    const overheadSupply = detectOverheadSupply(candles, pivotPrice);
+
+    // Calculate base low and recent low for structure-based stops
+    const baseCandles = candles.slice(baseStartIndex, baseEndIndex + 1);
+    const baseLow = Math.min(...baseCandles.map(c => c.low));
+    const recent5Days = candles.slice(-5);
+    const recentLow = Math.min(...recent5Days.map(c => c.low));
 
     // Check current price proximity to pivot
     // O'Neil: Stock should be within buying range to be actionable
     // Ideal buy point is within 5% of pivot. Relaxed to 15% to allow for normal pullbacks.
     // This is more forgiving during volatile markets where stocks pull back 12-15% before breaking out.
     const currentPrice = candles[candles.length - 1].close;
-    const pivotPrice = recentHigh * 1.001;
     const distanceFromPivot = ((pivotPrice - currentPrice) / pivotPrice) * 100;
     const tooFarFromPivot = distanceFromPivot > 15;
 
@@ -438,14 +497,17 @@ export async function detectBasePattern(
       invalidReason = 'Handle too deep: pullback from right side exceeds 15%';
     } else if (activeDecline.inActiveDecline) {
       invalidReason = `Active decline: price near base low, not consolidating`;
+    } else if (overheadSupply.hasOverheadSupply) {
+      invalidReason = `Overhead supply: pivot ${overheadSupply.pivotVsPriorHighPercent.toFixed(0)}% below prior high (${overheadSupply.priorHigh.toFixed(2)}), stock declined ${overheadSupply.declineFromPriorHigh.toFixed(0)}%`;
     }
 
     // Also reject consolidations that are incomplete cups, V-shaped, or have too-deep handles
-    // And reject ANY pattern when stock is in active decline (falling knife)
+    // And reject ANY pattern when stock is in active decline (falling knife) or has overhead supply
     const hasPatternQualityIssue =
       (patternType === 'flat_base' && !flatBase.priceInUpperHalf) ||
       (patternType === 'consolidation' && (cupShape.rightSideIncomplete || cupShape.isVShaped || cupShape.handleTooDeep)) ||
-      activeDecline.inActiveDecline;
+      activeDecline.inActiveDecline ||
+      overheadSupply.hasOverheadSupply;
 
     const isValid = patternType !== 'none' &&
       priorUptrend.exists &&
@@ -460,6 +522,8 @@ export async function detectBasePattern(
       date,
       type: patternType,
       pivotPrice: Math.round(pivotPrice * 100) / 100,
+      baseLow: Math.round(baseLow * 100) / 100,
+      recentLow: Math.round(recentLow * 100) / 100,
       baseDepthPercent: baseDepth,
       baseLengthDays,
       baseLengthWeeks: Math.round(baseLengthDays / 5),
@@ -469,6 +533,10 @@ export async function detectBasePattern(
       priorUptrendPercent: priorUptrend.percent,
       recentBreakdown: priorUptrend.recentBreakdown,
       breakdownPercent: priorUptrend.breakdownPercent,
+      hasOverheadSupply: overheadSupply.hasOverheadSupply,
+      priorHistoricalHigh: overheadSupply.priorHigh,
+      declineFromPriorHigh: overheadSupply.declineFromPriorHigh,
+      pivotVsPriorHighPercent: overheadSupply.pivotVsPriorHighPercent,
       isValid,
       invalidReason
     };
