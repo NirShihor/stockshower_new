@@ -12,7 +12,7 @@ export interface GoldTradeConfig {
 }
 
 const DEFAULT_CONFIG: GoldTradeConfig = {
-  targetMarginGBP: 50,
+  targetMarginGBP: 100,
   maxOpenPositions: 1,
   stopLossPercent: 3,
   targetMultiple: 2,

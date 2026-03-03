@@ -327,10 +327,13 @@ class MetaApiRestHandler {
         // Calculate volume based on target margin
         const entryPrice = plan.entry;
 
-        // Use actual account leverage (1:30) for margin calculations
-        const estimatedMarginPercent = 0.033; // 3.33% margin = 1:30 leverage
+        // Use correct margin percentages based on asset class (ESMA retail limits)
+        // Gold (commodities): 1:20 leverage = 5% margin
+        // Stocks: 1:5 leverage = 20% margin
+        const isGold = mt5Symbol === 'GOLD' || mt5Symbol.includes('GOLD');
+        const estimatedMarginPercent = isGold ? 0.05 : 0.20; // 5% for gold, 20% for stocks
 
-        // Calculate notional value that margin can control with 1:30 leverage
+        // Calculate notional value that margin can control
         const notionalValueUSD = targetMarginUSD / estimatedMarginPercent;
 
         // Calculate lots needed, accounting for contract size

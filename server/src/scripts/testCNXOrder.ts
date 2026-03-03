@@ -22,7 +22,7 @@ async function test() {
   // Step 1: Calculate volume (same as metaApiRestHandler)
   const gbpToUsd = 1.30;
   const targetMarginUSD = targetMarginGBP * gbpToUsd;
-  const estimatedMarginPercent = 0.033; // 1:30 leverage
+  const estimatedMarginPercent = 0.20; // 1:5 leverage for stocks (ESMA retail)
   const notionalValueUSD = targetMarginUSD / estimatedMarginPercent;
   const sharesNeeded = notionalValueUSD / entryPrice;
 
