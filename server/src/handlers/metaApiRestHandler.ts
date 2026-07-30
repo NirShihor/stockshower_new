@@ -687,16 +687,15 @@ class MetaApiRestHandler {
         orderRequest.openPrice = roundedEntry;
       }
       
-      // Add expiration if supported by broker
-      // Note: Some brokers don't support expiration times on pending orders
-      // Commenting out for now - using automated cleanup every 10 minutes to cancel orders older than 15 minutes
-      /*
-      const expirationTime = new Date(Date.now() + 15 * 60 * 1000);
-      orderRequest.expiration = {
-        type: 'ORDER_TIME_SPECIFIED',
-        time: expirationTime.toISOString()
-      };
-      */
+      // Pending orders expire at the end of the current trading day (broker-native).
+      // FxPro/MT5 cancels any unfilled pending order at session close on its own, so this
+      // works even if our server is offline at the close. Market orders fill immediately,
+      // so expiration does not apply to them.
+      if (!isMarketOrder) {
+        orderRequest.expiration = {
+          type: 'ORDER_TIME_DAY'
+        };
+      }
 
       console.log(`[MetaApi] Placing order via REST:`, JSON.stringify(orderRequest, null, 2));
       
