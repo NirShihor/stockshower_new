@@ -26,35 +26,39 @@ export class GoldExecutor {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
+  // Note: these fetch with throwOnError=true so a broker failure propagates to canPlaceNewOrder,
+  // which fails CLOSED. Previously they swallowed errors and returned 0, which let a MetaAPI
+  // timeout look like "no existing gold exposure" and produced duplicate gold orders.
   async getOpenGoldPositions(): Promise<number> {
-    try {
-      const positions = await metaApiHandler.getPositions();
-      const goldPositions = positions.filter(
-        (p: any) => p.symbol === 'GOLD' || p.symbol?.includes('GOLD')
-      );
-      return goldPositions.length;
-    } catch (error) {
-      console.error('[GOLD] Error checking positions:', error);
-      return 0;
-    }
+    const positions = await metaApiHandler.getPositions(true, true);
+    const goldPositions = positions.filter(
+      (p: any) => p.symbol === 'GOLD' || p.symbol?.includes('GOLD')
+    );
+    return goldPositions.length;
   }
 
   async getPendingGoldOrders(): Promise<number> {
-    try {
-      const orders = await metaApiHandler.getOrders();
-      const goldOrders = orders.filter(
-        (o: any) => o.symbol === 'GOLD' || o.symbol?.includes('GOLD')
-      );
-      return goldOrders.length;
-    } catch (error) {
-      console.error('[GOLD] Error checking orders:', error);
-      return 0;
-    }
+    const orders = await metaApiHandler.getOrders(true, true);
+    const goldOrders = orders.filter(
+      (o: any) => o.symbol === 'GOLD' || o.symbol?.includes('GOLD')
+    );
+    return goldOrders.length;
   }
 
   async canPlaceNewOrder(): Promise<{ allowed: boolean; reason: string }> {
-    const openPositions = await this.getOpenGoldPositions();
-    const pendingOrders = await this.getPendingGoldOrders();
+    let openPositions: number;
+    let pendingOrders: number;
+    try {
+      openPositions = await this.getOpenGoldPositions();
+      pendingOrders = await this.getPendingGoldOrders();
+    } catch (error: any) {
+      // Fail closed: if we cannot confirm current gold exposure, do NOT place a new order.
+      console.error('[GOLD] Could not verify existing gold positions/orders - skipping to avoid duplicate:', error?.message || error);
+      return {
+        allowed: false,
+        reason: 'Could not verify existing gold positions/orders (broker error) - skipping to avoid duplicate'
+      };
+    }
     const total = openPositions + pendingOrders;
 
     if (total >= this.config.maxOpenPositions) {

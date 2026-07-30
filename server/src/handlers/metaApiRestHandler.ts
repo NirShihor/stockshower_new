@@ -1140,12 +1140,38 @@ class MetaApiRestHandler {
     }
   }
 
+  // Retry a broker/market-data request a few times with exponential backoff.
+  // MetaAPI's endpoints intermittently return TimeoutError; a couple of quick retries
+  // recover the vast majority of those without any change in behaviour for callers.
+  // Rate-limit errors are NOT retried (retrying would make them worse) - they are re-thrown
+  // so the caller's existing cache-fallback logic can handle them.
+  private async withRetry<T>(fn: () => Promise<T>, label: string, retries: number = 2): Promise<T> {
+    let lastErr: any;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        lastErr = err;
+        if (err?.response?.data?.error === 'TooManyRequestsError') throw err;
+        if (attempt < retries) {
+          const waitMs = 500 * Math.pow(2, attempt); // 500ms, then 1000ms
+          console.warn(`[MetaApi] ${label} failed (attempt ${attempt + 1}/${retries + 1}), retrying in ${waitMs}ms: ${err?.response?.data?.error || err?.message || err}`);
+          await new Promise(resolve => setTimeout(resolve, waitMs));
+        }
+      }
+    }
+    throw lastErr;
+  }
+
   async getHistoricalCandles(symbol: string, timeframe: string = '1d', limit: number = 100): Promise<any> {
     try {
       const marketDataUrl = 'https://mt-market-data-client-api-v1.london.agiliumtrade.ai';
-      const response = await this.axiosInstance.get(
-        `${marketDataUrl}/users/current/accounts/${this.accountId}/historical-market-data/symbols/${symbol}/timeframes/${timeframe}/candles?limit=${limit}`,
-        { headers: this.getHeaders() }
+      const response = await this.withRetry<any>(
+        () => this.axiosInstance.get(
+          `${marketDataUrl}/users/current/accounts/${this.accountId}/historical-market-data/symbols/${symbol}/timeframes/${timeframe}/candles?limit=${limit}`,
+          { headers: this.getHeaders() }
+        ),
+        `getHistoricalCandles(${symbol})`
       );
 
       return {
@@ -1598,7 +1624,11 @@ class MetaApiRestHandler {
   private readonly BROKER_CACHE_TTL_MS = 30 * 1000; // 30 seconds cache
 
   // Position monitoring methods for trade tracking
-  async getPositions(forceRefresh = false): Promise<any[]> {
+  // throwOnError: when true, an unrecovered fetch failure (after retries) throws instead of
+  // returning [] / stale cache. Duplicate-order prevention relies on this: an empty array from a
+  // failed fetch is indistinguishable from "genuinely no positions", so dedup callers pass
+  // throwOnError=true and fail CLOSED (skip placing) rather than risk a duplicate.
+  async getPositions(forceRefresh = false, throwOnError = false): Promise<any[]> {
     const now = Date.now();
 
     // Return cached data if fresh enough
@@ -1608,9 +1638,12 @@ class MetaApiRestHandler {
 
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      const response = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
-        { headers: this.getHeaders() }
+      const response = await this.withRetry<any>(
+        () => this.axiosInstance.get(
+          `${londonClientUrl}/users/current/accounts/${this.accountId}/positions`,
+          { headers: this.getHeaders() }
+        ),
+        'getPositions'
       );
       const positions = response.data || [];
 
@@ -1624,11 +1657,14 @@ class MetaApiRestHandler {
         return this.positionsCache.data;
       }
       console.error('[MetaApi] Error getting positions:', error.response?.data || error.message);
+      if (throwOnError) {
+        throw new Error(`getPositions failed: ${error.response?.data?.error || error.message || 'unknown error'}`);
+      }
       return this.positionsCache.data.length > 0 ? this.positionsCache.data : [];
     }
   }
 
-  async getOrders(forceRefresh = false): Promise<any[]> {
+  async getOrders(forceRefresh = false, throwOnError = false): Promise<any[]> {
     const now = Date.now();
 
     // Return cached data if fresh enough
@@ -1638,9 +1674,12 @@ class MetaApiRestHandler {
 
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
-      const response = await this.axiosInstance.get(
-        `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
-        { headers: this.getHeaders() }
+      const response = await this.withRetry<any>(
+        () => this.axiosInstance.get(
+          `${londonClientUrl}/users/current/accounts/${this.accountId}/orders`,
+          { headers: this.getHeaders() }
+        ),
+        'getOrders'
       );
       const orders = response.data || [];
 
@@ -1654,6 +1693,9 @@ class MetaApiRestHandler {
         return this.ordersCache.data;
       }
       console.error('[MetaApi] Error getting orders:', error.response?.data || error.message);
+      if (throwOnError) {
+        throw new Error(`getOrders failed: ${error.response?.data?.error || error.message || 'unknown error'}`);
+      }
       return this.ordersCache.data.length > 0 ? this.ordersCache.data : [];
     }
   }

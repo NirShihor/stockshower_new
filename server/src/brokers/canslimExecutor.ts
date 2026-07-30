@@ -427,6 +427,9 @@ export class CanslimExecutor {
     // Track symbols with their market to avoid blocking same ticker on different exchanges
     // e.g., JD.L (JD Sports UK) and JD.O (JD.com US) are different companies
     let existingOpenSymbols = new Set<string>();
+    // Fail-closed guard: if we cannot verify existing broker positions/orders, we must NOT place
+    // orders this cycle, otherwise a transient broker failure produces duplicate orders.
+    let brokerVerified = true;
 
     const getMarketFromMT5Symbol = (mt5Symbol: string): 'US' | 'UK' => {
       if (mt5Symbol.endsWith('.L')) return 'UK';
@@ -435,8 +438,8 @@ export class CanslimExecutor {
 
     try {
       const [positions, orders] = await Promise.all([
-        metaApiHandler.getPositions(),
-        metaApiHandler.getOrders()
+        metaApiHandler.getPositions(true, true),
+        metaApiHandler.getOrders(true, true)
       ]);
 
       console.log(`[CANSLIM] Broker check: ${positions.length} positions, ${orders.length} orders`);
@@ -469,7 +472,9 @@ export class CanslimExecutor {
       }
     } catch (brokerError) {
       console.error(`[CANSLIM] Failed to check broker for existing positions:`, brokerError);
-      // Continue without blocking any symbols - better to risk duplicate than block everything
+      // Fail closed: we could not confirm what is already open, so skip placing this cycle
+      // rather than risk duplicate orders. The scan below still runs and is logged.
+      brokerVerified = false;
     }
 
     const signals = await this.scanForSignals(market);
@@ -531,7 +536,14 @@ export class CanslimExecutor {
       skipReason?: string;
     }> = [];
 
+    if (!brokerVerified && signals.length > 0) {
+      console.log(`[CANSLIM] SKIPPING execution of ${signals.length} signal(s) this cycle - could not verify existing broker positions/orders (fail-closed to prevent duplicate orders)`);
+    }
+
     for (const signal of signals) {
+      // Fail closed: never place orders when we could not confirm current broker state.
+      if (!brokerVerified) break;
+
       if (this.dailyTradeCount >= this.config.maxDailyTrades) {
         console.log(`[CANSLIM] Daily limit reached`);
         break;
