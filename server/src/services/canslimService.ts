@@ -303,8 +303,13 @@ export async function analyseCanslimSignal(
   const target = entryPrice + (risk * config.targetMultiple);
 
   // Pass criteria (strict O'Neil): market direction + RS + near high + valid base pattern + NOT extended
-  // Both highPass AND basePass required - a proper CAN SLIM setup needs a valid base breaking to new highs
-  const pass = marketPass && rsPass && highPass && basePass && !extended;
+  // + CONFIRMED VOLUME BREAKOUT.
+  // Both highPass AND basePass required - a proper CAN SLIM setup needs a valid base breaking to new highs.
+  // volumePass is now REQUIRED: O'Neil's core breakout rule is to buy only when price clears the pivot on
+  // volume >= ~1.4x the 50-day average. Without this gate a pre-placed buy-stop fills on ANY push through
+  // the pivot regardless of volume - e.g. KEYS (2026-06) broke out on 1.0x volume and immediately failed.
+  // Fail-closed: if volume data is unavailable, volumePass is false and the signal does not pass.
+  const pass = marketPass && rsPass && highPass && basePass && !extended && volumePass;
   
   return {
     symbol,

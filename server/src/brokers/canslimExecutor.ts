@@ -147,10 +147,15 @@ export class CanslimExecutor {
 
     const filtered = candidates.filter(c =>
       c.score >= this.config.minScore &&
+      // Require a CONFIRMED volume breakout (price above pivot on >=1.4x avg volume) before executing.
+      // This is the gate that was missing when KEYS (2026-06) was bought on a weak 1.0x-volume breakout
+      // that promptly failed. Fail-closed: if volume data is unavailable, volumeBreakout is null and we
+      // do not trade. See canslimService.checkVolumeBreakout / the `pass` flag for the full rule.
+      c.volumeBreakout?.pass === true &&
       !this.activeTrades.has(c.symbol)
     );
 
-    console.log(`[CANSLIM] Found ${filtered.length} ${market} candidates with score >= ${this.config.minScore}`);
+    console.log(`[CANSLIM] Found ${filtered.length} ${market} candidates with score >= ${this.config.minScore} and confirmed volume breakout`);
     return filtered;
   }
 
