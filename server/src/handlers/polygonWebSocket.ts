@@ -7,7 +7,10 @@ let isConnected = false;
 const desiredSubscriptions = new Set<string>();
 let onCandleCallback: ((candle: Candle) => void) | null = null;
 let reconnectAttempts = 0;
-let maxReconnectAttempts = 5;
+// We reconnect indefinitely (no hard attempt cap) because Polygon periodically restarts its WS
+// servers (close 1012) and can return 503 for longer than a few quick retries; giving up would
+// silently kill the real-time feed until a manual restart. This value only caps the backoff growth.
+let maxBackoffExponent = 5; // 2^5 * 1000ms = 32s, clamped to 30s below
 let reconnectTimeout: NodeJS.Timeout | null = null;
 let isShuttingDown = true; // START AS SHUTDOWN to prevent any automatic connections
 let lastConnectionAttempt = 0;
@@ -196,23 +199,22 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
       return;
     }
     
-    // Only reconnect if we haven't exceeded max attempts and not shutting down
-    if (reconnectAttempts < maxReconnectAttempts && onCandleCallback && !isShuttingDown) {
+    // Reconnect indefinitely (with capped exponential backoff) as long as we have a callback and
+    // are not shutting down. reconnectAttempts is reset to 0 on a successful 'open', so the backoff
+    // restarts small after each recovery. The only hard stop is code 1008 (handled above).
+    if (onCandleCallback && !isShuttingDown) {
       reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000); // Exponential backoff, max 30 seconds
-      console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
-      
+      const exponent = Math.min(reconnectAttempts - 1, maxBackoffExponent);
+      const delay = Math.min(1000 * Math.pow(2, exponent), 30000); // Exponential backoff, capped at 30s
+      console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
+
       reconnectTimeout = setTimeout(() => {
         if (onCandleCallback && !isShuttingDown) {
           connectPolygon(apiKey, onCandleCallback);
         }
       }, delay);
     } else {
-      if (isShuttingDown) {
-        console.log('Stopping reconnection - server is shutting down');
-      } else {
-        console.log('Max reconnection attempts reached or no callback available. Stopping reconnection.');
-      }
+      console.log('Stopping reconnection - server is shutting down or no callback available.');
     }
   });
   
