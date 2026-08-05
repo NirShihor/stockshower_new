@@ -63,11 +63,18 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     return;
   }
   
-  // Rate limiting - prevent rapid connection attempts  
+  // Rate limiting - prevent rapid connection attempts. If we're inside the cooldown, DON'T just
+  // drop the attempt: the reconnect backoff (1s, 2s) is shorter than CONNECTION_COOLDOWN (5s), so a
+  // silent return here permanently stalls the reconnect chain (feed dead until a manual restart).
+  // Instead, reschedule the attempt for when the cooldown expires.
   const now = Date.now();
   if (now - lastConnectionAttempt < CONNECTION_COOLDOWN) {
     const waitTime = CONNECTION_COOLDOWN - (now - lastConnectionAttempt);
-    console.log(`🔌 Connection rate limited. Wait ${Math.ceil(waitTime/1000)}s before next attempt`);
+    console.log(`🔌 Connection rate limited. Retrying in ${Math.ceil(waitTime/1000)}s`);
+    if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    reconnectTimeout = setTimeout(() => {
+      if (!isShuttingDown) connectPolygon(apiKey, onCandle);
+    }, waitTime + 100);
     return;
   }
   lastConnectionAttempt = now;
@@ -205,7 +212,10 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     if (onCandleCallback && !isShuttingDown) {
       reconnectAttempts++;
       const exponent = Math.min(reconnectAttempts - 1, maxBackoffExponent);
-      const delay = Math.min(1000 * Math.pow(2, exponent), 30000); // Exponential backoff, capped at 30s
+      const backoff = Math.min(1000 * Math.pow(2, exponent), 30000); // Exponential backoff, capped at 30s
+      // Never schedule the retry inside the connection cooldown window, otherwise connectPolygon()
+      // rate-limits it. The first backoff steps (1s, 2s) are shorter than CONNECTION_COOLDOWN (5s).
+      const delay = Math.max(backoff, CONNECTION_COOLDOWN);
       console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
 
       reconnectTimeout = setTimeout(() => {
