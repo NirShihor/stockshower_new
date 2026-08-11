@@ -281,6 +281,9 @@ export async function updateDistributionDayCount(date: string): Promise<Distribu
     let rallyAttemptDay = state.rallyAttemptDay;
     let rallyStartDate = state.rallyStartDate;
     let lastFollowThroughDate = state.lastFollowThroughDate;
+    // Set true once a follow-through day confirms the rally in this pass, so subsequent up-days
+    // don't spuriously re-arm a new rally attempt (which kept the status stuck in RALLY_ATTEMPT).
+    let rallyConfirmed = false;
 
     // Process each day
     for (let i = 1; i < recentCandles.length; i++) {
@@ -366,8 +369,8 @@ export async function updateDistributionDayCount(date: string): Promise<Distribu
         );
       }
 
-      // Track rally attempts
-      if (state.marketStatus === 'MARKET_IN_CORRECTION' || state.marketStatus === 'RALLY_ATTEMPT') {
+      // Track rally attempts (but not once a follow-through has confirmed the rally this pass)
+      if (!rallyConfirmed && (state.marketStatus === 'MARKET_IN_CORRECTION' || state.marketStatus === 'RALLY_ATTEMPT')) {
         // Check if we're starting or continuing a rally attempt
         if (changePercent > 0) {
           if (rallyAttemptDay === 0) {
@@ -382,6 +385,11 @@ export async function updateDistributionDayCount(date: string): Promise<Distribu
           if (isFollowThroughDay(changePercent, volume, prevVolume, rallyAttemptDay)) {
             lastFollowThroughDate = todayDate;
             console.log(`[DIST-DAY] FOLLOW-THROUGH DAY on ${todayDate}! Rally day ${rallyAttemptDay}, +${changePercent.toFixed(2)}%`);
+            // The rally has succeeded: end the rally attempt so status resolves to CONFIRMED_UPTREND
+            // (governed by distribution count) instead of reverting to RALLY_ATTEMPT.
+            rallyAttemptDay = 0;
+            rallyStartDate = null;
+            rallyConfirmed = true;
 
             await DistributionDay.findOneAndUpdate(
               { date: todayDate, index: 'SPY' },
