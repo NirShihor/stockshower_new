@@ -30,7 +30,7 @@ export class GoldExecutor {
   // which fails CLOSED. Previously they swallowed errors and returned 0, which let a MetaAPI
   // timeout look like "no existing gold exposure" and produced duplicate gold orders.
   async getOpenGoldPositions(): Promise<number> {
-    const positions = await metaApiHandler.getPositions(true, true);
+    const positions = await metaApiHandler.getPositions(false, true);
     const goldPositions = positions.filter(
       (p: any) => p.symbol === 'GOLD' || p.symbol?.includes('GOLD')
     );
@@ -38,7 +38,7 @@ export class GoldExecutor {
   }
 
   async getPendingGoldOrders(): Promise<number> {
-    const orders = await metaApiHandler.getOrders(true, true);
+    const orders = await metaApiHandler.getOrders(false, true);
     const goldOrders = orders.filter(
       (o: any) => o.symbol === 'GOLD' || o.symbol?.includes('GOLD')
     );

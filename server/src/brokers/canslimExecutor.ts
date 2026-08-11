@@ -438,8 +438,8 @@ export class CanslimExecutor {
 
     try {
       const [positions, orders] = await Promise.all([
-        metaApiHandler.getPositions(true, true),
-        metaApiHandler.getOrders(true, true)
+        metaApiHandler.getPositions(false, true),
+        metaApiHandler.getOrders(false, true)
       ]);
 
       console.log(`[CANSLIM] Broker check: ${positions.length} positions, ${orders.length} orders`);
