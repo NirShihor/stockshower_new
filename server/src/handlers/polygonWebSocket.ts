@@ -1,6 +1,10 @@
 import WebSocket from 'ws';
 import { Candle, PolygonAggregateMessage } from '../candlestick/types/index.js';
 
+// High-volume per-candle logging is off by default (it drowned the useful lines and made
+// the aggregator look broken). Set CANDLE_DEBUG=true to restore the verbose firehose.
+const VERBOSE = process.env.CANDLE_DEBUG === 'true';
+
 // AGGRESSIVE STATE CLEANUP - clear any lingering state from previous server sessions
 let wsClient: WebSocket | null = null;
 let isConnected = false;
@@ -130,8 +134,8 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
     try {
       const messages = JSON.parse(data.toString());
       
-      // Log all messages to see what Polygon is sending
-      console.log('Polygon message:', JSON.stringify(messages, null, 2));
+      // Log all messages to see what Polygon is sending (verbose only)
+      if (VERBOSE) console.log('Polygon message:', JSON.stringify(messages, null, 2));
       
       // Handle array of messages
       const msgArray = Array.isArray(messages) ? messages : [messages];
@@ -168,7 +172,7 @@ export function connectPolygon(apiKey: string, onCandle: (candle: Candle) => voi
             end: new Date(msg.e || msg.s).toISOString()
           };
           
-          console.log(`📈 Received candle: ${msg.sym} ${msg.c}`);
+          if (VERBOSE) console.log(`📈 Received candle: ${msg.sym} ${msg.c}`);
           onCandleCallback(candle);
         }
       }

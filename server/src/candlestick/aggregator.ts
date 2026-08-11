@@ -14,6 +14,11 @@ interface CandleAggregate {
 const aggregatesBySymbol = new Map<string, CandleAggregate>();
 const completionTimers = new Map<string, NodeJS.Timeout>();
 
+// Per-candle aggregator tracing is off by default (it buried the "Completed 5m candle" lines and
+// made the aggregator look like it never completed). Set CANDLE_DEBUG=true to restore it.
+const VERBOSE = process.env.CANDLE_DEBUG === 'true';
+const dbg = (...args: any[]) => { if (VERBOSE) console.log(...args); };
+
 function get5MinPeriodStart(timestamp: Date): Date {
   const periodStart = new Date(timestamp);
   const minutes = periodStart.getMinutes();
@@ -42,13 +47,13 @@ function scheduleCompletion(periodKey: string, periodStart: number, onComplete: 
   const periodEndTime = new Date(periodEnd).toISOString();
   const currentTime = new Date(now).toISOString();
   
-  console.log(`[AGGREGATOR] Scheduling completion for ${periodKey}`);
-  console.log(`[AGGREGATOR]   Period: ${periodStartTime} -> ${periodEndTime}`);
-  console.log(`[AGGREGATOR]   Current time: ${currentTime}`);
-  console.log(`[AGGREGATOR]   Delay: ${delay}ms (${Math.round(delay/1000)}s)`);
+  dbg(`[AGGREGATOR] Scheduling completion for ${periodKey}`);
+  dbg(`[AGGREGATOR]   Period: ${periodStartTime} -> ${periodEndTime}`);
+  dbg(`[AGGREGATOR]   Current time: ${currentTime}`);
+  dbg(`[AGGREGATOR]   Delay: ${delay}ms (${Math.round(delay/1000)}s)`);
   
   if (delay <= 0) {
-    console.log(`[AGGREGATOR] Period already ended, completing immediately`);
+    dbg(`[AGGREGATOR] Period already ended, completing immediately`);
     const aggregate = aggregatesBySymbol.get(periodKey);
     if (aggregate) {
       completePeriod(periodKey, aggregate, onComplete);
@@ -57,13 +62,13 @@ function scheduleCompletion(periodKey: string, periodStart: number, onComplete: 
   }
   
   const timer = setTimeout(() => {
-    console.log(`[AGGREGATOR] Timer fired for ${periodKey}`);
+    dbg(`[AGGREGATOR] Timer fired for ${periodKey}`);
     const aggregate = aggregatesBySymbol.get(periodKey);
     if (aggregate) {
-      console.log(`[AGGREGATOR] Found aggregate, completing period`);
+      dbg(`[AGGREGATOR] Found aggregate, completing period`);
       completePeriod(periodKey, aggregate, onComplete);
     } else {
-      console.log(`[AGGREGATOR] No aggregate found for ${periodKey}`);
+      dbg(`[AGGREGATOR] No aggregate found for ${periodKey}`);
     }
     completionTimers.delete(periodKey);
   }, delay);
@@ -72,7 +77,7 @@ function scheduleCompletion(periodKey: string, periodStart: number, onComplete: 
 }
 
 function completePeriod(periodKey: string, aggregate: CandleAggregate, onComplete: (aggregatedCandle: Candle) => void): void {
-  console.log(`[AGGREGATOR] Completing period for ${aggregate.symbol}: ${aggregate.start}`);
+  dbg(`[AGGREGATOR] Completing period for ${aggregate.symbol}: ${aggregate.start}`);
   
   const periodEnd = new Date(aggregate.periodStart + 5 * 60 * 1000);
   
@@ -105,7 +110,7 @@ function completeExpiredPeriods(symbol: string, onComplete: (aggregatedCandle: C
       const periodEnd = aggregate.periodStart + (5 * 60 * 1000); // 5 minutes after start
       
       if (now >= periodEnd) {
-        console.log(`[AGGREGATOR] Found expired period for ${symbol}: ${aggregate.start} (expired ${Math.round((now - periodEnd) / 1000)}s ago)`);
+        dbg(`[AGGREGATOR] Found expired period for ${symbol}: ${aggregate.start} (expired ${Math.round((now - periodEnd) / 1000)}s ago)`);
         keysToComplete.push(key);
       }
     }
@@ -129,7 +134,7 @@ export function aggregate1MinTo5Min(
   const periodStart = get5MinPeriodStart(candleTime);
   const periodKey = `${symbol}-${periodStart.getTime()}`;
   
-  console.log(`[AGGREGATOR] Processing ${symbol} candle at ${candle.start}, period: ${periodStart.toISOString()}`);
+  dbg(`[AGGREGATOR] Processing ${symbol} candle at ${candle.start}, period: ${periodStart.toISOString()}`);
   
   // First, complete any expired periods for this symbol
   completeExpiredPeriods(symbol, onComplete);
@@ -137,7 +142,7 @@ export function aggregate1MinTo5Min(
   const existing = aggregatesBySymbol.get(periodKey);
   
   if (!existing) {
-    console.log(`[AGGREGATOR] Starting new 5m period for ${symbol}: ${periodStart.toISOString()}`);
+    dbg(`[AGGREGATOR] Starting new 5m period for ${symbol}: ${periodStart.toISOString()}`);
     // Start new 5-minute period
     aggregatesBySymbol.set(periodKey, {
       symbol,
@@ -159,11 +164,11 @@ export function aggregate1MinTo5Min(
     // Force check all overdue periods
     forceCompleteOverduePeriods(onComplete);
   } else {
-    console.log(`[AGGREGATOR] Updating existing 5m period for ${symbol}: ${periodStart.toISOString()}`);
+    dbg(`[AGGREGATOR] Updating existing 5m period for ${symbol}: ${periodStart.toISOString()}`);
     
     // Check if this existing period needs a timer (in case it was created before the timer logic)
     if (!completionTimers.has(periodKey)) {
-      console.log(`[AGGREGATOR] Adding missing timer for existing period: ${periodKey}`);
+      dbg(`[AGGREGATOR] Adding missing timer for existing period: ${periodKey}`);
       scheduleCompletion(periodKey, periodStart.getTime(), onComplete);
     }
     
@@ -182,7 +187,7 @@ function checkForCompletedPeriods(
 ): void {
   const keysToRemove: string[] = [];
   
-  console.log(`[AGGREGATOR] Checking for completed periods for ${symbol}, current period: ${new Date(currentPeriodTime).toISOString()}`);
+  dbg(`[AGGREGATOR] Checking for completed periods for ${symbol}, current period: ${new Date(currentPeriodTime).toISOString()}`);
   
   // Force check all periods, not just for this symbol
   const now = Date.now();
@@ -191,7 +196,7 @@ function checkForCompletedPeriods(
     
     // Check if period should be complete (either by time or by new period starting)
     if (aggregate.periodStart < currentPeriodTime || now > periodEndMs + 5000) {
-      console.log(`[AGGREGATOR] Found completed period for ${aggregate.symbol}: ${aggregate.start} (overdue by ${Math.round((now - periodEndMs)/1000)}s)`);
+      dbg(`[AGGREGATOR] Found completed period for ${aggregate.symbol}: ${aggregate.start} (overdue by ${Math.round((now - periodEndMs)/1000)}s)`);
       // This period is complete
       const periodEnd = new Date(aggregate.periodStart + 5 * 60 * 1000); // 5 minutes later
       
@@ -215,7 +220,7 @@ function checkForCompletedPeriods(
   }
   
   if (keysToRemove.length === 0) {
-    console.log(`[AGGREGATOR] No completed periods found for ${symbol}`);
+    dbg(`[AGGREGATOR] No completed periods found for ${symbol}`);
   }
   
   // Clean up completed periods
@@ -230,7 +235,7 @@ function forceCompleteOverduePeriods(onComplete: (aggregatedCandle: Candle) => v
   for (const [key, aggregate] of aggregatesBySymbol.entries()) {
     const periodEnd = aggregate.periodStart + (5 * 60 * 1000);
     if (now > periodEnd + overdueThreshold) {
-      console.log(`[AGGREGATOR] Force completing overdue period: ${aggregate.symbol} ${aggregate.start} (${Math.round((now - periodEnd)/1000)}s overdue)`);
+      dbg(`[AGGREGATOR] Force completing overdue period: ${aggregate.symbol} ${aggregate.start} (${Math.round((now - periodEnd)/1000)}s overdue)`);
       
       const completed: Candle = {
         symbol: aggregate.symbol,
