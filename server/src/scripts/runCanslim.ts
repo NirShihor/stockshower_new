@@ -242,6 +242,7 @@ if (isLive) {
 let executor: ReturnType<typeof createCanslimExecutor>;
 let goldExecutor: ReturnType<typeof createGoldExecutor> | null = null;
 let lastResetDate: string = '';
+let lastDistUpdateDate: string = ''; // last date the distribution-day regime was recomputed
 
 async function runScan(market: 'US' | 'UK' = 'US') {
   const today = new Date().toISOString().split('T')[0];
@@ -463,6 +464,22 @@ async function runScheduler() {
       }
     }
 
+    // Refresh the distribution-day regime once per trading day BEFORE the trading-allowed gate.
+    // Previously the regime was computed only at startup and then frozen, so once the scheduler
+    // was in RALLY_ATTEMPT/CORRECTION it could never see a follow-through day or aged-off
+    // distribution days, and stayed paused indefinitely (missing e.g. the 2026-08-04 follow-through).
+    const distToday = new Date().toISOString().split('T')[0];
+    if (distToday !== lastDistUpdateDate) {
+      try {
+        const { updateDistributionDayCount } = await import('../services/distributionDayService.js');
+        const st = await updateDistributionDayCount(distToday);
+        console.log(`[DIST-DAY] Daily refresh: ${st.marketStatus} (${st.distributionCount} dist days, sizing ${st.positionSizingMultiplier * 100}%)`);
+        lastDistUpdateDate = distToday;
+      } catch (e) {
+        console.error('[DIST-DAY] Daily refresh failed (keeping previous state):', e);
+      }
+    }
+
     // Check if trading is allowed before running scan (saves API calls during RALLY_ATTEMPT/CORRECTION)
     const { isTradingAllowed, getMarketStatus } = await import('../services/distributionDayService.js');
     if (!isTradingAllowed()) {
@@ -512,6 +529,7 @@ async function main() {
     const state = await updateDistributionDayCount(today);
     console.log(`[DIST-DAY] Market status: ${state.marketStatus} (${state.distributionCount} distribution days)`);
     console.log(`[DIST-DAY] Position sizing: ${state.positionSizingMultiplier * 100}%`);
+    lastDistUpdateDate = today; // mark today's regime as computed so the cycle refreshes on the next day boundary
   } catch (distError) {
     console.error('[DIST-DAY] Failed to initialize distribution day service:', distError);
     // Continue without distribution day tracking - will use fallback regime check
