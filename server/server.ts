@@ -182,6 +182,11 @@ if (process.env.NODE_ENV === 'production') {
         metaApiHandler.startCanslimOrderExpiry();
         console.log('CAN SLIM 48-hour order expiry checker started');
 
+        // Gap day-trades must flatten before the US close (selective: only 'Gap'-tagged
+        // positions/orders; CAN SLIM swings and gold are left untouched).
+        metaApiHandler.startGapEodClose();
+        console.log('Gap EOD close scheduler started (20:55 UK / ~15:55 ET)');
+
         // DISABLED: Position monitor for day trading patterns (Trade model) - CAN SLIM uses CanslimTrade
         // positionMonitor.start();
         // console.log('Position monitoring started - will track trade exits');

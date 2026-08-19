@@ -1312,6 +1312,82 @@ class MetaApiRestHandler {
     scheduleNextCheck();
   }
 
+  // Gap day-trade end-of-day flatten - runs a few minutes before the US close (20:55 UK / ~15:55 ET).
+  // Gap trades are intraday: they must be closed by EOD, unlike CAN SLIM swings which are held.
+  // This closes ONLY gap positions (comment contains 'Gap', e.g. "Signal: Gap & Go Long") and cancels
+  // any unfilled gap pending orders. It NEVER touches CAN SLIM ('CAN SLIM') or gold ('Gold') - those are
+  // explicitly excluded, which is why we do a selective close instead of the disabled closeAllPositions().
+  private gapEodTimeout: NodeJS.Timeout | null = null;
+
+  startGapEodClose(): void {
+    const scheduleNext = () => {
+      const msUntil = this.msUntilUKTime(20, 55); // ~15:55 ET, a few minutes before the 16:00 ET close
+      const hoursUntil = Math.floor(msUntil / 1000 / 60 / 60);
+      const minutesUntil = Math.floor((msUntil / 1000 / 60) % 60);
+      console.log(`[MetaApi] Gap EOD close scheduled in ${hoursUntil}h ${minutesUntil}m (at 20:55 UK / ~15:55 ET)`);
+
+      this.gapEodTimeout = setTimeout(async () => {
+        console.log('[MetaApi] Running gap EOD close (20:55 UK / ~15:55 ET)...');
+        await this.closeGapPositionsEod();
+        scheduleNext(); // schedule tomorrow
+      }, msUntil);
+    };
+    scheduleNext();
+  }
+
+  private isGapComment(comment: string | undefined): boolean {
+    if (!comment) return false;
+    // Gap trades are tagged "Signal: Gap & Go Long/Short". Exclude CAN SLIM and gold explicitly.
+    return comment.includes('Gap') && !comment.includes('CAN SLIM') && !comment.includes('Gold');
+  }
+
+  private async closeGapPositionsEod(): Promise<void> {
+    // 1) Close filled gap positions
+    try {
+      const positions = await this.getPositions(true);
+      let closed = 0;
+      for (const position of positions) {
+        if (!this.isGapComment(position.comment)) continue;
+        console.log(`[MetaApi] Gap EOD: closing ${position.symbol} position ${position.id} (${position.comment}), P/L: ${position.profit}`);
+        const res = await this.closePosition(position.id);
+        if (res.success) {
+          closed++;
+          console.log(`[MetaApi] Gap EOD: closed ${position.symbol} position ${position.id}`);
+        } else {
+          console.error(`[MetaApi] Gap EOD: FAILED to close ${position.symbol} position ${position.id}: ${res.error}`);
+        }
+      }
+      console.log(`[MetaApi] Gap EOD: ${closed} gap position(s) closed`);
+    } catch (error: any) {
+      console.error('[MetaApi] Gap EOD position-close error:', error?.message || error);
+    }
+
+    // 2) Cancel unfilled gap pending orders (a gap entry that never triggered should not fire next session)
+    try {
+      const orders = await this.getOrders(true);
+      const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
+      let cancelled = 0;
+      for (const order of orders) {
+        if (!this.isGapComment(order.comment)) continue;
+        console.log(`[MetaApi] Gap EOD: cancelling unfilled gap order ${order.id} (${order.symbol})`);
+        try {
+          await this.axiosInstance.post(
+            `${londonClientUrl}/users/current/accounts/${this.accountId}/trade`,
+            { actionType: 'ORDER_CANCEL', orderId: order.id },
+            { headers: this.getHeaders() }
+          );
+          cancelled++;
+        } catch (cancelError: any) {
+          console.error(`[MetaApi] Gap EOD: failed to cancel order ${order.id}:`, cancelError?.response?.data || cancelError?.message);
+        }
+      }
+      if (cancelled > 0) console.log(`[MetaApi] Gap EOD: ${cancelled} unfilled gap order(s) cancelled`);
+      this.invalidateBrokerCache();
+    } catch (error: any) {
+      console.error('[MetaApi] Gap EOD order-cancel error:', error?.message || error);
+    }
+  }
+
   private async cancelExpiredCanslimOrders(): Promise<void> {
     try {
       const londonClientUrl = 'https://mt-client-api-v1.london.agiliumtrade.ai';
