@@ -1,13 +1,33 @@
 import express, { Request, Response, Router } from 'express';
 import { scanGapUps, scanGapDowns, testPolygon, getChartData, getAvailableStocks, getLivePrice, getRiskAssessment, getPreMarketAnalysis, getHappyTwists, getFundamentalAnalysis, getMarketOverview, getGoldAnalysis } from '../handlers/stockAnalysis.js';
+import { scanUKGaps } from '../handlers/ukGapScanner.js';
 
 const router: Router = express.Router();
 
-router.post('/scan-gap-ups', (req: Request, res: Response) => {
+// market: 'US' (default) uses the Polygon US scanner; 'UK' uses the opening-range FTSE scanner.
+router.post('/scan-gap-ups', async (req: Request, res: Response) => {
+  if ((req.body?.market || '').toUpperCase() === 'UK') {
+    try {
+      const result = await scanUKGaps('up', req.body?.volatilityLevel || 'low');
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: `UK gap-up scan failed: ${err?.message || err}` });
+    }
+    return;
+  }
   scanGapUps(req, res);
 });
 
-router.post('/scan-gap-downs', (req: Request, res: Response) => {
+router.post('/scan-gap-downs', async (req: Request, res: Response) => {
+  if ((req.body?.market || '').toUpperCase() === 'UK') {
+    try {
+      const result = await scanUKGaps('down', req.body?.volatilityLevel || 'low');
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: `UK gap-down scan failed: ${err?.message || err}` });
+    }
+    return;
+  }
   scanGapDowns(req, res);
 });
 

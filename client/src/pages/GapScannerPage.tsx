@@ -60,6 +60,7 @@ const GapScannerPage: React.FC = () => {
   const [scanData, setScanData] = useState<GapUpScanData | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [volatilityLevel, setVolatilityLevel] = useState<'low' | 'medium' | 'high'>('low');
+  const [market, setMarket] = useState<'US' | 'UK'>('US');
   const [trackingStocks, setTrackingStocks] = useState<Set<string>>(new Set());
   const [livePrices, setLivePrices] = useState<Map<string, {price: string, change: number, timestamp: number}>>(new Map());
   const [priceIntervals, setPriceIntervals] = useState<Map<string, NodeJS.Timeout>>(new Map());
@@ -117,7 +118,7 @@ const GapScannerPage: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ volatilityLevel }),
+        body: JSON.stringify({ volatilityLevel, market }),
       });
       
       if (!response.ok) {
@@ -727,6 +728,27 @@ Do you want to proceed with the adjusted price?`;
 
       <div className="scanner-controls">
         <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap'}}>
+            <label htmlFor="market-select" style={{fontSize: '1.8rem', color: '#333', fontWeight: 'bold'}}>
+              Market:
+            </label>
+            <select
+              id="market-select"
+              value={market}
+              onChange={(e) => setMarket(e.target.value as 'US' | 'UK')}
+              style={{
+                padding: '0.5rem',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+                fontSize: '1.5rem',
+                backgroundColor: 'white',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="US">US (NYSE/NASDAQ)</option>
+              <option value="UK">UK (FTSE / opening-range)</option>
+            </select>
+          </div>
           <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap'}}>
             <label htmlFor="volatility-select" style={{fontSize: '1.8rem', color: '#333', fontWeight: 'bold'}}>
               Volatility Level:
